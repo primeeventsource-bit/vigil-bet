@@ -18,6 +18,15 @@ namespace App\Services\Ai;
  */
 interface Claude
 {
+    /**
+     * Why the last call failed, or null.
+     *
+     * Part of the contract rather than an implementation detail: the
+     * caller stores it, so a Read that fell back to the template can say
+     * which failure put it there.
+     */
+    public function lastError(): ?string;
+
     /** Null when the call failed. A refusal returns a reply with refused = true. */
     public function ask(
         string $system,

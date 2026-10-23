@@ -12,6 +12,21 @@ use Throwable;
  */
 class AnthropicClaude implements Claude
 {
+    /**
+     * Why the last call failed, for whoever has to fix it.
+     *
+     * A Read that quietly became a template is a feature degrading in
+     * silence: the page still looks right, the prose is still true, and
+     * nothing says the model was never reached. The caller stores this so
+     * the reason survives as far as the operator.
+     */
+    private ?string $lastError = null;
+
+    public function lastError(): ?string
+    {
+        return $this->lastError;
+    }
+
     public function ask(
         string $system,
         string $user,
@@ -20,9 +35,13 @@ class AnthropicClaude implements Claude
         string $effort,
     ): ?ClaudeReply {
         $started = microtime(true);
+        $this->lastError = null;
 
         try {
-            $client = new Client(apiKey: (string) config('ai.api_key'));
+            $client = new Client(
+                apiKey: (string) config('ai.api_key'),
+                requestOptions: $this->requestOptions(),
+            );
 
             $message = $client->messages->create(
                 model: $model,
@@ -40,6 +59,8 @@ class AnthropicClaude implements Claude
             );
 
             if ($message->stopReason === 'refusal') {
+                $this->lastError = 'refusal:'.($message->stopDetails?->category ?? 'unknown');
+
                 return new ClaudeReply(body: '', refused: true);
             }
 
@@ -59,11 +80,47 @@ class AnthropicClaude implements Claude
                 durationMs: (int) round((microtime(true) - $started) * 1000),
             );
         } catch (Throwable $e) {
-            // Reported, never swallowed: a Read that quietly became a
-            // template is a feature degrading in silence.
+            // Kept and reported. An API that is refusing every request for
+            // a nameable reason - a key with no workspace, an expired
+            // credential, a rate limit - must not look like "unavailable".
+            $this->lastError = $this->summarise($e);
+
             report($e);
 
             return null;
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function requestOptions(): array
+    {
+        $workspace = config('ai.workspace_id');
+
+        if (blank($workspace)) {
+            return [];
+        }
+
+        /*
+         * An organisation-level key is rejected without this. The SDK has
+         * no first-class parameter for it, so it goes on as a header -
+         * which is exactly what the API's own error message asks for.
+         */
+        return ['extraHeaders' => ['anthropic-workspace-id' => (string) $workspace]];
+    }
+
+    /** The first useful line of an exception, short enough to store. */
+    private function summarise(Throwable $e): string
+    {
+        $message = preg_replace('/\s+/', ' ', $e->getMessage()) ?? '';
+
+        // The SDK embeds the API's JSON body in the message; the sentence
+        // inside it is the part a human needs.
+        if (preg_match('/"message"\s*:\s*"([^"]+)"/', $message, $m) === 1) {
+            $message = $m[1];
+        }
+
+        return mb_substr(class_basename($e).': '.trim($message), 0, 300);
     }
 }

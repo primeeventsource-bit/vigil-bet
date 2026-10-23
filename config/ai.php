@@ -26,6 +26,16 @@ return [
     'api_key' => env('ANTHROPIC_API_KEY'),
 
     /*
+     * Required when the key is not itself scoped to a workspace -
+     * Anthropic then rejects the request and names this header. An
+     * organisation-level key plus this id, or a workspace-scoped key
+     * and no id; either works, and neither is guessable from the key,
+     * which is why the failure has to say so out loud rather than
+     * degrade quietly to the template.
+     */
+    'workspace_id' => env('ANTHROPIC_WORKSPACE_ID'),
+
+    /*
      * Sonnet for a Read a customer reads; Haiku for bulk backfills where
      * the volume matters more than the prose. Both are current-generation.
      */

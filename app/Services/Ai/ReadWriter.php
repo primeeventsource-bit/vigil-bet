@@ -92,8 +92,25 @@ class ReadWriter
             $type, $id, $version,
             $this->template->compose($sheet),
             'fallback', null, $sheet, null,
-            $lastReason ?? ($this->isConfigured() ? 'api_unavailable' : 'not_configured'),
+            $lastReason ?? $this->whyNoModel(),
         );
+    }
+
+    /**
+     * Why a Read fell back without the validator ever rejecting one.
+     *
+     * Named rather than generic. A key with no workspace, an expired
+     * credential and a rate limit all look identical from the outside as
+     * "api_unavailable", and the page still renders correctly either way
+     * - which is exactly how a broken AI layer goes unnoticed for a week.
+     */
+    private function whyNoModel(): string
+    {
+        if (! $this->isConfigured()) {
+            return 'not_configured';
+        }
+
+        return $this->claude->lastError() ?? 'api_unavailable';
     }
 
     /**

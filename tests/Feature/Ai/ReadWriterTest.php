@@ -58,6 +58,13 @@ function claudeReturns(array|string $replies, int $inputTokens = 900, int $outpu
     {
         public int $calls = 0;
 
+        public ?string $error = null;
+
+        public function lastError(): ?string
+        {
+            return $this->error;
+        }
+
         /** @var array<int, array{model:string, system:string, user:string}> */
         public array $seen = [];
 
@@ -208,4 +215,33 @@ it('never rewrites a read once it is written', function () {
 
     expect(fn () => $read->update(['body' => 'something else']))
         ->toThrow(RuntimeException::class, 'append-only');
+});
+
+it('records why the model could not be reached, not just that it could not', function () {
+    $fake = claudeReturns('unused');
+    // The adapter failed and said why. "api_unavailable" against a key
+    // with no workspace looks identical to a rate limit, and the page
+    // renders correctly either way - which is how a broken AI layer goes
+    // unnoticed for a week.
+    $fake->error = 'BadRequestException: This API key is not scoped to a workspace';
+
+    app()->instance(Claude::class, new class($fake->error) implements Claude
+    {
+        public function __construct(private string $error) {}
+
+        public function lastError(): ?string
+        {
+            return $this->error;
+        }
+
+        public function ask(string $s, string $u, string $m, int $t, string $e): ?ClaudeReply
+        {
+            return null;
+        }
+    });
+
+    $read = app(ReadWriter::class)->forBoardEntry(entryFor());
+
+    expect($read->source)->toBe('fallback')
+        ->and($read->rejected_reason)->toContain('not scoped to a workspace');
 });
