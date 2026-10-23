@@ -2,35 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\VlEvent;
 use App\Models\VlModel;
-use App\Models\VlOddsDisplay;
 use App\Services\Tools\CrossBook;
-
-function crossQuote(array $overrides = []): VlOddsDisplay
-{
-    return VlOddsDisplay::create(array_merge([
-        'edge_lab_event_id' => 77,
-        'book' => 'draftkings',
-        'book_title' => 'DraftKings',
-        'market' => 'h2h',
-        'side' => 'home',
-        'price_american' => -110,
-        'quoted_at' => now()->subMinutes(5),
-        'digest' => uniqid('', true),
-        'observed_at' => now(),
-    ], $overrides));
-}
-
-function crossGame(int $id = 77): VlEvent
-{
-    return VlEvent::create([
-        'edge_lab_id' => $id, 'sport' => 'nfl', 'starts_at' => now()->addHours(3),
-        'status' => 'scheduled', 'home_name' => 'Chiefs', 'away_name' => 'Bills',
-        'home_abbreviation' => 'KC', 'away_abbreviation' => 'BUF',
-        'payload' => [], 'digest' => 'e'.$id, 'observed_at' => now(),
-    ]);
-}
 
 /* ----------------------------------------------------------------------
  | Model Lab

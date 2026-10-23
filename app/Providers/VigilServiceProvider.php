@@ -7,6 +7,8 @@ namespace App\Providers;
 use App\Models\User;
 use App\Services\Ai\AnthropicClaude;
 use App\Services\Ai\Claude;
+use App\Services\Alerts\PushSender;
+use App\Services\Alerts\WebPushSender;
 use App\Services\EdgeLab\CircuitBreaker;
 use App\Services\EdgeLab\EdgeLabClient;
 use App\Services\EdgeLab\Mirror;
@@ -54,6 +56,14 @@ class VigilServiceProvider extends ServiceProvider
         $this->app->bind(PaymentGateway::class, fn () => PaymentDrivers::make());
 
         $this->app->singleton(SubscriptionProjector::class);
+
+        /*
+         * The only place the push library is named. It speaks HTTP
+         * through its own transport, so a test faking Laravel's client
+         * would pass while a real notification went out - or, worse,
+         * while none did and nobody noticed.
+         */
+        $this->app->bind(PushSender::class, WebPushSender::class);
     }
 
     public function boot(): void

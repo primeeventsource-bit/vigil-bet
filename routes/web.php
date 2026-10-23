@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
@@ -220,10 +221,19 @@ Route::middleware('auth')->group(function (): void {
             'step' => 'Step 9 — the public track record.',
         ])->name('reports');
 
-        Route::view('alerts', 'app.placeholder', [
-            'heading' => 'Alerts',
-            'step' => 'Step 10 — email and web push when a pick posts.',
-        ])->middleware('entitled:alerts')->name('alerts');
+        /*
+         * Alerts. Daily and up, per §4, and the entitlement is checked
+         * again at delivery - a customer who downgrades must stop being
+         * emailed without anybody remembering to turn it off.
+         */
+        Route::middleware('entitled:alerts')->group(function (): void {
+            Route::get('alerts', [AlertController::class, 'index'])->name('alerts');
+            Route::post('alerts', [AlertController::class, 'update'])->name('alerts.update');
+            Route::post('alerts/push', [AlertController::class, 'subscribe'])->name('alerts.subscribe');
+            Route::delete('alerts/push', [AlertController::class, 'unsubscribe'])->name('alerts.unsubscribe');
+            Route::post('alerts/watch', [AlertController::class, 'watch'])->name('alerts.watch');
+            Route::delete('alerts/watch', [AlertController::class, 'unwatch'])->name('alerts.unwatch');
+        });
 
         /*
          * My Bets. Logs a bet; never places one. Ungated: §4 gives the

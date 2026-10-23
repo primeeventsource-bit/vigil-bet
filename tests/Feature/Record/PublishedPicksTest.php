@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Models\PickResult;
 use App\Models\PublishedPick;
-use App\Models\VlBoardEntry;
 use App\Models\VlEvent;
 use App\Models\VlOddsDisplay;
 use App\Services\Record\PickPublisher;
@@ -89,27 +88,6 @@ it('never rewrites or deletes a published pick', function () {
 /* ----------------------------------------------------------------------
  | The publisher
  ---------------------------------------------------------------------- */
-
-function publishableBoard(array $overrides = [], int $hoursToKickoff = 4): VlBoardEntry
-{
-    $entry = provenEntry(array_merge(['edge_lab_event_id' => 900], $overrides));
-
-    VlEvent::create([
-        'edge_lab_id' => $entry->edge_lab_event_id,
-        'sport' => 'nfl',
-        'starts_at' => now()->addHours($hoursToKickoff),
-        'status' => 'scheduled',
-        'home_name' => 'Kansas City Chiefs',
-        'away_name' => 'Buffalo Bills',
-        'home_abbreviation' => 'KC',
-        'away_abbreviation' => 'BUF',
-        'payload' => [],
-        'digest' => 'e'.$entry->edge_lab_event_id,
-        'observed_at' => now(),
-    ]);
-
-    return $entry;
-}
 
 it('publishes a proven pick with the price and probability it had', function () {
     publishableBoard(['edge_at_price' => 0.047, 'best_price_american' => -108]);

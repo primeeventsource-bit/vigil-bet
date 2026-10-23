@@ -87,3 +87,18 @@ Schedule::command('vigil:publish-picks')
     ->hourlyAt(58)
     ->name('publish-picks')
     ->withoutOverlapping();
+
+/*
+ * Alerts. Just after publishing, because the thing most worth being told
+ * about is a pick that has only just gone on the record - and a
+ * notification that arrives an hour after the price was available is
+ * worth less than no notification at all.
+ *
+ * Safe to re-run: an alert is unique per subject and a delivery is
+ * unique per customer and channel. The failure this guards against is
+ * not a missing notification; it is the same push eleven times.
+ */
+Schedule::command('vigil:alerts')
+    ->hourlyAt(2)
+    ->name('alerts')
+    ->withoutOverlapping();

@@ -25,6 +25,7 @@
         ['route' => 'bets', 'label' => 'My Bets', 'icon' => 'file'],
         ['route' => 'bankroll', 'label' => 'Bankroll', 'icon' => 'chart', 'feature' => 'bankroll'],
 
+        ['route' => 'alerts', 'label' => 'Alerts', 'icon' => 'bell', 'feature' => 'alerts'],
         ['route' => 'reports', 'label' => 'Reports', 'icon' => 'file'],
         ['route' => 'account', 'label' => 'Settings', 'icon' => 'cog'],
     ];

@@ -995,3 +995,113 @@ suite, and Pest's `RefreshDatabase` binding does not reach a plain
 `TestCase` subclass. It had been running against whatever schema the last
 migration left behind — which went unnoticed until the home page first
 touched a table.
+
+---
+
+## Step 10 — Alerts
+
+Done. 430 tests pass.
+
+Email and web push, for a pick being published and for a line moving on a
+game the customer watches.
+
+### The failure this is designed against
+
+Not a missed notification. **Eleven of them in an afternoon** — which gets
+an application uninstalled, a sending domain blocked, and a push endpoint
+rate-limited. Almost every decision here follows from that:
+
+- An alert is **unique per subject** in the database, so a pick still on the
+  board does not raise a fresh alert every hour.
+- A delivery is **unique per (alert, customer, channel)**, so nobody is told
+  twice however often the command runs.
+- There is a **daily ceiling per channel**, counted from append-only
+  delivery rows so it cannot be reset by anything short of time passing.
+- An alert older than three hours is **dropped, not delivered**. A queue
+  stuck overnight must not empty itself into somebody's phone in the
+  morning, and a notification about a game that has already started is
+  worse than silence.
+- **Quiet hours**, in the customer's own timezone, crossing midnight
+  correctly. §9 is about responsible gambling and a 3am line-move alert is
+  the opposite of it.
+
+### Raising and delivering are separate
+
+An alert is a *fact* — this pick was published, this line moved — and it is
+the same fact for everybody. Who hears about it is a different question,
+answered later against each customer's preferences. Mixing the two would
+mean re-deciding what happened once per customer and getting a different
+answer for the second one.
+
+So the line-move scan runs once at a floor threshold and each customer's own
+threshold is applied at delivery.
+
+### Every skip is recorded with its reason
+
+`alert_deliveries` holds the sends **and** the skips: `not_entitled`,
+`type_not_wanted`, `sport_not_wanted`, `quiet_hours`, `below_threshold`,
+`not_watching`, `email_unverified`, `daily_cap`, `no_push_subscription`.
+
+That is what makes the Alerts page honest rather than a set of switches:
+"why did I not get that one" is answerable, and a silent skip is
+indistinguishable from a bug. The log is on the page, skips included.
+
+Two of those reasons are worth naming:
+
+- **`not_entitled`** is checked at delivery as well as on the page, so a
+  customer who downgrades stops being emailed without anybody remembering
+  to turn it off.
+- **`email_unverified`** exists because sending to an unconfirmed address is
+  how a domain earns a spam reputation.
+
+### Both channels start off
+
+An account that began emailing somebody because they signed up would be
+sending unsolicited mail whatever the footer said. Nothing is sent until a
+customer turns a channel on.
+
+### Web push
+
+Real push over VAPID, through `minishlink/web-push`, behind a `PushSender`
+interface — the same seam the Claude integration has, and for the same
+reason: the library does its own HTTP transport, so a test faking Laravel's
+client would pass while a real notification went out, or while none did and
+nobody noticed.
+
+A browser's own keys are stored; they are useless without the VAPID private
+key, which lives in the environment and never in the database.
+Re-subscribing replaces the row rather than accumulating. Turning push off
+**deletes** it — a row kept "in case they come back" is a row somebody will
+eventually send to. An endpoint returning 404 or 410 is dropped at once,
+because a browser that has been uninstalled returns it for ever; a 500 is
+retried up to five times.
+
+The service worker does one thing: show the notification and open the right
+page. Deliberately no caching — a service worker that cached pages would
+start serving a stale odds board from disk, and a stale price is the one
+thing this product must never show.
+
+Generate the keys with `php artisan vigil:vapid`. It needs an OpenSSL build
+that can create prime256v1 keys, which rules out some Windows installs, so
+the command says to run it on the deployed environment instead.
+
+### Messages are built from stored payloads
+
+Every figure in an email or a push comes from the payload recorded when the
+alert was raised. Nothing is looked up at send time: a notification built
+from a live read could quote a price that has since moved, which is the one
+thing a price alert must never do. The email and the push share their title
+and body, so a customer with both channels on does not get two differently
+worded accounts of one event.
+
+The pick email carries the gate with it — *"this comes from a market that
+has beaten the closing line… it is not a prediction that it will win"* —
+because a forwarded email without that caveat reads like a tip.
+
+### Blocked on one thing
+
+**`MAIL_MAILER=log` on production.** Every email path in the product —
+alerts, dunning, email verification, password reset — currently writes to a
+log file instead of sending. The alert pipeline is complete and tested and
+will deliver nothing until a mailer is configured. Web push does not depend
+on it and works as soon as VAPID keys are set.
