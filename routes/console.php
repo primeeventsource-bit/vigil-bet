@@ -58,3 +58,16 @@ Schedule::command('vigil:dunning')
     ->dailyAt('06:10')
     ->name('billing-dunning')
     ->withoutOverlapping();
+
+/*
+ * Grading. Hourly, because a game finishing at 22:30 should be settled
+ * before the customer looks in the morning - and because the cost of
+ * running it on nothing is a single query.
+ *
+ * It only ever settles from a mirrored final score, so running it before
+ * Edge Lab has the result is harmless: those bets stay pending.
+ */
+Schedule::command('vigil:settle-bets')
+    ->hourlyAt(5)
+    ->name('settle-bets')
+    ->withoutOverlapping();

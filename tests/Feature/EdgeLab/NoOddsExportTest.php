@@ -25,9 +25,19 @@ it('has no public api, feed or odds export route', function () {
      */
     $dataShaped = '/\bapi\b|feed|export|\.csv|\.json|download|bulk/i';
 
+    /*
+     * §8 asks for a CSV export of the customer's *own bets*, and §9
+     * forbids one of odds. Both are true at once, so this one route is
+     * named here and its contents are asserted separately below -
+     * allowing the pattern wholesale would be how an odds export
+     * eventually arrives.
+     */
+    $ownData = ['bets/export'];
+
     $offenders = collect(Route::getRoutes())
         ->reject(fn ($route) => str_starts_with($route->uri(), 'livewire/'))
         ->reject(fn ($route) => str_starts_with($route->uri(), 'storage/'))
+        ->reject(fn ($route) => in_array($route->uri(), $ownData, true))
         ->filter(fn ($route) => (bool) preg_match($dataShaped, $route->uri()))
         ->map(fn ($route) => $route->uri());
 

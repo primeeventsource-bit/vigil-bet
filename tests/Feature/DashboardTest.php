@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Subscription;
 use App\Models\User;
+use App\Models\UserBet;
 use App\Models\VlBoardEntry;
 use App\Services\EdgeLab\Mirror;
 use Illuminate\Support\Facades\Route;
@@ -109,7 +110,7 @@ it('logs a bet rather than placing one', function () {
     $pick = dashPick();
 
     $this->actingAs(dashUser())
-        ->post(route('bets.store'), ['board_entry_id' => $pick->id])
+        ->post(route('bets.store'), ['board_entry_id' => $pick->id, 'stake' => 25])
         ->assertRedirect()
         ->assertSessionHas('status');
 
@@ -121,8 +122,10 @@ it('refuses to log a bet against an unproven market', function () {
     $pick = dashPick(['market_verdict' => 'negative']);
 
     $this->actingAs(dashUser())
-        ->post(route('bets.store'), ['board_entry_id' => $pick->id])
-        ->assertSessionHas('error');
+        ->post(route('bets.store'), ['board_entry_id' => $pick->id, 'stake' => 25])
+        ->assertSessionHasErrors('stake');
+
+    expect(UserBet::count())->toBe(0);
 });
 
 it('filters the board by sport', function () {

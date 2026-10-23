@@ -20,6 +20,9 @@
         ['route' => 'models', 'label' => 'Models', 'icon' => 'cpu', 'feature' => 'modellab'],
         ['route' => 'learning', 'label' => 'Learning', 'icon' => 'chart'],
 
+        ['route' => 'bets', 'label' => 'My Bets', 'icon' => 'file'],
+        ['route' => 'bankroll', 'label' => 'Bankroll', 'icon' => 'chart', 'feature' => 'bankroll'],
+
         ['route' => 'reports', 'label' => 'Reports', 'icon' => 'file'],
         ['route' => 'account', 'label' => 'Settings', 'icon' => 'cog'],
     ];

@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\TwoFactorController;
+use App\Http\Controllers\BankrollController;
 use App\Http\Controllers\BetController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\DashboardController;
@@ -195,8 +196,25 @@ Route::middleware('auth')->group(function (): void {
             'step' => 'Step 10 — email and web push when a pick posts.',
         ])->middleware('entitled:alerts')->name('alerts');
 
-        // Logs a bet. Never places one; see BetController.
-        Route::post('bets', BetController::class)->name('bets.store');
+        /*
+         * My Bets. Logs a bet; never places one. Ungated: §4 gives the
+         * free plan a tracker capped at 25 bets, and a cap is enforced
+         * in the controller rather than by hiding the page.
+         */
+        Route::get('bets', [BetController::class, 'index'])->name('bets');
+        Route::post('bets', [BetController::class, 'store'])->name('bets.store');
+        Route::get('bets/export', [BetController::class, 'export'])
+            ->middleware('throttle:10,1')->name('bets.export');
+
+        /*
+         * Bankroll: Kelly sizing and the loss limits. Pro, per §4.
+         */
+        Route::get('bankroll', [BankrollController::class, 'show'])
+            ->middleware('entitled:bankroll')->name('bankroll');
+        Route::post('bankroll', [BankrollController::class, 'update'])
+            ->middleware('entitled:bankroll')->name('bankroll.update');
+        Route::post('bankroll/funds', [BankrollController::class, 'funds'])
+            ->middleware('entitled:bankroll')->name('bankroll.funds');
 
         /*
          * Sync health. Behind the login for now; it moves under the admin

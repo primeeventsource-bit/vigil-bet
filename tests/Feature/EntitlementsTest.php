@@ -57,6 +57,13 @@ function gatedRoutes(): array
     $gated = [];
 
     foreach (Route::getRoutes() as $route) {
+        // Pages only. A gated POST is covered by the form test that
+        // exercises it; fetching one with GET returns 405 and proves
+        // nothing about entitlements.
+        if (! in_array('GET', $route->methods(), true)) {
+            continue;
+        }
+
         foreach ($route->gatherMiddleware() as $middleware) {
             if (is_string($middleware) && str_starts_with($middleware, 'entitled:')) {
                 $gated[] = [$route->getName(), explode(':', $middleware, 2)[1]];
