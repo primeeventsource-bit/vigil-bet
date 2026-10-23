@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\VlBoardEntry;
 use App\Services\EdgeLab\SyncHealth;
+use App\Services\Record\PublicRecord;
 use Illuminate\View\View;
 
 /**
@@ -49,35 +50,35 @@ class PageController extends Controller
     }
 
     /**
-     * The published track record.
+     * The published track record, for the strip on the home page.
      *
-     * Returns zeros rather than figures because nothing has been
-     * published: `published_picks` arrives at step 9. Every caller checks
-     * `settled` before showing a rate, and the one that does not would be
-     * the bug - so there is nothing here that could be mistaken for a
-     * result.
+     * Read from `published_picks`, which only ever contains picks
+     * published before kickoff - so there is no path by which a
+     * backtest could reach this figure. Every rate is null rather than
+     * zero when there is no sample behind it, because the strip shows
+     * whatever it is given and an unmeasured rate must not arrive
+     * looking like a measured one.
      *
      * @return array<string, mixed>
      */
     private function publicRecord(): array
     {
+        $summary = app(PublicRecord::class)->summary();
+
         return [
-            'settled' => 0,
-            'record' => null,
-            'units' => null,
-            'roi' => null,
-            'clv' => null,
+            'settled' => $summary['settled'],
+            'record' => $summary['settled'] === 0
+                ? null
+                : $summary['won'].'-'.$summary['lost'].($summary['pushed'] ? '-'.$summary['pushed'] : ''),
+            'units' => $summary['units'],
+            'roi' => $summary['roi'],
+            'clv' => $summary['clv'],
         ];
     }
 
     public function howItWorks(): View
     {
         return view('marketing.how-it-works');
-    }
-
-    public function record(): View
-    {
-        return view('marketing.record', ['record' => $this->publicRecord()]);
     }
 
     /**

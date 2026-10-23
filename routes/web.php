@@ -17,6 +17,7 @@ use App\Http\Controllers\ModelLabController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ParlayController;
 use App\Http\Controllers\PropsController;
+use App\Http\Controllers\RecordController;
 use App\Http\Controllers\SyncHealthController;
 use App\Http\Controllers\ToolsController;
 use App\Http\Controllers\UpgradeController;
@@ -34,7 +35,13 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [PageController::class, 'home'])->name('home');
 Route::get('/pricing', [PageController::class, 'pricing'])->name('pricing');
 Route::get('/how-it-works', [PageController::class, 'howItWorks'])->name('how-it-works');
-Route::get('/record', [PageController::class, 'record'])->name('record');
+/*
+ * The public track record. §7: the single most important trust asset,
+ * and the only page on this site a sceptic will take seriously - so it
+ * is public, indexable, and shows the losers.
+ */
+Route::get('/record', [RecordController::class, 'index'])->name('record');
+Route::get('/record/{pick}', [RecordController::class, 'show'])->name('record.pick');
 
 Route::get('/legal/{page}', [PageController::class, 'legal'])
     ->whereIn('page', ['terms', 'privacy', 'responsible-gambling', 'disclaimer'])

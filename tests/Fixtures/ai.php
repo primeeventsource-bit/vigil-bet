@@ -26,6 +26,7 @@ function entryFor(array $overrides = []): VlBoardEntry
         'sport' => $row['sport'],
         'market' => $row['market'],
         'side' => $overrides['side'] ?? ($row['side'] ?? null),
+        'line' => $row['line'] ?? null,
         'selection' => $row['selection'],
         'model_prob' => $row['model_prob'],
         'fair_prob' => $row['fair_prob'],

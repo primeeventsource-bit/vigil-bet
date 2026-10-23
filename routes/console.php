@@ -71,3 +71,19 @@ Schedule::command('vigil:settle-bets')
     ->hourlyAt(5)
     ->name('settle-bets')
     ->withoutOverlapping();
+
+/*
+ * The public record. Publishing runs just after the board sync, so a
+ * pick is published from a board that was scanned minutes ago rather
+ * than an hour ago - and settling runs in the same pass, because a
+ * result that arrives at 23:00 should be on the record before anybody
+ * looks in the morning.
+ *
+ * Safe to re-run: one pick per board entry and one result per pick, both
+ * enforced in the database. A record that can be padded by running a
+ * command twice is not a record.
+ */
+Schedule::command('vigil:publish-picks')
+    ->hourlyAt(58)
+    ->name('publish-picks')
+    ->withoutOverlapping();

@@ -889,3 +889,109 @@ stores the bins; its read-only API does not expose them. One endpoint
 (`calibration_bins`) would finish the panel. Until then the page says so —
 a fabricated calibration curve on the page whose entire purpose is
 transparency would be the single worst thing in this product.
+
+---
+
+## Step 9 — The public track record
+
+Done. 404 tests pass.
+
+§7 calls this "the single most important trust and sales asset", and the
+reason is narrow: it is the only page on the site a sceptic will take
+seriously. Everything else is a claim about a model. This is a claim about
+what the model actually said, in public, before the games.
+
+### Two tables, both append-only
+
+`published_picks` holds the pick: the price and book that were available,
+the model probability, the market's fair probability, the edge at that
+price, the suggested stake fraction and the model version that produced
+it — all **stored at publication**, never looked up afterwards. A record
+built from prices fetched later is a claim about prices nobody was
+offered.
+
+`pick_results` holds what happened. Separate rather than columns on the
+pick, for one reason: the pick row must never be written to again after
+publication and a result arrives hours later. Two tables is what lets both
+be append-only.
+
+### §13's acceptance check, enforced where it cannot be bypassed
+
+*"A published pick timestamped after kickoff is rejected by the database."*
+
+Not by a validator, not by a model observer — those can be bypassed by a
+console command, a seeder, or an import script written next year by
+somebody who never read this file. Postgres gets a `CHECK` constraint;
+SQLite, which cannot add one to an existing table, gets a `BEFORE INSERT`
+trigger that raises. Same guarantee, same place, so it holds in the test
+suite as well as in production. A pick published at *exactly* kickoff is
+refused too — "before kickoff" has to mean before.
+
+Both tables also refuse `UPDATE` and `DELETE`, in the model and in
+Postgres.
+
+### The publisher refuses more often than it publishes
+
+Four refusals, each one a way the record could quietly become misleading:
+
+- **Not proven.** The gate is checked again here, at the one write that
+  cannot be taken back.
+- **Already published.** One row per board entry, for ever. A record that
+  can be padded by re-running a command is not a record.
+- **No price.** A record entry with no price is not a claim anybody can
+  check, which makes it worse than no entry.
+- **Too close to kickoff.** A pick published eight seconds before kickoff
+  is technically pre-kickoff and practically unplayable; a record built
+  from those would be true and misleading at once. The floor is 15 minutes.
+
+### Settlement shares its rules with My Bets
+
+The same grading code decides what a 3-point win against a 3-point line
+is. Two copies of that logic would eventually disagree, and then the public
+record and a customer's own record would disagree about the same game.
+
+Results are in **units**, flat-staked. A public record in dollars would
+imply a stake size nobody was told to use, and staking to the suggested
+fraction would produce a different, much better-looking number that no
+reader followed. Closing line value comes from a quote stored before
+kickoff and from nowhere else.
+
+### Every rate carries its sample, or is not shown
+
+§7: *"always with sample size. With zero settled picks, show no rate at
+all."* Every figure is `null` rather than zero when there is nothing behind
+it, because a 0% ROI and an unmeasured ROI look identical on a page and
+mean entirely different things — and the second is the current state of
+this product.
+
+A push counts toward the sample but not toward the win rate (it is not half
+a win). A void is kept out of the record entirely (a game that never ran is
+not a result). Closing line value averages only over picks that have one;
+counting the rest as zero would drag a real figure toward nothing.
+
+### What the page is right now
+
+Empty, and it says why: no market has cleared the gate, so there is nothing
+to publish and there will be nothing until one does. The copy says that a
+record page with numbers on it before any pick had been published "would
+tell you nothing except that we were willing to make numbers up."
+
+Filterable by sport, market and month — with filter values read from the
+published rows, so a filter never offers an option with nothing behind it.
+Every pick has a permanent URL keyed on a ULID rather than a row id, and
+that page shows **both** timestamps so a reader can check the pick was
+published before kickoff rather than take it on trust.
+
+Losers, pushes and still-running picks are all in the same table and the
+same totals as the winners. The page closes by stating what is not on it:
+no backtests, no paper trading, no simulated results — and the guarantee is
+structural rather than a promise, because `published_picks` only ever
+contains picks that were published before kickoff.
+
+### One fix found along the way
+
+`tests/Feature/ExampleTest.php` is the only PHPUnit-style test in the
+suite, and Pest's `RefreshDatabase` binding does not reach a plain
+`TestCase` subclass. It had been running against whatever schema the last
+migration left behind — which went unnoticed until the home page first
+touched a table.
