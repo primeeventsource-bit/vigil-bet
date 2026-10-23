@@ -27,6 +27,43 @@ class Entitlements
     /** A signed-out visitor gets the free tier, never nothing. */
     public const ANONYMOUS_TIER = 'free';
 
+    /**
+     * Overrides already read this request, keyed by user id.
+     *
+     * Not an optimisation for its own sake. `can()` is called once per
+     * feature per row - the picks table asks `@can('board.full')` on
+     * every line - and without this each call queried
+     * entitlement_overrides again. A sixteen-game board ran twenty
+     * extra identical queries, and the count grew with the board, which
+     * is exactly the shape of failure that works in development and
+     * falls over on a real Sunday.
+     *
+     * Per request rather than cached across requests: an override
+     * granted by an admin must take effect on the customer's next page
+     * load, not whenever a cache expires.
+     *
+     * @var array<int, Collection<string, EntitlementOverride>>
+     */
+    private array $overrides = [];
+
+    /**
+     * Forget what has been read.
+     *
+     * Called after an override is written, so the same request can see
+     * its own change - admin grants a feature and then renders a page
+     * that has to reflect it.
+     */
+    public function forget(?User $user = null): void
+    {
+        if ($user === null) {
+            $this->overrides = [];
+
+            return;
+        }
+
+        unset($this->overrides[$user->id]);
+    }
+
     public function tier(?User $user): string
     {
         $tier = $user?->subscription?->effectiveTier();
@@ -135,7 +172,7 @@ class Entitlements
      */
     private function overrides(User $user): Collection
     {
-        return EntitlementOverride::query()
+        return $this->overrides[$user->id] ??= EntitlementOverride::query()
             ->where('user_id', $user->id)
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->get()

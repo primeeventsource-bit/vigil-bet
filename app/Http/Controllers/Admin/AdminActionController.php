@@ -69,6 +69,14 @@ class AdminActionController extends Controller
             ],
         );
 
+        /*
+         * The service memoizes overrides for the life of a request, so
+         * anything that checks an entitlement after this write - this
+         * page rendering its own result, a redirect handled in the same
+         * process - would otherwise see the value from before it.
+         */
+        $entitlements->forget($user);
+
         Audit::write(
             'entitlement.'.($data['granted'] ? 'granted' : 'withdrawn'),
             $user,
@@ -80,7 +88,7 @@ class AdminActionController extends Controller
         return back()->with('status', 'Override saved.');
     }
 
-    public function removeOverride(Request $request, User $user): RedirectResponse
+    public function removeOverride(Request $request, User $user, Entitlements $entitlements): RedirectResponse
     {
         $data = $request->validate([
             'feature' => ['required', 'string'],
@@ -98,6 +106,8 @@ class AdminActionController extends Controller
 
         $before = $override->only(['feature', 'granted', 'expires_at']);
         $override->delete();
+
+        $entitlements->forget($user);
 
         Audit::write('entitlement.override_removed', $user, $before, null, $data['reason']);
 

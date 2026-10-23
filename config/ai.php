@@ -83,7 +83,7 @@ return [
      * showing even if every number in it is right.
      */
     'banned_words' => [
-        'guaranteed', 'guarantee', 'lock', 'can\'t lose', 'cannot lose',
+        'guaranteed', 'guarantee', 'lock', 'locked', 'can\'t lose', 'cannot lose',
         'sure thing', 'free money', 'easy money', 'no-brainer', 'slam dunk',
         'hammer', 'max bet', 'bet the house', 'risk-free', 'riskless',
     ],

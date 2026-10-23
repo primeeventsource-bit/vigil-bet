@@ -1198,3 +1198,124 @@ The overview says **"Charged, all time"**, not "revenue". It is the sum of
 money that actually moved, read from `billing_events` — not subscriber
 count times list price, which is what a product *hopes* it is charging and
 diverges from reality the first time a payment fails.
+
+---
+
+## Step 12 — Hardening
+
+Done. 513 tests pass.
+
+§12 asks for tests on entitlements, append-only guards, the pre-kickoff
+constraint, AI number validation, webhook idempotency, no-odds-export, and
+a load test on the board. Most of those were written alongside their
+features, so this step was an audit rather than a sprint — and the audit
+found three real things.
+
+### Correction to the step 5 note
+
+That note said `audit_log` "refuses updates and deletes, in the model and
+in Postgres." **The first half was true and the second was not.** The
+trigger had never been written.
+
+Six tables were in the same position: the four Edge Lab mirrors,
+`vigil_reads`, and `audit_log`. All six carried the `AppendOnly` trait and
+so refused writes in PHP, with nothing behind them in the database.
+
+That matters most for `audit_log`, because a trait fires on an Eloquent
+event and is bypassed by anything that does not go through Eloquent — a
+raw query, a seeder, a tinker one-liner, an import script written next
+year. The audit log's entire purpose is to be evidence of what somebody
+did, and the thing it protects against is precisely somebody wanting to
+change it.
+
+Fixed by a forward-only migration adding all six triggers. The claim is now
+true.
+
+### The test that found it
+
+`AppendOnlyTest` derives the list of append-only models **from the models**
+— it reflects over `app/Models`, collects everything using the trait, and
+asserts each one refuses an update, refuses a delete, and has a trigger in
+some migration. A hand-kept list would have been a list somebody forgot to
+extend, which is exactly how six tables went unprotected for seven build
+steps.
+
+It also asserts the count, so if the sweep ever finds fewer models than the
+product has, the sweep itself fails rather than quietly testing nothing.
+
+### An N+1 on the dashboard, found by the load test
+
+The board load test asserts the thing that actually breaks a dashboard:
+**query count that grows with the data.** Not wall-clock time — a
+benchmark on SQLite on a laptop says nothing about Postgres under traffic,
+and a timing assertion fails on a busy CI box for reasons unrelated to the
+code.
+
+A sixteen-game board with six books and three quotes each ran **42
+queries**, against 22 on an empty board, and the count grew as the board
+grew. The cause: `Entitlements::can()` queried `entitlement_overrides` on
+every call, and the picks table asks `@can('board.full')` once per row.
+
+Overrides are now memoized for the life of a request. The same page now
+runs **11 queries**, and doubling the board does not increase it. Memoized
+per request rather than cached across requests, because an override granted
+by an admin must take effect on the customer's next page load and not
+whenever a cache expires — and `AdminActionController` clears the memo when
+it writes one, so a page can see its own change.
+
+### "locked" added to the banned words
+
+A fixture-set test for the Read validator asserted that *"the price is
+locked in"* would be refused. It was not: the banned list had `lock`,
+matched at word boundaries, which does not catch `locked`. "Locked in" is
+exactly the tipster register §0.7 forbids, so the word is now on the list.
+
+### What the fixture set covers
+
+§13 asks that the number validation be "tested across a fixture set", and
+it now is — nine accepted cases and nine refused, each one a way a model
+has actually been observed to go wrong or a way a validator can be fooled:
+an invented probability, an edge off by a decimal place, a "helpfully"
+rounded figure, arithmetic the model did itself (correct arithmetic is
+still an unsupported claim), an invented sample size, an implied payout, a
+year.
+
+One case moved from accepted to refused while writing it. A Read saying
+`140` when the price is `-140` was refused, and that is correct: `+140` and
+`-140` are completely different prices, so an unsigned figure is not a
+sloppy way of writing one of them — it is a number that could mean either.
+
+### §13's eight checks, in one file
+
+`AcceptanceTest` asserts each of the spec's acceptance criteria, numbered,
+in addition to wherever the feature's own tests live. The duplication is
+deliberate: a check listed in the spec should be findable by reading the
+spec, not by knowing which of forty test files happens to cover it.
+
+Two of them changed shape while being written:
+
+- **13.5** (no odds export) now proves the rule from both ends: no
+  machine-readable endpoint exists, *and* the one export that does — the
+  customer's own bets, which §8 asks for by name — contains one bet and
+  one header row with four games and seventy-two quotes sitting in the
+  database beside it.
+- **13.6** (renaming the product) sets the legal entity name as well. That
+  is a separate setting with its own environment variable, and correctly
+  so: a company does not rename itself at Companies House because the
+  product got a new name.
+
+### Still outstanding, and not code
+
+- **`MAIL_MAILER=log` on production.** Every email path writes to a log
+  instead of sending: alerts, dunning, email verification, password reset.
+  This is the single biggest blocker in the product — it gates alerts,
+  gates dunning, and means nobody but the owner can finish signing up.
+- **`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` unset.** Web push is built and
+  tested and sends nothing until they are. `php artisan vigil:vapid`
+  generates a pair on the deployed environment.
+- **`BRAND_POSTAL_ADDRESS` unset**, which CAN-SPAM requires in a marketing
+  send. Not needed until one is sent.
+- **Two Edge Lab endpoints.** `calibration_bins` would finish Model Lab's
+  calibration chart and `backtest_predictions` the Learning Center's
+  per-prediction view. Both exist in Edge Lab and neither is exposed by its
+  read-only API.
