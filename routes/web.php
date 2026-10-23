@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\BetController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LearningCenterController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\SyncHealthController;
 use App\Models\User;
@@ -167,6 +168,13 @@ Route::middleware('auth')->group(function (): void {
          * area when there is one, at step 11. Nothing here is customer
          * data - it is how current Vigil's copy of the engine is.
          */
+        /*
+         * The AI Learning Center: whether the engine is improving,
+         * read from the model versions it has written. Behind the
+         * login for now; it moves under admin at step 11.
+         */
+        Route::get('learning', LearningCenterController::class)->name('learning');
+
         Route::get('sync-health', SyncHealthController::class)->name('sync-health');
 
         Route::get('account/two-factor', [TwoFactorController::class, 'show'])->name('two-factor.show');

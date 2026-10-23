@@ -50,6 +50,12 @@ class SyncRun extends Model
         return $query->where('status', 'failed');
     }
 
+    /** Failures worth looking at now, rather than the whole history. */
+    public function scopeRecent24h(Builder $query): Builder
+    {
+        return $query->where('started_at', '>=', now()->subDay());
+    }
+
     public function scopeLatestFirst(Builder $query): Builder
     {
         return $query->orderByDesc('started_at')->orderByDesc('id');

@@ -379,11 +379,67 @@ The live engine proves the gate works: **14 model versions, zero proven** —
 models that do not beat the closing line, which is the self-improving
 behaviour working rather than a gap in it.
 
-Genuinely missing: an **AI Learning Center** surfacing calibration and
-model history to an operator, and a **live-betting path**. One real
+Since built: the **AI Learning Center**, in its own section. Still missing: a
+**live-betting path**, and two read-only Edge Lab endpoints for the
+calibration curve and per-prediction results. One real
 conflict needs a decision: the pasted spec asks for a separate Python ML
 service, and Edge Lab is deliberately 100% PHP because Laravel Cloud runs
 PHP only.
+
+---
+
+## AI Learning Center
+
+**Done. 160 tests passing, Pint clean.** At `/learning`.
+
+The page answers one question the rest of the product cannot: **is the
+engine getting better?** A verdict says whether a market may sell today; a
+trajectory says whether the work is going anywhere, and right now those
+have different answers.
+
+Everything is read from model versions Edge Lab wrote. Nothing is scored
+or re-derived here — a second opinion about whether a model improved is
+exactly the kind of number that would make this page reassuring and wrong.
+
+**The trajectory panel** plots log loss improvement against the closing
+line, version by version, with zero — the market — as a labelled midpoint.
+Above it beats the market; below it loses. Live data shows the real story:
+
+- **NFL moneyline**: −0.051 → −0.034. Still losing to the closing line,
+  but by less. Marked *improving*, verdict still `negative`.
+- **NFL spreads**: +0.074 → −0.028. The first version beat the market on
+  log loss and failed on calibration; the second lost outright. Marked
+  *regressing*.
+- **NHL moneyline**: +0.023 → −0.014 → −0.013.
+
+A single measurement gets **no** direction rather than "flat" — saying
+flat would imply it had been measured twice and had not moved.
+
+Predictions are counted once per market, from the newest version. Summing
+across versions would count the same games four times.
+
+**The gate panel** shows the thresholds in force and what each verdict
+means, so "unproven" reads as *beat the market on log loss but was worse
+calibrated* rather than as a synonym for failure.
+
+**The board panel** breaks 5,000 evaluated candidates down by pass reason,
+which is the concrete answer to why nothing is being sold.
+
+### The controls the spec asked for
+
+Pausing prediction generation, disabling a feed and rolling back a model
+version are all operations on **Edge Lab**, whose API is read-only by
+construction. Buttons here would either do nothing or require a write
+endpoint the whole integration was deliberately built without. The page
+says where the control actually lives instead, and a test asserts no such
+button exists.
+
+### Still needs an Edge Lab endpoint
+
+A calibration **curve** (predicted vs observed by bin) and per-prediction
+win/loss/ROI at recorded odds. Edge Lab stores both — `calibration_bins`
+and `backtest_predictions` — and `/internal/v1` does not expose either.
+Two read-only endpoints would finish this page.
 
 ---
 

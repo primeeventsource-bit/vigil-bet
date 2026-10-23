@@ -12,6 +12,8 @@
         ['route' => 'parlays', 'label' => 'Parlays', 'icon' => 'layers'],
         ['route' => 'analytics', 'label' => 'Analytics', 'icon' => 'chart'],
         ['route' => 'models', 'label' => 'Models', 'icon' => 'cpu'],
+        ['route' => 'learning', 'label' => 'Learning', 'icon' => 'chart'],
+
         ['route' => 'reports', 'label' => 'Reports', 'icon' => 'file'],
         ['route' => 'account', 'label' => 'Settings', 'icon' => 'cog'],
     ];
