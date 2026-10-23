@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Vigil">
+  <title>Vigil</title>
+  <!--
+    An angular V that is also a watchful eye: the outer chevron narrows to
+    a point, and the inner aperture is the pupil. The notch at the top left
+    is what keeps it from reading as a plain letter.
+
+    currentColor throughout, so one file serves the dark field, the light
+    field and a disabled state without a second copy.
+  -->
+  <defs>
+    <linearGradient id="vg-mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="currentColor" stop-opacity="1"/>
+      <stop offset="1" stop-color="currentColor" stop-opacity="0.68"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#vg-mark)" d="M6 7h14.6l11.4 32.1L43.4 7H58L36.9 60h-9.8L6 7Z"/>
+  <path fill="currentColor" fill-opacity="0.9" d="M20.6 7 32 39.1 43.4 7l-6.1 14.9L32 24.6l-5.3-2.7L20.6 7Z"/>
+</svg>
