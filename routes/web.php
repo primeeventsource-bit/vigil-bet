@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Admin\AdminActionController;
+use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
@@ -261,13 +263,39 @@ Route::middleware('auth')->group(function (): void {
          * data - it is how current Vigil's copy of the engine is.
          */
         /*
-         * The AI Learning Center: whether the engine is improving,
-         * read from the model versions it has written. Behind the
-         * login for now; it moves under admin at step 11.
+         * Admin. 404 rather than 403 for everybody else: a stranger
+         * probing for /admin should get the same answer as one asking
+         * for /nonsense.
+         *
+         * Reads and writes are separate controllers. Everything in the
+         * first is a question and none of it can change anything; every
+         * write in the second is audited and requires a typed reason.
          */
-        Route::get('learning', LearningCenterController::class)->name('learning');
+        Route::middleware('admin')->prefix('admin')->name('admin.')->group(function (): void {
+            Route::get('/', [AdminController::class, 'overview'])->name('overview');
+            Route::get('users', [AdminController::class, 'users'])->name('users');
+            Route::get('users/{user}', [AdminController::class, 'user'])->name('user');
+            Route::get('billing', [AdminController::class, 'billing'])->name('billing');
+            Route::get('picks', [AdminController::class, 'picks'])->name('picks');
+            Route::get('ai', [AdminController::class, 'ai'])->name('ai');
+            Route::get('audit', [AdminController::class, 'audit'])->name('audit');
 
-        Route::get('sync-health', SyncHealthController::class)->name('sync-health');
+            /*
+             * The AI Learning Center and sync health move here, which is
+             * where §11 puts them - they were behind the login until now
+             * because admin did not exist.
+             */
+            Route::get('learning', LearningCenterController::class)->name('learning');
+            Route::get('sync-health', SyncHealthController::class)->name('sync-health');
+
+            Route::middleware('throttle:30,1')->group(function (): void {
+                Route::post('users/{user}/override', [AdminActionController::class, 'override'])->name('override');
+                Route::delete('users/{user}/override', [AdminActionController::class, 'removeOverride'])->name('override.remove');
+                Route::post('users/{user}/tier', [AdminActionController::class, 'tier'])->name('tier');
+                Route::post('refund', [AdminActionController::class, 'refund'])->name('refund');
+                Route::post('flag', [AdminActionController::class, 'flag'])->name('flag');
+            });
+        });
 
         Route::get('account/two-factor', [TwoFactorController::class, 'show'])->name('two-factor.show');
         Route::post('account/two-factor', [TwoFactorController::class, 'store'])->name('two-factor.store');

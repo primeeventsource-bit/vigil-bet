@@ -30,7 +30,8 @@ class MakeOwnerCommand extends Command
         {--name= : Display name, defaults to the local part of the address}
         {--tier=pro : Which tier to put the account on}
         {--password= : Set this password instead of generating one}
-        {--reset-password : Generate and set a new password for an existing account}';
+        {--reset-password : Generate and set a new password for an existing account}
+        {--no-admin : Create the account without admin access}';
 
     protected $description = 'Create or top up an owner account that can sign in to the running app';
 
@@ -80,6 +81,16 @@ class MakeOwnerCommand extends Command
          * missing mailer is a silly way to lose an afternoon.
          */
         $user->email_verified_at ??= now();
+
+        /*
+         * Admin, unless told otherwise. This command is how the first
+         * admin exists at all - there is no other way to set the flag,
+         * and an admin area nobody can reach is not an admin area.
+         */
+        if (! $this->option('no-admin')) {
+            $user->is_admin = true;
+        }
+
         $user->save();
 
         $subscription = Subscription::updateOrCreate(
@@ -108,6 +119,7 @@ class MakeOwnerCommand extends Command
 
         $this->components->twoColumnDetail('Sign in at', rtrim((string) config('app.url'), '/').'/login');
         $this->components->twoColumnDetail('Email', $email);
+        $this->components->twoColumnDetail('Admin', $user->isAdmin() ? 'yes' : 'no');
 
         if ($password !== null) {
             $this->components->twoColumnDetail('Password', $password);

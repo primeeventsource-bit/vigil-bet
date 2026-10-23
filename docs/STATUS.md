@@ -1105,3 +1105,96 @@ alerts, dunning, email verification, password reset — currently writes to a
 log file instead of sending. The alert pipeline is complete and tested and
 will deliver nothing until a mailer is configured. Web push does not depend
 on it and works as soon as VAPID keys are set.
+
+---
+
+## Step 11 — Admin
+
+Done. 457 tests pass.
+
+§11 asks for users, subscriptions, billing events, refunds, AI cost, sync
+health, the published-picks ledger and feature flags — with every admin
+write audited. All of it is here.
+
+### 404, not 403
+
+A 403 confirms the page exists. The admin area is the one part of this
+application where that is worth hiding, so somebody probing for `/admin`
+gets the same answer as somebody asking for `/nonsense`. A signed-out
+visitor still hits the login first, so a stranger cannot tell a non-admin
+account from a non-existent page either.
+
+`is_admin` is a column rather than a role table, because there are two
+kinds of person in this product and a permissions system for two cases is
+one nobody maintains. `vigil:owner` sets it — that command is the only way
+the first admin can exist, and an admin area nobody can reach is not an
+admin area.
+
+### Reads and writes are different controllers
+
+Everything in `AdminController` is a question and none of it can change
+anything. `AdminActionController` holds five writes and no more:
+
+- grant or withdraw an entitlement override
+- remove an override
+- set a tier by hand
+- refund a charge
+- throw a feature flag
+
+**A test asserts that list is exactly five.** An admin area that can change
+anything is an admin area that eventually does — so there is no way here to
+edit a bet, a published pick, a billing event or an audit entry, and the
+tables behind all four are append-only in the database. The controller
+could not write them if it tried, and a test proves an audit entry still
+refuses to be rewritten *from admin*.
+
+### Every write carries a reason, and the reason is validated
+
+Minimum eight characters, so a full stop will not do. An entitlement
+granted with no note is indistinguishable from a bug a month later, and
+"support said it was fine" is not a record of anything — a blank reason
+would make the audit log a list of timestamps.
+
+The audit entry stores the reason **and** the before/after values, because
+what somebody meant and what actually changed sometimes differ.
+
+### A hand-set tier is a billing event
+
+Not a write onto the subscription row. The projection stays derived from
+the log, the history stays complete, and a tier set by an admin is the same
+kind of fact as a tier set by a payment. That is the only way the two can
+be reconciled later.
+
+### Refunds refuse more often than they fire
+
+Three guards, each one a way to send money to the wrong place: an event
+that charged nothing, an event whose stored payload carries no processor
+charge id, and an amount larger than the original charge. The refund is
+recorded **only if the processor accepted it** — recording first would show
+a customer money back that nobody sent.
+
+### Feature flags
+
+Five declared switches, each with a sentence saying what it does. In the
+database rather than config for the only reason flags are ever worth
+having: turning something off at two in the morning should not need a
+deploy.
+
+An unknown key reads as **off** — a typo must not switch something on, and
+a flag that does not exist is not a feature that is enabled. A flag nobody
+has touched reads at its documented default rather than null. The admin
+page lists every declared flag, not only the ones somebody has written, so
+a switch cannot hide by never having been thrown.
+
+### Learning and sync health moved
+
+Both were behind the ordinary login because an admin area did not exist
+yet. §11 puts them here, so they are now at `/admin/learning` and
+`/admin/sync-health`, and the Learning link is out of the customer nav.
+
+### One figure worth explaining
+
+The overview says **"Charged, all time"**, not "revenue". It is the sum of
+money that actually moved, read from `billing_events` — not subscriber
+count times list price, which is what a product *hopes* it is charging and
+diverges from reality the first time a payment fails.

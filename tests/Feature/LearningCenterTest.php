@@ -7,11 +7,17 @@ use App\Models\VlModel;
 use App\Services\EdgeLab\Mirror;
 use App\Services\Learning\LearningCenter;
 
+/*
+ * An admin: the Learning Center moved under /admin at step 11, which is
+ * where §11 puts it. It was behind the ordinary login before only
+ * because an admin area did not exist yet.
+ */
 function learner(): User
 {
     return User::forceCreate([
         'name' => 'Ops', 'email' => 'ops@example.com',
         'password' => 'correct-horse-battery-staple', 'email_verified_at' => now(),
+        'is_admin' => true,
     ]);
 }
 
@@ -85,7 +91,7 @@ it('counts predictions once per market, not once per version', function () {
 it('says plainly that nothing is proven', function () {
     modelVersion(1, ['verdict' => 'negative']);
 
-    $this->actingAs(learner())->get(route('learning'))
+    $this->actingAs(learner())->get(route('admin.learning'))
         ->assertOk()
         ->assertSee('Nothing proven')
         ->assertSee('Markets proven')
@@ -95,7 +101,7 @@ it('says plainly that nothing is proven', function () {
 it('shows the gate each version was measured against', function () {
     modelVersion(1);
 
-    $this->actingAs(learner())->get(route('learning'))
+    $this->actingAs(learner())->get(route('admin.learning'))
         ->assertOk()
         ->assertSee('The gate')
         // Read from the stored gate, not restated in the template.
@@ -109,7 +115,7 @@ it('offers no control it cannot actually perform', function () {
     // Edge Lab's API is read-only by construction, so a pause or rollback
     // button here would either do nothing or need a write endpoint the
     // integration was built without.
-    $this->actingAs(learner())->get(route('learning'))
+    $this->actingAs(learner())->get(route('admin.learning'))
         ->assertOk()
         ->assertSee('Controls live in the engine')
         ->assertDontSee('Pause predictions')
@@ -117,5 +123,14 @@ it('offers no control it cannot actually perform', function () {
 });
 
 it('keeps the learning center behind a login', function () {
-    $this->get(route('learning'))->assertRedirect(route('login'));
+    $this->get(route('admin.learning'))->assertRedirect(route('login'));
+
+    // And a signed-in customer gets a 404 rather than a 403: probing
+    // for /admin should look the same as asking for /nonsense.
+    $customer = User::forceCreate([
+        'name' => 'Customer', 'email' => 'customer@example.com',
+        'password' => 'correct-horse-battery-staple', 'email_verified_at' => now(),
+    ]);
+
+    $this->actingAs($customer)->get(route('admin.learning'))->assertNotFound();
 });

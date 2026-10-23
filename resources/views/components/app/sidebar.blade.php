@@ -20,7 +20,6 @@
         ['route' => 'props', 'label' => 'Props', 'icon' => 'target', 'feature' => 'props'],
         ['route' => 'tools', 'label' => 'Tools', 'icon' => 'search', 'feature' => 'tools.crossbook'],
         ['route' => 'models', 'label' => 'Model Lab', 'icon' => 'cpu', 'feature' => 'modellab'],
-        ['route' => 'learning', 'label' => 'Learning', 'icon' => 'chart'],
 
         ['route' => 'bets', 'label' => 'My Bets', 'icon' => 'file'],
         ['route' => 'bankroll', 'label' => 'Bankroll', 'icon' => 'chart', 'feature' => 'bankroll'],
@@ -29,6 +28,15 @@
         ['route' => 'reports', 'label' => 'Reports', 'icon' => 'file'],
         ['route' => 'account', 'label' => 'Settings', 'icon' => 'cog'],
     ];
+
+    /*
+     * Admin, for whoever runs the product. Appended rather than listed
+     * above so a customer's nav is not built around a link they will
+     * never see - and the route 404s for them anyway.
+     */
+    if (auth()->user()?->isAdmin()) {
+        $items[] = ['route' => 'admin.overview', 'label' => 'Admin', 'icon' => 'cog'];
+    }
 @endphp
 
 <aside class="hidden w-56 shrink-0 flex-col border-r border-[var(--vg-line)] bg-[var(--vg-navy)] lg:flex">

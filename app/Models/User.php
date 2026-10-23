@@ -54,6 +54,18 @@ class User extends Authenticatable implements MustVerifyEmail
      * override are handled in one place instead of wherever somebody
      * happened to need the answer.
      */
+    /**
+     * Whether this person runs the product rather than uses it.
+     *
+     * A column rather than a role, because there are two kinds of
+     * person here and a permissions system for two cases is one nobody
+     * maintains.
+     */
+    public function isAdmin(): bool
+    {
+        return (bool) $this->is_admin;
+    }
+
     public function tier(): string
     {
         return app(Entitlements::class)->tier($this);

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureEntitled;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -17,7 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
          * customer cannot use; this is the part that actually holds when
          * somebody edits the URL.
          */
-        $middleware->alias(['entitled' => EnsureEntitled::class]);
+        $middleware->alias([
+            'entitled' => EnsureEntitled::class,
+            'admin' => EnsureAdmin::class,
+        ]);
 
         /*
          * Payment processors do not carry CSRF tokens, and cannot: a

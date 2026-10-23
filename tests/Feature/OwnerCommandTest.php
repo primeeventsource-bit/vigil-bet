@@ -84,3 +84,22 @@ it('records that an owner account was made, because it is a privileged one', fun
 
     expect(AuditEvent::pluck('action')->all())->toBe(['owner.created', 'owner.topped_up']);
 });
+
+it('makes the account an admin, because nothing else can', function () {
+    $this->artisan('vigil:owner', ['email' => 'owner@example.com'])->assertSuccessful();
+
+    // There is no other way to set the flag, and an admin area nobody
+    // can reach is not an admin area.
+    expect(User::sole()->isAdmin())->toBeTrue();
+
+    $this->actingAs(User::sole())->get(route('admin.overview'))->assertOk();
+});
+
+it('can create an account without admin access', function () {
+    $this->artisan('vigil:owner', ['email' => 'owner@example.com', '--no-admin' => true])
+        ->assertSuccessful();
+
+    expect(User::sole()->isAdmin())->toBeFalse();
+
+    $this->actingAs(User::sole())->get(route('admin.overview'))->assertNotFound();
+});

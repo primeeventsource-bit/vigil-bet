@@ -73,6 +73,7 @@ it('warns a customer on the daily card when the data is behind', function () {
     boardSyncedMinutesAgo(500);
 
     $user = User::forceCreate([
+        'is_admin' => true,
         'name' => 'Sam', 'email' => 'sam@example.com',
         'password' => 'correct-horse-battery-staple', 'email_verified_at' => now(),
     ]);
@@ -87,11 +88,12 @@ it('shows the operator every feed and the breaker', function () {
     boardSyncedMinutesAgo(5);
 
     $user = User::forceCreate([
+        'is_admin' => true,
         'name' => 'Sam', 'email' => 'sam@example.com',
         'password' => 'correct-horse-battery-staple', 'email_verified_at' => now(),
     ]);
 
-    $this->actingAs($user)->get(route('sync-health'))
+    $this->actingAs($user)->get(route('admin.sync-health'))
         ->assertOk()
         ->assertSee('Sync health')
         ->assertSee('board')
@@ -103,5 +105,5 @@ it('shows the operator every feed and the breaker', function () {
 });
 
 it('keeps sync health behind a login', function () {
-    $this->get(route('sync-health'))->assertRedirect(route('login'));
+    $this->get(route('admin.sync-health'))->assertRedirect(route('login'));
 });
