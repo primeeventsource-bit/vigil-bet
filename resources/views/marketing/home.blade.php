@@ -1,57 +1,110 @@
 <x-layouts.marketing>
-    <section class="mx-auto max-w-6xl px-6 py-20">
-        <p class="badge badge-edge">{{ config('brand.tagline') }}</p>
+    {{-- Hero --}}
+    <section class="relative isolate overflow-hidden border-b border-[var(--vg-line)]">
+        <span aria-hidden="true" class="fx-grid"></span>
+        <x-fx.circuit class="opacity-70" />
+        <x-fx.section-glow class="left-1/2 top-0 h-[26rem] w-[52rem] -translate-x-1/2 -translate-y-1/2" />
+        <x-fx.section-glow tone="signal" class="right-0 top-40 h-72 w-[34rem] translate-x-1/4" />
 
-        <h1 class="mt-5 max-w-3xl font-[family-name:var(--font-display)] text-5xl font-bold leading-tight">
-            Smarter bets.
-            <span class="text-[var(--vg-edge)]">Sharper edges.</span>
-        </h1>
+        <div class="relative mx-auto max-w-6xl px-6 py-24 sm:py-32">
+            <p class="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--vg-edge)_35%,transparent)] bg-[color-mix(in_srgb,var(--vg-edge)_10%,transparent)] px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-[var(--vg-edge)]">
+                <span class="relative inline-flex h-1.5 w-1.5 text-[var(--vg-edge)]">
+                    <span class="fx-pulse absolute inset-0 rounded-full"></span>
+                    <span class="relative inline-block h-1.5 w-1.5 rounded-full bg-current"></span>
+                </span>
+                {{ config('brand.tagline') }}
+            </p>
 
-        <p class="mt-5 max-w-2xl text-lg text-[var(--vg-slate)]">
-            {{ config('brand.description') }}
-        </p>
+            <h1 class="mt-7 max-w-3xl font-[family-name:var(--font-display)] text-5xl font-bold leading-[1.05] sm:text-7xl">
+                Smarter bets.<br>
+                <span class="fx-gradient-text">Sharper edges.</span>
+            </h1>
 
-        <div class="mt-8 flex flex-wrap gap-3">
-            <a href="{{ route('register') }}"
-               class="rounded-md bg-[var(--vg-edge)] px-5 py-2.5 font-semibold text-[var(--vg-night)]">
-                Start free
-            </a>
-            <a href="{{ route('how-it-works') }}"
-               class="rounded-md border border-[var(--vg-line)] px-5 py-2.5 font-semibold">
-                How it works
-            </a>
+            <p class="mt-6 max-w-xl text-lg leading-relaxed text-[var(--vg-slate)]">
+                {{ config('brand.description') }}
+            </p>
+
+            <div class="mt-9 flex flex-wrap items-center gap-3">
+                <a href="{{ route('register') }}"
+                   class="group relative inline-flex items-center gap-2 rounded-lg bg-[var(--vg-edge)] px-6 py-3 font-bold text-[var(--vg-night)] shadow-[0_0_32px_-8px_var(--vg-edge)] transition hover:shadow-[0_0_44px_-6px_var(--vg-edge)]">
+                    Start free
+                    <span aria-hidden="true" class="transition group-hover:translate-x-0.5">&rarr;</span>
+                </a>
+
+                <a href="{{ route('how-it-works') }}"
+                   class="rounded-lg border border-[var(--vg-line)] px-6 py-3 font-semibold text-[var(--vg-paper)] transition hover:border-[color-mix(in_srgb,var(--vg-edge)_45%,transparent)]">
+                    How it works
+                </a>
+            </div>
+
+            <p class="mt-5 font-[family-name:var(--font-mono)] text-xs text-[var(--vg-slate)]">
+                No card needed &middot; {{ config('vigil.minimum_age') }}+ only &middot; cancel in one click
+            </p>
         </div>
-
-        <p class="mt-4 text-sm text-[var(--vg-slate)]">
-            No card needed. {{ config('vigil.minimum_age') }}+ only.
-        </p>
     </section>
 
-    <section class="mx-auto max-w-6xl px-6 pb-20">
-        <h2 class="font-[family-name:var(--font-display)] text-2xl font-bold">Three steps</h2>
-
-        <ol class="mt-6 grid gap-5 sm:grid-cols-3">
-            @foreach ($steps as $i => $step)
-                <li class="panel p-5">
-                    <p class="font-[family-name:var(--font-mono)] text-sm text-[var(--vg-edge)]">
-                        0{{ $i + 1 }}
+    {{-- The honest counter-pitch, which is the product's actual edge. --}}
+    <section class="relative border-b border-[var(--vg-line)] bg-[var(--vg-navy)]">
+        <div class="mx-auto max-w-6xl px-6 py-16">
+            <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center">
+                <div>
+                    <h2 class="font-[family-name:var(--font-display)] text-3xl font-bold">
+                        Most days the answer is <span class="text-[var(--vg-slate)]">pass</span>.
+                    </h2>
+                    <p class="mt-4 text-[var(--vg-slate)]">
+                        A market only produces a pick once a model has beaten the no-vig closing line
+                        by more than chance explains, and is no worse calibrated than that line.
+                        Everything else is labelled <em>not yet proven</em> and gives you the analysis
+                        instead.
                     </p>
-                    <h3 class="mt-2 font-semibold">{{ $step['heading'] }}</h3>
-                    <p class="mt-1 text-sm text-[var(--vg-slate)]">{{ $step['body'] }}</p>
-                </li>
-            @endforeach
-        </ol>
-    </section>
+                    <p class="mt-4 text-[var(--vg-slate)]">
+                        Right now, nothing is proven. The product says so on its own front page,
+                        which is the whole reason to trust it the day something is.
+                    </p>
+                </div>
 
-    <section class="mx-auto max-w-6xl px-6 pb-24">
-        <div class="panel p-6">
-            <h2 class="font-[family-name:var(--font-display)] text-xl font-bold">What we will not do</h2>
-            <ul class="mt-4 grid gap-2 text-sm text-[var(--vg-slate)] sm:grid-cols-2">
-                <li>Never take a bet or hold your money.</li>
-                <li>Never sell a pick from a market we have not proven.</li>
-                <li>Never show a win rate without its sample size.</li>
-                <li>Never make cancelling difficult.</li>
-            </ul>
+                <ul class="grid gap-3 sm:grid-cols-2">
+                    @foreach ([
+                        ['Never takes a bet', 'No wallet, no deposit, no payout. You bet at your own book.'],
+                        ['Never invents a number', 'Every edge and verdict is read from the engine, not recomputed.'],
+                        ['Never hides a pass', 'You see what was declined, and why.'],
+                        ['Never a rate without its n', 'A win rate with no sample size is not evidence.'],
+                    ] as [$title, $body])
+                        <li class="fx-panel fx-panel-lift p-5">
+                            <p class="font-semibold">{{ $title }}</p>
+                            <p class="mt-1.5 text-sm text-[var(--vg-slate)]">{{ $body }}</p>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
         </div>
     </section>
+
+    {{-- Three steps --}}
+    <section class="relative isolate overflow-hidden border-b border-[var(--vg-line)]">
+        <x-fx.section-glow class="left-1/2 top-0 h-64 w-[36rem] -translate-x-1/2 -translate-y-1/2 opacity-30" />
+
+        <div class="relative mx-auto max-w-6xl px-6 py-20">
+            <h2 class="font-[family-name:var(--font-display)] text-3xl font-bold">How it works</h2>
+            <div class="fx-rule mt-5 max-w-xs"></div>
+
+            <ol class="mt-10 grid gap-5 md:grid-cols-3">
+                @foreach ($steps as $i => $step)
+                    <li class="fx-panel fx-panel-lift relative p-6">
+                        <span class="font-[family-name:var(--font-mono)] text-sm font-bold text-[var(--vg-edge)]" data-numeric>
+                            {{ str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT) }}
+                        </span>
+                        <h3 class="mt-3 font-[family-name:var(--font-display)] text-lg font-semibold">
+                            {{ $step['heading'] }}
+                        </h3>
+                        <p class="mt-2 text-sm leading-relaxed text-[var(--vg-slate)]">{{ $step['body'] }}</p>
+                    </li>
+                @endforeach
+            </ol>
+        </div>
+    </section>
+
+    <x-marketing.track-record-strip :record="$record" />
+    <x-marketing.tiers />
+    <x-marketing.faq />
 </x-layouts.marketing>

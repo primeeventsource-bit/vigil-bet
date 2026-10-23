@@ -222,3 +222,113 @@
         max-width: 100%;
     }
 }
+
+@layer components {
+    /*
+     * The look: a dark field with light coming from behind the content
+     * rather than from a flat background colour. Everything here is
+     * decoration and carries no meaning - nothing a reader needs is
+     * encoded in a glow, and every effect degrades to a plain dark panel
+     * when motion is reduced or the gradient is unsupported.
+     */
+
+    /* A soft lamp behind a section. Positioned by the caller. */
+    .fx-glow {
+        position: absolute;
+        border-radius: 9999px;
+        /*
+         * Low opacity on purpose. A glow is meant to suggest light
+         * behind the content, and at full strength it stops being
+         * lighting and becomes a green corner - it flattens the grid
+         * behind it and drags the text contrast down with it.
+         */
+        filter: blur(120px);
+        opacity: 0.22;
+        pointer-events: none;
+    }
+
+    .fx-glow-edge { background: var(--vg-edge); }
+    .fx-glow-signal { background: var(--vg-blue); }
+
+    /* Engineering grid. Fades out as it rises, so it reads as depth. */
+    .fx-grid {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+            linear-gradient(to right, color-mix(in srgb, var(--vg-edge) 11%, transparent) 1px, transparent 1px),
+            linear-gradient(to bottom, color-mix(in srgb, var(--vg-edge) 11%, transparent) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+    }
+
+    /*
+     * A hairline that brightens toward the middle. Used to separate
+     * sections without a hard rule across the whole width.
+     */
+    .fx-rule {
+        height: 1px;
+        background: linear-gradient(to right,
+            transparent,
+            color-mix(in srgb, var(--vg-edge) 45%, transparent),
+            transparent);
+    }
+
+    /*
+     * Panel with a lit top edge. The border is drawn with a gradient
+     * behind the content rather than with border-image, which cannot do
+     * rounded corners reliably across engines.
+     */
+    .fx-panel {
+        position: relative;
+        border-radius: 0.9rem;
+        background:
+            linear-gradient(var(--vg-navy), var(--vg-navy)) padding-box,
+            linear-gradient(160deg,
+                color-mix(in srgb, var(--vg-edge) 38%, transparent),
+                var(--vg-line) 42%,
+                var(--vg-line)) border-box;
+        border: 1px solid transparent;
+        transition: transform 180ms ease, box-shadow 180ms ease;
+    }
+
+    .fx-panel-lift:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 16px 40px -20px color-mix(in srgb, var(--vg-edge) 55%, transparent);
+    }
+
+    /* Frosted surface for anything sitting over a glow. */
+    .fx-glass {
+        background: color-mix(in srgb, var(--vg-navy) 72%, transparent);
+        backdrop-filter: blur(14px);
+        border: 1px solid color-mix(in srgb, var(--vg-paper) 8%, transparent);
+    }
+
+    /* Text that picks up the accent without losing contrast. */
+    .fx-gradient-text {
+        background: linear-gradient(100deg, var(--vg-edge), #7CFFC4 55%, var(--vg-edge));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    /* The live dot. Stops entirely under prefers-reduced-motion. */
+    .fx-pulse::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 9999px;
+        background: currentColor;
+        opacity: 0.6;
+        animation: fx-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+
+    @keyframes fx-ping {
+        75%, 100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .fx-pulse::after { animation: none; display: none; }
+        .fx-panel-lift:hover { transform: none; }
+    }
+}

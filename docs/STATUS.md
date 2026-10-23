@@ -285,6 +285,40 @@ a saturated blue that does not match the grey in the artwork. Built as
 
 ---
 
+## Marketing site — the new-age technology look
+
+**Done. 129 tests passing, Pint clean.**
+
+The public pages were the plain ones; all the design attention had gone to
+the dashboard. Rebuilt around a small set of effect primitives in
+`app.css`: a soft lamp behind sections, an engineering grid that fades as
+it rises, gradient-bordered panels that lift on hover, frosted glass, a
+gradient headline, and a pulse on the live dot.
+
+Every one of them is decoration and says so. Nothing a reader needs is
+encoded in a glow, and all of it degrades to a plain dark panel when the
+gradient is unsupported or motion is reduced.
+
+**The hero trace is marked `aria-hidden` and drawn with no axis, no scale
+and no numbers** — deliberately. A chart on a marketing page that looks
+like results, before there are any results, is the exact thing §0.7 rules
+out. It is a texture, drawn to look like one.
+
+**`config/plans.php`** now holds the tiers from §4 — prices in integer
+cents, features, limits — so the pricing page and the enforcement that
+arrives at step 5 read from one source. `:brand` in any string resolves
+to `config(brand.name)` at render time; a tier written out as "Vigil
+Pro" would have survived a rebrand and quietly kept saying the old name.
+
+Nothing is on sale. The paid cards say so rather than taking a card for a
+product that cannot yet deliver what is being charged for, and the record
+strip shows no rate at all because nothing has settled.
+
+Also restyled: pricing, how-it-works, the record page, and a FAQ built on
+native `<details>` so it works without JavaScript.
+
+---
+
 ## Step 5 — Entitlements and plans
 
 Not started. Free/Daily/Pro limits from `config/plans.php`, enforced

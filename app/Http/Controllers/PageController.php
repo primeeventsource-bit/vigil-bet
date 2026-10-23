@@ -25,6 +25,7 @@ class PageController extends Controller
          * can find when it needs changing.
          */
         return view('marketing.home', [
+            'record' => $this->publicRecord(),
             'steps' => [
                 [
                     'heading' => 'We read the whole market',
@@ -47,6 +48,28 @@ class PageController extends Controller
         return view('marketing.pricing');
     }
 
+    /**
+     * The published track record.
+     *
+     * Returns zeros rather than figures because nothing has been
+     * published: `published_picks` arrives at step 9. Every caller checks
+     * `settled` before showing a rate, and the one that does not would be
+     * the bug - so there is nothing here that could be mistaken for a
+     * result.
+     *
+     * @return array<string, mixed>
+     */
+    private function publicRecord(): array
+    {
+        return [
+            'settled' => 0,
+            'record' => null,
+            'units' => null,
+            'roi' => null,
+            'clv' => null,
+        ];
+    }
+
     public function howItWorks(): View
     {
         return view('marketing.how-it-works');
@@ -54,7 +77,7 @@ class PageController extends Controller
 
     public function record(): View
     {
-        return view('marketing.record');
+        return view('marketing.record', ['record' => $this->publicRecord()]);
     }
 
     /**
