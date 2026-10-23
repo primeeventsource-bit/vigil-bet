@@ -37,8 +37,26 @@
 
         <a href="{{ route('account') }}"
            class="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--vg-slate-dark)] text-xs font-bold"
-           aria-label="Account">
+           aria-label="Account"
+           title="{{ auth()->user()?->email }}">
             {{ str(auth()->user()?->name ?? '')->explode(' ')->take(2)->map(fn ($p) => str($p)->substr(0, 1))->implode('') ?: 'VG' }}
         </a>
+
+        {{--
+            Sign out, visible on every page rather than buried in
+            Account. A product that takes a customer two clicks to leave
+            is being rude about it, and on a gambling product that is
+            worse than rude.
+
+            A POST, because a GET that logs somebody out can be fired by
+            any image tag on any page they visit.
+        --}}
+        <form method="POST" action="{{ route('logout') }}">
+            @csrf
+            <button type="submit"
+                    class="rounded-lg border border-[var(--vg-line)] px-3 py-1.5 text-xs font-semibold text-[var(--vg-slate)] transition hover:text-[var(--vg-paper)]">
+                Sign out
+            </button>
+        </form>
     </div>
 </header>

@@ -14,6 +14,7 @@ use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\BankrollController;
 use App\Http\Controllers\BetController;
 use App\Http\Controllers\BillingController;
+use App\Http\Controllers\BoardController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LearningCenterController;
 use App\Http\Controllers\ModelLabController;
@@ -21,6 +22,7 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\ParlayController;
 use App\Http\Controllers\PropsController;
 use App\Http\Controllers\RecordController;
+use App\Http\Controllers\SafetyController;
 use App\Http\Controllers\SyncHealthController;
 use App\Http\Controllers\ToolsController;
 use App\Http\Controllers\UpgradeController;
@@ -90,6 +92,13 @@ Route::middleware('guest')->group(function (): void {
 });
 
 Route::post('logout', [LoginController::class, 'destroy'])->middleware('auth')->name('logout');
+
+/*
+ * Where a self-excluded customer lands. Public, because the middleware
+ * signs them out before sending them here - and it offers no way back
+ * in, which is the whole point of §9's promise.
+ */
+Route::get('excluded', [SafetyController::class, 'excluded'])->name('excluded');
 
 /*
 |--------------------------------------------------------------------------
@@ -174,15 +183,18 @@ Route::middleware('auth')->group(function (): void {
          * JSON response.
          */
         Route::middleware('entitled:board.full')->group(function (): void {
-            Route::view('live-odds', 'app.placeholder', [
-                'heading' => 'Live Odds',
-                'step' => 'Step 4 — the board and the game page.',
-            ])->name('live-odds');
-
-            Route::view('picks', 'app.placeholder', [
-                'heading' => 'Picks',
-                'step' => 'Step 4 — the full value board, every pick and every pass.',
-            ])->name('picks');
+            /*
+             * The full value board: every candidate the engine judged,
+             * filterable by sport, date, market, book and whether it was
+             * a pick or a pass.
+             *
+             * Two names for one page. The design calls the nav item
+             * "Live Odds" and the spec calls the page "Board", and a
+             * customer who clicks either should land on the board rather
+             * than on two slightly different versions of it.
+             */
+            Route::get('live-odds', BoardController::class)->name('live-odds');
+            Route::get('picks', BoardController::class)->name('picks');
         });
 
         /*
@@ -296,6 +308,14 @@ Route::middleware('auth')->group(function (): void {
                 Route::post('flag', [AdminActionController::class, 'flag'])->name('flag');
             });
         });
+
+        /*
+         * Responsible gambling. Ungated: §9 is a compliance requirement
+         * and not a feature of a tier.
+         */
+        Route::get('account/responsible-gambling', [SafetyController::class, 'show'])->name('safety');
+        Route::post('account/self-exclude', [SafetyController::class, 'exclude'])
+            ->middleware('throttle:5,1')->name('safety.exclude');
 
         Route::get('account/two-factor', [TwoFactorController::class, 'show'])->name('two-factor.show');
         Route::post('account/two-factor', [TwoFactorController::class, 'store'])->name('two-factor.store');

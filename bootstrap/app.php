@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnforceSelfExclusion;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureEntitled;
 use Illuminate\Foundation\Application;
@@ -22,6 +23,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'entitled' => EnsureEntitled::class,
             'admin' => EnsureAdmin::class,
         ]);
+
+        /*
+         * Self-exclusion, on every authenticated request. §9 promises a
+         * lock, and a lock enforced per page is a lock with as many
+         * holes as there are pages somebody forgot - so it runs in the
+         * web group rather than being applied route by route.
+         */
+        $middleware->appendToGroup('web', EnforceSelfExclusion::class);
 
         /*
          * Payment processors do not carry CSRF tokens, and cannot: a

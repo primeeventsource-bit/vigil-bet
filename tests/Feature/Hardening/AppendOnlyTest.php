@@ -45,9 +45,23 @@ function appendOnlyModels(): array
 }
 
 it('finds the append-only models rather than trusting a list', function () {
-    // If this drops below what the product actually has, the sweep below
-    // is silently testing nothing.
-    expect(appendOnlyModels())->toHaveCount(14);
+    $found = collect(appendOnlyModels())->map(fn (string $class) => class_basename($class));
+
+    /*
+     * A floor rather than an exact count. The point of this assertion is
+     * to fail if the reflection breaks and the sweep below starts
+     * testing nothing - not to fail every time somebody legitimately
+     * adds an append-only model, which is what an exact count does.
+     *
+     * The named tables are the ones whose immutability is load-bearing:
+     * the evidence log, the money, the public record and the lock
+     * somebody cannot talk their way out of.
+     */
+    expect($found->count())->toBeGreaterThanOrEqual(15);
+
+    foreach (['AuditEvent', 'BillingEvent', 'PublishedPick', 'PickResult', 'SelfExclusion'] as $critical) {
+        expect($found)->toContain($critical);
+    }
 });
 
 it('refuses an update on every append-only model', function () {

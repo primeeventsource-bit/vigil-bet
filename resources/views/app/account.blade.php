@@ -193,6 +193,23 @@
         @endif
     </div>
 
+    {{--
+        Responsible gambling. Linked from Account because §9 puts it
+        there, and a safeguard nobody can find is not a safeguard.
+    --}}
+    <div class="panel mt-5 p-6">
+        <h2 class="font-semibold">Responsible gambling</h2>
+        <p class="mt-1 text-sm text-[var(--vg-slate)]">
+            Lock yourself out for 7, 30 or 90 days. Once started it cannot be shortened or
+            cancelled by you or by support.
+        </p>
+        <p class="mt-3">
+            <a class="text-[var(--vg-blue)] underline" href="{{ route('safety') }}">
+                Self-exclusion and support
+            </a>
+        </p>
+    </div>
+
     <div class="panel mt-5 p-6">
         <h2 class="font-semibold">Security</h2>
         <p class="mt-1 text-sm text-[var(--vg-slate)]">
