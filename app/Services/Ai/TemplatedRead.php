@@ -21,6 +21,63 @@ class TemplatedRead
     /** @param  array<string, mixed>  $sheet */
     public function compose(array $sheet): string
     {
+        return ($sheet['kind'] ?? null) === 'parlay'
+            ? $this->parlay($sheet)
+            : $this->boardEntry($sheet);
+    }
+
+    /**
+     * A parlay grade, in plain words.
+     *
+     * The hold is what leads, because it is the figure that decides the
+     * question and the one a customer has almost certainly never been
+     * shown. It compounds with every leg, which is why a six-leg slip at
+     * prices that each look fair is usually dreadful.
+     *
+     * @param  array<string, mixed>  $sheet
+     */
+    private function parlay(array $sheet): string
+    {
+        $legs = (int) ($sheet['legs'] ?? 0);
+
+        if (($sheet['judge_answered'] ?? false) !== true) {
+            // Not "no value". Nobody answered, and saying otherwise would
+            // be a verdict the engine never gave.
+            return "This {$legs}-leg slip has not been graded: the engine could not be reached, "
+                .'so there is no probability, no fair price and no edge to report. '
+                .'Nothing here says the slip is good or bad - it says the question went unanswered. '
+                .'Try again shortly.';
+        }
+
+        $parts = [];
+
+        $parts[] = "This slip has {$legs} legs.";
+
+        if (isset($sheet['win_probability_written'])) {
+            $parts[] = "The engine puts the chance of all of them landing at {$sheet['win_probability_written']}.";
+        }
+
+        if (isset($sheet['fair_price_written'], $sheet['offered_price_written'])) {
+            $parts[] = "A fair price for that would be {$sheet['fair_price_written']}; the book is offering "
+                ."{$sheet['offered_price_written']}.";
+        }
+
+        if (isset($sheet['book_hold_written'])) {
+            $parts[] = "The book keeps {$sheet['book_hold_written']} of every dollar staked on this "
+                .'combination, and that figure grows with each leg added.';
+        }
+
+        if (isset($sheet['shaded_edge_written'])) {
+            $parts[] = "After allowing for the model's own uncertainty, the edge on this slip is "
+                ."{$sheet['shaded_edge_written']}.";
+        }
+
+        return implode(' ', $parts);
+    }
+
+    /** @param  array<string, mixed>  $sheet */
+    private function boardEntry(array $sheet): string
+    {
         $parts = [];
 
         $selection = $sheet['selection'] ?? 'This selection';

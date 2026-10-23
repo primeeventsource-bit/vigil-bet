@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Models\AiUsage;
+use App\Models\ParlayGrade;
 use App\Models\User;
 use App\Models\VigilRead;
 use App\Models\VlBoardEntry;
@@ -56,6 +57,31 @@ class ReadWriter
         }
 
         return $this->write('board_entry', $entry->id, $this->facts->forBoardEntry($entry), $version, $bulk, $for);
+    }
+
+    /**
+     * The Read for a parlay grade.
+     *
+     * Generated once per grade, like a board Read - a grade is
+     * append-only, so its explanation never needs to change. Charged to
+     * the customer who asked for it, because unlike a board Read this
+     * one was generated for one person.
+     */
+    public function forParlay(ParlayGrade $grade, ?User $for = null): VigilRead
+    {
+        $version = (int) config('ai.prompt_version');
+
+        $existing = VigilRead::query()
+            ->where('subject_type', 'parlay')
+            ->where('subject_id', $grade->id)
+            ->where('prompt_version', $version)
+            ->first();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        return $this->write('parlay', $grade->id, $this->facts->forParlay($grade), $version, false, $for);
     }
 
     /** @param  array<string, mixed>  $sheet */

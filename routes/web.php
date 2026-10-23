@@ -14,6 +14,7 @@ use App\Http\Controllers\BillingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LearningCenterController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\ParlayController;
 use App\Http\Controllers\SyncHealthController;
 use App\Http\Controllers\UpgradeController;
 use App\Http\Controllers\WebhookController;
@@ -171,10 +172,18 @@ Route::middleware('auth')->group(function (): void {
             ])->name('picks');
         });
 
-        Route::view('parlays', 'app.placeholder', [
-            'heading' => 'Parlays',
-            'step' => 'Step 8 — built on Edge Lab’s parlay judge, which is already wired.',
-        ])->middleware('entitled:parlay.grade')->name('parlays');
+        /*
+         * Parlays. The grader is ungated - §4 gives the free plan three
+         * a day - and the daily cap is counted in the controller.
+         */
+        Route::middleware('entitled:parlay.grade')->group(function (): void {
+            Route::get('parlays', [ParlayController::class, 'index'])->name('parlays');
+            Route::post('parlays/legs', [ParlayController::class, 'add'])->name('parlays.add');
+            Route::delete('parlays/legs', [ParlayController::class, 'remove'])->name('parlays.remove');
+            Route::delete('parlays', [ParlayController::class, 'clear'])->name('parlays.clear');
+            Route::post('parlays/grade', [ParlayController::class, 'grade'])
+                ->middleware('throttle:30,1')->name('parlays.grade');
+        });
 
         Route::view('analytics', 'app.placeholder', [
             'heading' => 'Analytics',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai;
 
+use App\Models\ParlayGrade;
 use App\Models\VlBoardEntry;
 use App\Models\VlEvent;
 use App\Models\VlModel;
@@ -85,6 +86,65 @@ class FactSheet
         $sheet += $this->game($entry);
         $sheet += $this->model($entry);
         $sheet += $this->movement($entry);
+
+        return array_filter($sheet, static fn ($v) => $v !== null);
+    }
+
+    /**
+     * A parlay grade, as Edge Lab judged it.
+     *
+     * §6 names parlay hold and shaded edge specifically, and they are the
+     * two figures a customer most needs and least often sees. The hold is
+     * what the book keeps; it compounds with every leg, which is why a
+     * six-leg parlay at fair-looking prices is usually terrible. The
+     * shaded edge is what is left after the model's own uncertainty is
+     * taken into account, which is the only version of the number worth
+     * acting on.
+     *
+     * Every value comes from the stored grade. Nothing is recomputed
+     * here: multiplying leg probabilities on this side would produce a
+     * figure that looked like a parlay probability and was not one, since
+     * legs on the same game are correlated.
+     *
+     * @return array<string, mixed>
+     */
+    public function forParlay(ParlayGrade $grade): array
+    {
+        $sheet = [
+            'kind' => 'parlay',
+            'legs' => $grade->leg_count,
+            // Said plainly, because a Read about an unanswered grade must
+            // not describe it as a bad bet.
+            'judge_answered' => $grade->wasAnswered(),
+            'unavailable_reason' => $grade->unavailable_reason,
+            'verdict' => $grade->verdict,
+            'injuries_modelled' => false,
+        ];
+
+        $sheet += $this->probability('win_probability', $grade->win_probability);
+        $sheet += $this->probability('book_hold', $grade->book_hold);
+        $sheet += $this->probability('shaded_edge', $grade->shaded_edge);
+
+        if ($grade->fair_price_american !== null) {
+            $sheet['fair_price_american'] = $grade->fair_price_american;
+            $sheet['fair_price_written'] = ($grade->fair_price_american > 0 ? '+' : '').$grade->fair_price_american;
+        }
+
+        if ($grade->offered_price_american !== null) {
+            $sheet['offered_price_american'] = $grade->offered_price_american;
+            $sheet['offered_price_written'] = ($grade->offered_price_american > 0 ? '+' : '').$grade->offered_price_american;
+        }
+
+        /*
+         * The legs themselves, so the Read can name them. Only what was
+         * submitted - the judge's own per-leg breakdown, where it
+         * returns one, is already in the stored result.
+         */
+        $sheet['leg_markets'] = collect($grade->legs)
+            ->map(fn (array $leg) => trim(($leg['market'] ?? '').' '.($leg['side'] ?? '')))
+            ->filter()
+            ->values()
+            ->all();
 
         return array_filter($sheet, static fn ($v) => $v !== null);
     }
