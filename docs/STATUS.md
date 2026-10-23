@@ -749,3 +749,143 @@ both need subjects that do not exist until step 8 — `user_bets` and the
 parlay slip. The fact-sheet methods for them (including parlay hold and
 shaded edge) land with those models rather than being written against
 nothing.
+
+---
+
+## Step 8 — My Bets, Bankroll, Parlay, Props, Model Lab, Tools
+
+Done. 370 tests pass.
+
+### My Bets
+
+Nothing here places a bet. Vigil holds no money, has no sportsbook and
+cannot move a cent at anybody's book — these rows record that a customer
+*says* they backed a selection at a price, so their record, their ROI and
+their closing line value have something to measure.
+
+Every change is an event first (`user_bet_events`, append-only) and a
+projection second. A track record is a claim about the past, and a claim
+about the past that lives in a mutable row is not evidence of anything. It
+also means a settlement bug can be fixed and replayed rather than leaving
+every affected row permanently wrong.
+
+Grading is automatic, from the final score Edge Lab mirrored, and the event
+log records whether a settlement came from a score or from a person — those
+are different claims about a record. A game with no final score stays
+pending; a market nobody wrote a rule for stays pending *and is counted*,
+so it shows up as a gap rather than as a silent loss.
+
+**Push and void** both return the stake and are not the same thing: a push
+was a prediction that got tested, a void was a game that never ran. Only
+the push is in the record. Settlement is idempotent, because the settler
+runs hourly and re-settling would invent money in the ledger.
+
+**Closing line value** is read from quotes stored *before kickoff* and from
+nowhere else. There is no backfill that fetches a price nobody wrote down
+at the time — that would be a fabricated measurement of exactly what this
+product sells. An in-play quote is ignored: −400 at half time would report
+an enormous and entirely false edge.
+
+The CSV is the customer's own bets, scoped in the query rather than
+filtered afterwards. A test puts a board full of prices in the database and
+asserts none of it appears — §9 forbids an odds export and a bet export is
+exactly where one would be smuggled in.
+
+### Bankroll — the part that matters
+
+§8 asks for loss limits "with no override" and Edge Lab's behaviour is
+ported deliberately. A limit a customer can lift mid-session is not a
+limit; it is a dialog that appears at the worst possible moment and asks
+somebody who is losing whether they would like to continue, and it gets
+answered yes.
+
+So: tightening applies at once, loosening applies tomorrow, and removing a
+limit entirely counts as the largest loosening there is — otherwise `null`
+slips through as "not a bigger number" and the limit vanishes on the spot.
+There is no confirm-and-proceed, no "I understand the risks" checkbox, and
+no parameter anywhere that skips the check. A test fires `force`,
+`override`, `confirm` and `acknowledge_risk` at the endpoint to prove it.
+
+The limit counts a **running stake**, not just a settled loss. Otherwise
+somebody stakes their way past it on a Sunday afternoon and finds out on
+Monday. A winner that puts them back to even lifts the block, because the
+limit is about being down rather than about having staked.
+
+Kelly is scaled (quarter by default, capped below full) and then capped
+flat. The cap is the part that saves people: Kelly on an over-confident
+probability recommends a stake that ruins somebody. A bet with no edge gets
+a stake of **zero**, not a small one — there is no stake at which a
+negative-edge bet becomes a good idea.
+
+### Parlay
+
+The slip lives in the session, not the database: a half-built combination
+is not a decision, and writing every keystroke to a table would bury the
+parlays somebody actually weighed under the ones they were idly poking at.
+Only a grade is stored, append-only, because it is what a Read attaches to,
+what the daily cap is counted against, and what a customer should be able
+to look back at.
+
+Vigil computes none of the maths. Legs on the same game are correlated, and
+multiplying leg probabilities on this side would produce a number that
+looked like a parlay probability and was not one — which is how a parlay
+product flatters itself. Edge Lab's judge answers; its whole response is
+stored verbatim, including fields Vigil knows nothing about.
+
+Three refusals, each a thing a customer would otherwise discover from a
+grade that made no sense: the same selection twice, two sides of one market
+(not a correlation — they cannot both win), and more legs than the judge is
+useful for. A leg from an unproven market is refused too.
+
+The page leads with **what the book keeps**, because the hold compounds with
+every leg and showing that figure is more useful and harder to argue with
+than a warning. An unreachable judge is reported as a question nobody
+answered rather than a slip with no value, and the Read says the same — so a
+fallback explanation cannot quietly become a verdict the engine never gave.
+
+### Props — collected, not modelled
+
+Edge Lab ingests props into a column the model pipeline cannot read, and
+the schema enforces that rather than a convention. So there is no
+probability, no edge and no verdict on this page, the copy says so in the
+first sentence, and a test asserts no edge or confidence column appears.
+
+What it *is* for is line shopping: the same player at the same number
+priced differently across books is a real, checkable advantage needing no
+model at all. Best price is marked, and the spread between best and worst
+tells the customer whether shopping was worth the trouble. `+105` beats
+`−130`, which is true across the sign boundary and is the kind of thing
+that gets written wrong.
+
+### Tools — arbitrage and middles
+
+Arithmetic on prices already stored. Nothing is fetched to build the page
+and nothing is written back, so §2's read-only boundary and §9's
+no-bulk-odds rule both hold.
+
+It only sees games somebody has already opened, because that is all the
+display mirror contains. **That is the licence boundary working, not a
+missing feature** — a cross-book scanner over every game in every league is
+precisely the bulk-odds product the licence forbids, and the page says so
+rather than implying coverage it does not have.
+
+Two guards worth naming: one book's own two sides are never called an
+arbitrage (a book does not price itself into one; if it looks like it has,
+the data is stale), and only the newest quote per book and side counts,
+since two stale quotes are not two prices a customer could take. Middles
+report the gap *and* what it costs when the result lands outside it — a
+middle is not free money.
+
+### Model Lab
+
+The transparency page, and nothing on it is filtered to flatter: a market
+with a negative verdict appears with its number. The gate is read off the
+models themselves rather than restated, and when the models disagree about
+their thresholds the page says so instead of showing one as though it
+applied to all.
+
+The calibration chart §8 asks for is **not drawn**. Edge Lab computes and
+stores the bins; its read-only API does not expose them. One endpoint
+(`calibration_bins`) would finish the panel. Until then the page says so —
+a fabricated calibration curve on the page whose entire purpose is
+transparency would be the single worst thing in this product.

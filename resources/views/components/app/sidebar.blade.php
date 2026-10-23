@@ -17,7 +17,9 @@
         ['route' => 'picks', 'label' => 'AI Picks', 'icon' => 'target', 'feature' => 'board.full'],
         ['route' => 'parlays', 'label' => 'Parlays', 'icon' => 'layers', 'feature' => 'parlay.grade'],
         ['route' => 'analytics', 'label' => 'Analytics', 'icon' => 'chart', 'feature' => 'bets.clv'],
-        ['route' => 'models', 'label' => 'Models', 'icon' => 'cpu', 'feature' => 'modellab'],
+        ['route' => 'props', 'label' => 'Props', 'icon' => 'target', 'feature' => 'props'],
+        ['route' => 'tools', 'label' => 'Tools', 'icon' => 'search', 'feature' => 'tools.crossbook'],
+        ['route' => 'models', 'label' => 'Model Lab', 'icon' => 'cpu', 'feature' => 'modellab'],
         ['route' => 'learning', 'label' => 'Learning', 'icon' => 'chart'],
 
         ['route' => 'bets', 'label' => 'My Bets', 'icon' => 'file'],

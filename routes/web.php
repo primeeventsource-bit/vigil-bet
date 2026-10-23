@@ -13,9 +13,12 @@ use App\Http\Controllers\BetController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LearningCenterController;
+use App\Http\Controllers\ModelLabController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ParlayController;
+use App\Http\Controllers\PropsController;
 use App\Http\Controllers\SyncHealthController;
+use App\Http\Controllers\ToolsController;
 use App\Http\Controllers\UpgradeController;
 use App\Http\Controllers\WebhookController;
 use App\Models\User;
@@ -190,10 +193,20 @@ Route::middleware('auth')->group(function (): void {
             'step' => 'Step 8 — closing line value and your own record.',
         ])->middleware('entitled:bets.clv')->name('analytics');
 
-        Route::view('models', 'app.placeholder', [
-            'heading' => 'Models',
-            'step' => 'Step 8 — which markets are proven, and the gate each was measured against.',
-        ])->middleware('entitled:modellab')->name('models');
+        /*
+         * Props and Tools. Both Pro, both read-only, and both limited
+         * to games somebody has already opened - which is the licence
+         * boundary doing its job rather than a missing feature.
+         */
+        Route::get('props', PropsController::class)
+            ->middleware('entitled:props')->name('props');
+
+        Route::get('tools', ToolsController::class)
+            ->middleware('entitled:tools.crossbook')->name('tools');
+
+        // Model Lab: the transparency page. Pro, per §4.
+        Route::get('models', ModelLabController::class)
+            ->middleware('entitled:modellab')->name('models');
 
         Route::view('reports', 'app.placeholder', [
             'heading' => 'Reports',
