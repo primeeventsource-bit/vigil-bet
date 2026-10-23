@@ -1,4 +1,4 @@
-@props(['pick'])
+@props(['pick', 'read' => null])
 
 {{--
     The phone view of a pick. A card rather than a squeezed table: six
@@ -74,6 +74,8 @@
             @endif
         </ul>
     </div>
+
+    <x-vigil-read :read="$read ?? null" />
 
     <form method="POST" action="{{ route('bets.store') }}" class="mt-4">
         @csrf

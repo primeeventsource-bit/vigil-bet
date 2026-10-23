@@ -319,6 +319,74 @@ native `<details>` so it works without JavaScript.
 
 ---
 
+## Step 7 — the Vigil Read (Claude)
+
+**Done. 151 tests passing, Pint clean.**
+
+The AI layer, built to §6. It explains numbers and produces none of them.
+
+**The fact sheet** is assembled only from mirrored rows — probability,
+fair price, edge, verdict, price, book — in both decimal and written form.
+Nothing is computed into it. It carries `injuries_modelled: false`, so a
+Read cannot imply an injury moved a number that no feature reads.
+
+**The validator is the component the feature rests on.** It pulls every
+numeric token out of the prose and every numeric value out of the sheet,
+and rejects the Read if the first set is not contained in the second. It
+cannot judge whether a sentence reasons well; it can tell whether the
+figures in it were given. A model writing about probabilities will
+occasionally produce a number that is plausible, well-placed and wrong,
+and in a betting product that is not a typo — it is the thing the customer
+acted on. Bare integers under 100 pass as prose; anything with a decimal,
+a percent, a sign or three digits must be supported.
+
+**On failure it regenerates once with the reason named, then falls back**
+to a templated explanation assembled by concatenation, which cannot invent
+anything because there is no code path by which it could. An unvalidated
+Read is never stored and never shown. The UI labels which one a customer
+is reading.
+
+`ai_usage` records every call **including the rejected ones** — a Read
+that was regenerated cost twice and shipped once, and a month of that is a
+prompt problem arriving as a bill.
+
+### One design change the tests forced
+
+The Anthropic SDK speaks PSR-18 through discovery and never touches
+Laravel's HTTP client, so `Http::fake()` could not reach it — a test that
+faked the network would have passed while the real call went out. The SDK
+now sits behind a `Claude` interface that Vigil owns. One class imports
+the SDK; everything above it deals in a prompt and a reply.
+
+### To turn it on
+
+Set `ANTHROPIC_API_KEY`. Without it the product still writes Reads, from
+the template, and says so on each one.
+
+---
+
+## Engine spec — mostly already built, in Edge Lab
+
+The autonomous prediction-and-learning engine described on 2026-10-23 is
+largely Edge Lab, which already does: historical ingestion with
+leakage-safe snapshots, per-sport models, append-only predictions
+timestamped before kickoff, automatic settlement, walk-forward backtests,
+log loss / Brier / calibration, closing-line value, fractional Kelly with
+loss limits, and model versions promoted only through a statistical gate.
+
+The live engine proves the gate works: **14 model versions, zero proven** —
+8 insufficient data, 4 negative, 2 unproven. It is refusing to promote
+models that do not beat the closing line, which is the self-improving
+behaviour working rather than a gap in it.
+
+Genuinely missing: an **AI Learning Center** surfacing calibration and
+model history to an operator, and a **live-betting path**. One real
+conflict needs a decision: the pasted spec asks for a separate Python ML
+service, and Edge Lab is deliberately 100% PHP because Laravel Cloud runs
+PHP only.
+
+---
+
 ## Step 5 — Entitlements and plans
 
 Not started. Free/Daily/Pro limits from `config/plans.php`, enforced
