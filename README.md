@@ -10,6 +10,8 @@ public track record and a marketing site.
 The full build spec is [docs/MASTER_PROMPT.md](docs/MASTER_PROMPT.md); progress against its build
 order is in [docs/STATUS.md](docs/STATUS.md), and the visual direction is in
 [docs/BRAND.md](docs/BRAND.md).
+Choices that were genuinely open are recorded in
+[docs/DECISIONS.md](docs/DECISIONS.md).
 
 ## Requirements
 

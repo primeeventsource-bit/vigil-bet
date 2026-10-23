@@ -379,12 +379,14 @@ The live engine proves the gate works: **14 model versions, zero proven** —
 models that do not beat the closing line, which is the self-improving
 behaviour working rather than a gap in it.
 
-Since built: the **AI Learning Center**, in its own section. Still missing: a
-**live-betting path**, and two read-only Edge Lab endpoints for the
-calibration curve and per-prediction results. One real
-conflict needs a decision: the pasted spec asks for a separate Python ML
-service, and Edge Lab is deliberately 100% PHP because Laravel Cloud runs
-PHP only.
+Since built: the **AI Learning Center**, in its own section below.
+
+The Python-vs-PHP question is settled: **PHP stays**, and the modelling
+remains in Edge Lab — see [DECISIONS.md](DECISIONS.md) for the reasoning.
+
+Still missing: a **live-betting path**, and two read-only Edge Lab
+endpoints for the calibration curve and per-prediction results. Both are
+specified in DECISIONS.md.
 
 ---
 
