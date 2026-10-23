@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\VlBoardEntry;
+use App\Services\EdgeLab\SyncHealth;
 use Illuminate\View\View;
 
 /**
@@ -53,6 +55,30 @@ class PageController extends Controller
     public function record(): View
     {
         return view('marketing.record');
+    }
+
+    /**
+     * The daily card.
+     *
+     * Today deliberately shows nothing unless a market is proven. With no
+     * proven market this is not an empty state to be filled - it is the
+     * honest answer, and the copy says so.
+     */
+    public function today(SyncHealth $health): View
+    {
+        $picks = VlBoardEntry::query()->current()->sellablePicks()->get();
+
+        return view('app.today', [
+            'picks' => $picks,
+            // Shown only when there are no picks: near misses are
+            // analysis, and they are only honest while labelled a pass.
+            'nearMisses' => $picks->isEmpty()
+                ? VlBoardEntry::query()->current()->nearMisses()->limit(5)->get()
+                : collect(),
+            // The two feeds this card is built from. The schedule being
+            // a day behind does not make today's board wrong.
+            'delayed' => $health->customerNotice(['board', 'models']),
+        ]);
     }
 
     /**

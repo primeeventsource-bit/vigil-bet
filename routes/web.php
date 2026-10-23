@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\SyncHealthController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -80,8 +81,15 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('throttle:6,1')->name('verification.send');
 
     Route::middleware('verified')->group(function (): void {
-        Route::view('today', 'app.today')->name('today');
+        Route::get('today', [PageController::class, 'today'])->name('today');
         Route::view('account', 'app.account')->name('account');
+
+        /*
+         * Sync health. Behind the login for now; it moves under the admin
+         * area when there is one, at step 11. Nothing here is customer
+         * data - it is how current Vigil's copy of the engine is.
+         */
+        Route::get('sync-health', SyncHealthController::class)->name('sync-health');
 
         Route::get('account/two-factor', [TwoFactorController::class, 'show'])->name('two-factor.show');
         Route::post('account/two-factor', [TwoFactorController::class, 'store'])->name('two-factor.store');

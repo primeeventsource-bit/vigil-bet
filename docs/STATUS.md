@@ -151,5 +151,84 @@ them get built:
 
 ## Step 3 — Edge Lab sync jobs and read models
 
-Not started. Needs `VIGIL_INTERNAL_TOKEN` set on both sides and an Edge Lab
-instance to read; the contract is in `edge-lab/docs/INTERNAL_API.md`.
+**Done. 119 tests passing, Pint clean.**
+
+Correcting what this file said before: this step was never blocked on a
+live token. The client is built against the contract in
+`edge-lab/docs/INTERNAL_API.md` and tested with HTTP fakes, the same way
+Edge Lab tests its own ingestion. Only real data needs the token.
+
+**`EdgeLabClient`** is the one way Vigil reads the engine. Timeouts,
+exponential backoff, and a retry predicate that only retries what might
+answer differently: a 401 or a 404 is a disagreement about the request and
+will say the same thing on the fourth attempt, while spending the
+per-minute allowance the sync needs once the token is fixed.
+
+**The circuit breaker** stops one Edge Lab outage becoming two. Five
+consecutive failures and it opens; calls then fail fast without leaving
+the building until a cooldown lets exactly one through to find out whether
+it is back. A single success closes it — an upstream answering one call in
+three is unwell but reachable, and retries are the right answer to that.
+
+**Four append-only mirrors** — `vl_events`, `vl_board_entries`,
+`vl_odds_display`, `vl_models` — keyed by Edge Lab id. Including events,
+which Edge Lab itself treats as its one mutable table. Vigil writes a new
+row per observed state instead and derives current state from the newest
+row, which costs a subquery and buys the thing the product is sold on:
+what the engine believed when a pick was published is still on disk and
+cannot be rewritten by a later sync.
+
+Each row carries a digest of the payload and a sync writes only when
+something actually changed, so an hourly tick against a quiet Tuesday adds
+nothing rather than a fresh copy of the board.
+
+**`sync_runs`** records every attempt, success, failure or skip, and holds
+the cursor. The cursor advances only on success — these feeds are
+append-only and a row stepped over is a row Vigil never sees again.
+
+**Models are re-read in full every time, never resumed.** The other two
+feeds are append-only upstream so an id already seen cannot change; a model
+version is not — its verdict is rewritten when it is retrained. A keyset
+cursor would walk straight past that and leave Vigil selling against a
+verdict that had since been withdrawn.
+
+**The verdict gate is enforced on this side too.** `sellablePicks()`
+requires both `recommendation = bet` and `market_verdict = proven`.
+Checking only the recommendation is the bug that would sell an unproven
+pick, and there is a test per verdict value proving it does not.
+
+**"Data delayed"** is real, not decorative. `SyncHealth` knows the age of
+the last good sync per feed, treats never-synced as stale, and ignores
+failed runs when deciding freshness — a failure that reset the clock would
+be a board claiming to be current because something tried and failed a
+moment ago. The notice is scoped to the feeds a page renders from, so the
+daily card is not warned about the schedule being a day behind. Sync health
+lives at `/sync-health` and moves under admin at step 11.
+
+### Three bugs the tests found, worth recording
+
+1. **The cursor was read from `meta.next_since` alone.** That is null once
+   the server is caught up, so a sync that finished never recorded where
+   it got to — and the next one would re-read the entire history, every
+   hour, forever. The cursor now comes from the rows.
+2. **`Http::fake()` merges stubs rather than replacing them**, and the
+   first match wins. Two tests were silently still being answered by their
+   first fake. Both now use one fake over a mutable list.
+3. **The breaker captured its settings in the constructor** and is a
+   singleton, so raising a threshold during an incident would have had no
+   effect on the object deciding. It reads config when it uses it, and uses
+   the Carbon clock rather than `time()` so it is testable and consistent.
+
+### To go live
+
+Set `EDGE_LAB_TOKEN` on Vigil to Edge Lab's `VIGIL_INTERNAL_TOKEN`, and
+`EDGE_LAB_URL` if the engine is not at `parlayq.com`. Until then every sync
+records a skip and the UI says live data is not connected, which is the
+honest state rather than an empty board.
+
+---
+
+## Step 4 — Today, Board and Game pages
+
+Partly done ahead of schedule: Today exists, reads the mirror, enforces the
+gate and carries the delayed banner. Board and Game are still to build.
