@@ -447,5 +447,96 @@ Two read-only endpoints would finish this page.
 
 ## Step 5 — Entitlements and plans
 
-Not started. Free/Daily/Pro limits from `config/plans.php`, enforced
-server-side through one `Entitlements` service.
+Done. 197 tests pass.
+
+### One place that answers "may this customer have this?"
+
+`App\Services\Entitlements\Entitlements` is the only thing that decides.
+Not a preference — the failure mode for entitlements is not a wrong
+answer, it is *two* answers: a check in a controller, another in a Blade
+template, a third in a JSON resource, and a Pro feature that is hidden in
+the nav and served by the route behind it. A customer who edits a URL
+finds that in about a minute.
+
+So everything routes to `can()`:
+
+- **Middleware** `entitled:<feature>` gates the route.
+- **Gates** are defined *from* the service in `VigilServiceProvider::boot()`,
+  one per feature key, so `@can` in Blade and `$user->can()` in PHP cannot
+  disagree with the middleware.
+- **A test asserts they agree**, for every feature, rather than trusting
+  that they do.
+
+Grants live in `config/plans.php` beside the prices, so what the pricing
+page advertises and what the product enforces are one list. `allFeatures()`
+is derived from it rather than kept as a second list.
+
+### What each tier reaches
+
+| | Free | Daily | Pro |
+|---|---|---|---|
+| Today's board, one Read a day | yes | yes | yes |
+| Top picks on the dashboard | 3, and it says how many it held back | all | all |
+| Why the engine passed on a game | — | yes | yes |
+| Edge at price | — | — | yes |
+| Full board, props, line shopping, CLV, Model Lab | — | — | yes |
+
+The dashboard is the hard case: one page three tiers can open, so the
+enforcement happens inside the page. A free user sees three picks and a
+line saying four more exist — being shown three and left to assume that
+was all there was would be a lie told by omission.
+
+### Refusals
+
+An HTML request is **redirected to `/upgrade`**, not 403'd: a customer on
+the wrong plan has not done anything wrong. A JSON request gets `403
+upgrade_required` with the feature, the tier that would grant it, and no
+data — an API caller following a redirect into a marketing page is worse
+than an honest status code. A *signed-out* request still hits the login
+first; being told you need a bigger plan when what you need is an account
+would be absurd.
+
+### Locked, not hidden
+
+A nav item a customer cannot use is still drawn, carrying a lock, pointing
+at the upgrade page. Hiding it would leave them unable to decide whether
+to pay for it. The route behind it is gated separately, because the nav is
+decoration.
+
+### Overrides, and why they need a reason
+
+`entitlement_overrides` beats the plan **in both directions**: support can
+grant a feature while a billing problem is sorted out, and withdraw one
+without editing a tier. The `reason` column is `NOT NULL` at the database
+level, and expiry is checked on read rather than swept by a job — a comp
+that outlives its date because a scheduler was down is the exact failure
+this is meant to prevent.
+
+Every administrative write goes through `Audit::write()` into an
+append-only `audit_log`: actor, action, subject, before, after, reason, IP.
+The table refuses updates and deletes, in the model and in Postgres.
+
+### Cancelling is not a punishment
+
+`Subscription::effectiveTier()` keeps a cancelled or past-due subscriber on
+their tier until the period they paid for ends, then drops them to **free**
+— not to nothing. Free is a real tier with real features, and locking
+somebody out of those is a different decision nobody made. A tier that is
+not in the config falls to free too: a typo in a config file must not
+become a free upgrade for everybody.
+
+### Nothing is on sale
+
+`/upgrade` names the feature, the tier that includes it and its price, then
+says plainly that paid plans are not on sale yet — no market is proven, so
+there is nothing here worth charging for. Billing is step 6.
+
+### The §13 check
+
+*"A Free user cannot reach any Pro data through any route, Livewire action
+or JSON response."* The test reads the gated routes **out of the router**
+rather than from a list in the test file, so it covers the route somebody
+adds next month without reading this. It also asserts that each gated
+route names a feature some tier actually grants — a typo in a middleware
+argument gates a page against a feature nobody can ever have, which looks
+exactly like a paywall working.

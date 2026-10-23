@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\User;
 use App\Services\Ai\AnthropicClaude;
 use App\Services\Ai\Claude;
 use App\Services\EdgeLab\CircuitBreaker;
 use App\Services\EdgeLab\EdgeLabClient;
 use App\Services\EdgeLab\Mirror;
 use App\Services\EdgeLab\SyncHealth;
+use App\Services\Entitlements\Entitlements;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class VigilServiceProvider extends ServiceProvider
@@ -33,5 +36,22 @@ class VigilServiceProvider extends ServiceProvider
          * testable without a network and swappable without a rewrite.
          */
         $this->app->bind(Claude::class, AnthropicClaude::class);
+
+        $this->app->singleton(Entitlements::class);
+    }
+
+    public function boot(): void
+    {
+        $entitlements = $this->app->make(Entitlements::class);
+
+        /*
+         * Every feature key becomes a gate ability, so $user->can() and
+         * \@can in Blade route to the same service as the middleware.
+         * Two ways to ask the question is how a Pro feature ends up
+         * hidden in the UI and served by the route behind it.
+         */
+        foreach ($entitlements->allFeatures() as $feature) {
+            Gate::define($feature, fn (?User $user) => $entitlements->can($user, $feature));
+        }
     }
 }

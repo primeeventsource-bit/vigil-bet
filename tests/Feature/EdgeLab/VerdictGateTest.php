@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\Subscription;
 use App\Models\SyncRun;
 use App\Models\User;
 use App\Models\VlBoardEntry;
@@ -37,14 +38,22 @@ function mirrorEntry(array $overrides = []): VlBoardEntry
     return VlBoardEntry::query()->latest('id')->firstOrFail();
 }
 
+/* A subscriber: see the note on dashUser() in DashboardTest. */
 function signedInUser(): User
 {
-    return User::forceCreate([
+    $user = User::forceCreate([
         'name' => 'Sam',
         'email' => 'sam@example.com',
         'password' => 'correct-horse-battery-staple',
         'email_verified_at' => now(),
     ]);
+
+    Subscription::create([
+        'user_id' => $user->id, 'tier' => 'pro', 'status' => 'active',
+        'current_period_end' => now()->addMonth(), 'source' => 'test',
+    ]);
+
+    return $user->refresh();
 }
 
 function freshBoardSync(): void

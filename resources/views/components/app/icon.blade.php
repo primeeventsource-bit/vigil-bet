@@ -23,6 +23,7 @@
         'plus' => 'M12 5v14M5 12h14',
         'close' => 'M18 6L6 18M6 6l12 12',
         'chevron' => 'M6 9l6 6 6-6',
+        'lock' => 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4',
     ];
 @endphp
 

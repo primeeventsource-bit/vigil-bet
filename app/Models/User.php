@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\Entitlements\Entitlements;
 use App\Services\Security\Totp;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use SensitiveParameter;
@@ -37,6 +39,29 @@ class User extends Authenticatable implements MustVerifyEmail
             'two_factor_confirmed_at' => 'datetime',
             'two_factor_last_timestep' => 'integer',
         ];
+    }
+
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class);
+    }
+
+    /**
+     * The tier this user is actually on.
+     *
+     * Routed through the one service rather than read off the
+     * subscription, so a cancelled-but-still-paid period and an
+     * override are handled in one place instead of wherever somebody
+     * happened to need the answer.
+     */
+    public function tier(): string
+    {
+        return app(Entitlements::class)->tier($this);
+    }
+
+    public function entitlementOverrides(): HasMany
+    {
+        return $this->hasMany(EntitlementOverride::class);
     }
 
     public function ageAttestations(): HasMany

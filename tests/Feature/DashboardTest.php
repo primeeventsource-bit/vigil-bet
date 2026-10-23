@@ -2,17 +2,31 @@
 
 declare(strict_types=1);
 
+use App\Models\Subscription;
 use App\Models\User;
 use App\Models\VlBoardEntry;
 use App\Services\EdgeLab\Mirror;
 use Illuminate\Support\Facades\Route;
 
+/*
+ * A subscriber, because these tests are about what the dashboard says
+ * and not about who may see it. Which parts of the page each tier
+ * reaches is EntitlementsTest's question, and a free user here would
+ * quietly turn every assertion below into a test of the paywall.
+ */
 function dashUser(): User
 {
-    return User::forceCreate([
+    $user = User::forceCreate([
         'name' => 'Jordan Diaz', 'email' => 'jd@example.com',
         'password' => 'correct-horse-battery-staple', 'email_verified_at' => now(),
     ]);
+
+    Subscription::create([
+        'user_id' => $user->id, 'tier' => 'pro', 'status' => 'active',
+        'current_period_end' => now()->addMonth(), 'source' => 'test',
+    ]);
+
+    return $user->refresh();
 }
 
 function dashPick(array $overrides = []): VlBoardEntry

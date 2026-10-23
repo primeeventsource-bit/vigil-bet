@@ -12,6 +12,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LearningCenterController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\SyncHealthController;
+use App\Http\Controllers\UpgradeController;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -125,30 +126,47 @@ Route::middleware('auth')->group(function (): void {
          * 404s is worse than one that says "not built yet", and a nav
          * item quietly missing is worse than both.
          */
-        Route::view('live-odds', 'app.placeholder', [
-            'heading' => 'Live Odds',
-            'step' => 'Step 4 — the board and the game page.',
-        ])->name('live-odds');
+        /*
+         * Where a customer is told what a plan would give them. Never
+         * gated itself - sending somebody who cannot afford a feature to
+         * a page they also cannot see would be its own kind of joke.
+         */
+        Route::get('upgrade', UpgradeController::class)->name('upgrade');
 
-        Route::view('picks', 'app.placeholder', [
-            'heading' => 'Picks',
-            'step' => 'Step 4 — the full value board, every pick and every pass.',
-        ])->name('picks');
+        /*
+         * Feature-gated routes.
+         *
+         * The nav hides what a customer cannot use, and this is the part
+         * that holds when they edit the URL. §13 is tested against it: a
+         * Free user must not reach Pro data through any route, action or
+         * JSON response.
+         */
+        Route::middleware('entitled:board.full')->group(function (): void {
+            Route::view('live-odds', 'app.placeholder', [
+                'heading' => 'Live Odds',
+                'step' => 'Step 4 — the board and the game page.',
+            ])->name('live-odds');
+
+            Route::view('picks', 'app.placeholder', [
+                'heading' => 'Picks',
+                'step' => 'Step 4 — the full value board, every pick and every pass.',
+            ])->name('picks');
+        });
 
         Route::view('parlays', 'app.placeholder', [
             'heading' => 'Parlays',
             'step' => 'Step 8 — built on Edge Lab’s parlay judge, which is already wired.',
-        ])->name('parlays');
+        ])->middleware('entitled:parlay.grade')->name('parlays');
 
         Route::view('analytics', 'app.placeholder', [
             'heading' => 'Analytics',
             'step' => 'Step 8 — closing line value and your own record.',
-        ])->name('analytics');
+        ])->middleware('entitled:bets.clv')->name('analytics');
 
         Route::view('models', 'app.placeholder', [
             'heading' => 'Models',
             'step' => 'Step 8 — which markets are proven, and the gate each was measured against.',
-        ])->name('models');
+        ])->middleware('entitled:modellab')->name('models');
 
         Route::view('reports', 'app.placeholder', [
             'heading' => 'Reports',
@@ -158,7 +176,7 @@ Route::middleware('auth')->group(function (): void {
         Route::view('alerts', 'app.placeholder', [
             'heading' => 'Alerts',
             'step' => 'Step 10 — email and web push when a pick posts.',
-        ])->name('alerts');
+        ])->middleware('entitled:alerts')->name('alerts');
 
         // Logs a bet. Never places one; see BetController.
         Route::post('bets', BetController::class)->name('bets.store');

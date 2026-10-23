@@ -93,7 +93,10 @@
                                 <th scope="col" class="px-3 py-2.5 font-medium">Pick</th>
                                 <th scope="col" class="px-3 py-2.5 font-medium">Confidence</th>
                                 <th scope="col" class="px-3 py-2.5 text-right font-medium">Odds</th>
-                                <th scope="col" class="px-3 py-2.5 text-right font-medium">Edge</th>
+                                @can('board.full')
+                                    {{-- Edge and EV are the full board, which is Pro. --}}
+                                    <th scope="col" class="px-3 py-2.5 text-right font-medium">Edge</th>
+                                @endcan
                                 <th scope="col" class="px-5 py-2.5"><span class="sr-only">Log</span></th>
                             </tr>
                         </thead>
@@ -104,6 +107,19 @@
                         </tbody>
                     </table>
                 </div>
+
+                @if ($picksWithheld > 0)
+                    {{--
+                        Withheld, and said so. The alternative - showing
+                        three and letting the customer assume that is all
+                        there was - is a lie told by omission.
+                    --}}
+                    <p class="border-t border-[var(--vg-line)] px-5 py-3 text-xs text-[var(--vg-slate)]">
+                        {{ $picksWithheld }} more {{ Str::plural('pick', $picksWithheld) }} from proven markets today.
+                        <a class="font-semibold text-[var(--vg-blue)] underline"
+                           href="{{ route('upgrade', ['feature' => 'card.daily']) }}">See every one</a>.
+                    </p>
+                @endif
             @else
                 <x-app.no-proven-picks :near-misses="$nearMisses" />
             @endif

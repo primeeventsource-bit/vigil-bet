@@ -9,6 +9,7 @@ use App\Models\VlEvent;
 use App\Models\VlModel;
 use App\Models\VlOddsDisplay;
 use App\Services\EdgeLab\SyncHealth;
+use App\Services\Entitlements\Entitlements;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -28,14 +29,30 @@ use Illuminate\View\View;
  */
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, SyncHealth $health): View
+    /** How many picks a customer sees on the dashboard without the daily card. */
+    private const FREE_PICKS = 3;
+
+    public function __invoke(Request $request, SyncHealth $health, Entitlements $entitlements): View
     {
         $sport = $request->query('sport');
+        $user = $request->user();
 
-        $picks = VlBoardEntry::query()->current()->sellablePicks()
-            ->when($sport, fn ($q) => $q->where('sport', $sport))
-            ->orderByDesc('edge_at_price')
-            ->limit(10)
+        /*
+         * Free sees the board and the top few picks; the daily card is
+         * what buys every pick and the reasons behind the passes. Both
+         * decisions are made here rather than in the template, because a
+         * template that filters is a template somebody reuses without
+         * the filter.
+         */
+        $fullCard = $entitlements->can($user, 'card.daily');
+
+        $query = VlBoardEntry::query()->current()->sellablePicks()
+            ->when($sport, fn ($q) => $q->where('sport', $sport));
+
+        $available = (clone $query)->count();
+
+        $picks = $query->orderByDesc('edge_at_price')
+            ->limit($fullCard ? 10 : self::FREE_PICKS)
             ->get();
 
         return view('app.dashboard', [
@@ -44,7 +61,12 @@ class DashboardController extends Controller
             // nothing behind it is a dead end dressed as a feature.
             'availableSports' => VlBoardEntry::query()->current()->sellablePicks()
                 ->distinct()->orderBy('sport')->pluck('sport'),
-            'nearMisses' => $picks->isEmpty()
+            // Withheld, not missing. A customer told "no picks today"
+            // when there were seven would be being lied to.
+            'picksWithheld' => max(0, $available - $picks->count()),
+            // Why the engine declined a game is the daily card's
+            // promise, so it is not shown to somebody who has not got it.
+            'nearMisses' => $picks->isEmpty() && $fullCard
                 ? VlBoardEntry::query()->current()->nearMisses()->limit(5)->get()
                 : collect(),
             'activePicks' => $picks->count(),

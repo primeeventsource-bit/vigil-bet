@@ -47,7 +47,7 @@
         <p class="text-sm font-semibold">Why this pick?</p>
 
         <ul class="mt-2 space-y-1.5 text-sm text-[var(--vg-slate)]">
-            @if ($pick->edge_at_price !== null)
+            @if ($pick->edge_at_price !== null && Gate::allows('board.full'))
                 <li class="flex gap-2">
                     <span class="text-[var(--vg-edge)]" aria-hidden="true">&check;</span>
                     <span>Model edge: <span data-numeric>{{ sprintf('%+.1f%%', $pick->edge_at_price * 100) }}</span> over the break-even rate</span>

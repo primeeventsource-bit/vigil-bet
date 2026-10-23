@@ -4,14 +4,20 @@
      * route has to start with for the item to read as current - computed
      * here rather than in the markup so "current" is one rule rather than
      * eight copies of one.
+     *
+     * `feature` is the entitlement the item needs. An item the customer
+     * cannot use is still shown, carrying a lock and pointing at the
+     * upgrade page: hiding it would leave them wondering whether the
+     * product has the feature at all. The route behind it is gated
+     * separately, by middleware, because this list is decoration.
      */
     $items = [
         ['route' => 'today', 'label' => 'Dashboard', 'icon' => 'grid'],
-        ['route' => 'live-odds', 'label' => 'Live Odds', 'icon' => 'activity'],
-        ['route' => 'picks', 'label' => 'AI Picks', 'icon' => 'target'],
-        ['route' => 'parlays', 'label' => 'Parlays', 'icon' => 'layers'],
-        ['route' => 'analytics', 'label' => 'Analytics', 'icon' => 'chart'],
-        ['route' => 'models', 'label' => 'Models', 'icon' => 'cpu'],
+        ['route' => 'live-odds', 'label' => 'Live Odds', 'icon' => 'activity', 'feature' => 'board.full'],
+        ['route' => 'picks', 'label' => 'AI Picks', 'icon' => 'target', 'feature' => 'board.full'],
+        ['route' => 'parlays', 'label' => 'Parlays', 'icon' => 'layers', 'feature' => 'parlay.grade'],
+        ['route' => 'analytics', 'label' => 'Analytics', 'icon' => 'chart', 'feature' => 'bets.clv'],
+        ['route' => 'models', 'label' => 'Models', 'icon' => 'cpu', 'feature' => 'modellab'],
         ['route' => 'learning', 'label' => 'Learning', 'icon' => 'chart'],
 
         ['route' => 'reports', 'label' => 'Reports', 'icon' => 'file'],
@@ -30,9 +36,15 @@
         <ul class="space-y-1">
             @foreach ($items as $item)
                 @php($current = Route::has($item['route']) && request()->routeIs($item['route']))
+                @php($locked = isset($item['feature']) && Gate::denies($item['feature']))
                 <li>
                     <a
-                        href="{{ Route::has($item['route']) ? route($item['route']) : '#' }}"
+                        @if ($locked)
+                            href="{{ route('upgrade', ['feature' => $item['feature']]) }}"
+                            title="Not on your plan"
+                        @else
+                            href="{{ Route::has($item['route']) ? route($item['route']) : '#' }}"
+                        @endif
                         @if ($current) aria-current="page" @endif
                         @class([
                             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition',
@@ -40,7 +52,11 @@
                             'text-[var(--vg-slate)] hover:bg-[var(--vg-slate-dark)] hover:text-[var(--vg-paper)]' => ! $current,
                         ])>
                         <x-app.icon :name="$item['icon']" class="h-4 w-4 shrink-0" />
-                        {{ $item['label'] }}
+                        <span @class(['flex-1', 'opacity-60' => $locked])>{{ $item['label'] }}</span>
+                        @if ($locked)
+                            <x-app.icon name="lock" class="h-3.5 w-3.5 shrink-0 text-[var(--vg-slate)]" />
+                            <span class="sr-only">— not on your plan</span>
+                        @endif
                     </a>
                 </li>
             @endforeach

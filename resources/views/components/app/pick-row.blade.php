@@ -26,9 +26,16 @@
         {{ $pick->best_price_american === null ? '—' : ($pick->best_price_american > 0 ? '+' : '').$pick->best_price_american }}
     </td>
 
-    <td class="px-3 py-3 text-right font-[family-name:var(--font-mono)] tabular-nums text-[var(--vg-edge)]" data-numeric>
-        {{ $pick->edge_at_price === null ? '—' : sprintf('%+.1f%%', $pick->edge_at_price * 100) }}
-    </td>
+    @can('board.full')
+        {{--
+            The edge figure. Gated here as well as in the header, and in
+            the service behind both - a column the markup hides is still
+            a column the HTML carries.
+        --}}
+        <td class="px-3 py-3 text-right font-[family-name:var(--font-mono)] tabular-nums text-[var(--vg-edge)]" data-numeric>
+            {{ $pick->edge_at_price === null ? '—' : sprintf('%+.1f%%', $pick->edge_at_price * 100) }}
+        </td>
+    @endcan
 
     <td class="px-5 py-3 text-right">
         {{--
