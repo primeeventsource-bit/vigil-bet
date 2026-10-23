@@ -7,8 +7,12 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\TwoFactorController;
+use App\Http\Controllers\BetController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\SyncHealthController;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -69,6 +73,36 @@ Route::post('logout', [LoginController::class, 'destroy'])->middleware('auth')->
 
 /*
 |--------------------------------------------------------------------------
+| Local only: sign in as the demo user
+|--------------------------------------------------------------------------
+|
+| A login bypass, which is why it is fenced twice. The route is only
+| registered when the application is running locally, and it aborts on
+| the same condition when it runs - a single guard is one refactor away
+| from being deleted by somebody who does not know what it was for.
+|
+| It exists so a design review can look at the dashboard without typing
+| a password into a headless browser, and it goes no further than the
+| user `vigil:demo` creates. There is a test asserting the route does not
+| exist outside local.
+|
+*/
+if (app()->environment('local')) {
+    Route::get('__demo-login', function () {
+        abort_unless(app()->environment('local'), 404);
+
+        $user = User::where('email', 'demo@example.com')->first();
+
+        abort_if($user === null, 404, 'Run php artisan vigil:demo first.');
+
+        Auth::login($user);
+
+        return redirect()->route('today');
+    })->name('demo.login');
+}
+
+/*
+|--------------------------------------------------------------------------
 | The app. Signed in, email confirmed, noindex.
 |--------------------------------------------------------------------------
 */
@@ -81,8 +115,52 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('throttle:6,1')->name('verification.send');
 
     Route::middleware('verified')->group(function (): void {
-        Route::get('today', [PageController::class, 'today'])->name('today');
+        Route::get('today', DashboardController::class)->name('today');
         Route::view('account', 'app.account')->name('account');
+
+        /*
+         * The rest of the sidebar. Each is a real route with an honest
+         * placeholder naming the step that fills it - a nav item that
+         * 404s is worse than one that says "not built yet", and a nav
+         * item quietly missing is worse than both.
+         */
+        Route::view('live-odds', 'app.placeholder', [
+            'heading' => 'Live Odds',
+            'step' => 'Step 4 — the board and the game page.',
+        ])->name('live-odds');
+
+        Route::view('picks', 'app.placeholder', [
+            'heading' => 'Picks',
+            'step' => 'Step 4 — the full value board, every pick and every pass.',
+        ])->name('picks');
+
+        Route::view('parlays', 'app.placeholder', [
+            'heading' => 'Parlays',
+            'step' => 'Step 8 — built on Edge Lab’s parlay judge, which is already wired.',
+        ])->name('parlays');
+
+        Route::view('analytics', 'app.placeholder', [
+            'heading' => 'Analytics',
+            'step' => 'Step 8 — closing line value and your own record.',
+        ])->name('analytics');
+
+        Route::view('models', 'app.placeholder', [
+            'heading' => 'Models',
+            'step' => 'Step 8 — which markets are proven, and the gate each was measured against.',
+        ])->name('models');
+
+        Route::view('reports', 'app.placeholder', [
+            'heading' => 'Reports',
+            'step' => 'Step 9 — the public track record.',
+        ])->name('reports');
+
+        Route::view('alerts', 'app.placeholder', [
+            'heading' => 'Alerts',
+            'step' => 'Step 10 — email and web push when a pick posts.',
+        ])->name('alerts');
+
+        // Logs a bet. Never places one; see BetController.
+        Route::post('bets', BetController::class)->name('bets.store');
 
         /*
          * Sync health. Behind the login for now; it moves under the admin

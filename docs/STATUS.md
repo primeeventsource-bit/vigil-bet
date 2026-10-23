@@ -228,7 +228,64 @@ honest state rather than an empty board.
 
 ---
 
-## Step 4 — Today, Board and Game pages
+## Step 4 — the Dark Terminal dashboard
 
-Partly done ahead of schedule: Today exists, reads the mirror, enforces the
-gate and carries the delayed banner. Board and Game are still to build.
+**Done. 129 tests passing, Pint clean.**
+
+The dashboard is built to the mockup: sidebar, search bar and live badge,
+the hero, four headline tiles, Top AI Picks with confidence bars and a Bet
+button, Bankroll, Live Odds Movement, Model Confidence, Parlay Builder, and
+the phone card with "Why this pick?" and Add to Bet Slip. Charts are inline
+SVG - a line, a ring and a bar are arithmetic, and a charting dependency on
+a page this simple costs more than it saves.
+
+### The four §0 collisions, and how each is resolved
+
+You reaffirmed the design, so it is built as drawn. What each one does
+underneath:
+
+1. **"AI-Driven Edge" and the "AI Picks" nav.** As drawn. §0.4 still holds
+   in the code: the LLM explains stored numbers and produces none of them.
+2. **The green Bet button.** Looks identical; it logs the bet to My Bets.
+   It cannot place one - there is no sportsbook, no wallet and no money in
+   this product, and `BetController` re-checks the verdict gate on the way
+   in because a board entry id is a number anybody can type.
+3. **"Confidence".** Wired to `model_prob`, the probability Edge Lab
+   stored. The design's label over a real number rather than a second
+   number invented to fill the tile.
+4. **Win Rate, ROI, Units.** The exact tiles, fed from settled picks.
+   They render `—` with `n = 0` until there are any, because §0.7 and §7
+   forbid a rate without its sample. There is a test.
+
+### Honest empty states, everywhere a number is missing
+
+With no engine connected and nothing proven, the real dashboard is mostly
+empty: no picks, no bankroll, no movement. Each panel says which step fills
+it rather than showing a plausible figure. `php artisan vigil:demo` seeds
+invented rows for design review and **refuses to run in production** - a
+fabricated pick and a fabricated track record are precisely what the
+product promises never to show.
+
+### Bugs found by looking at it rather than by testing it
+
+- The login card was wider than a phone (`max-w-md` on a 390px screen).
+- The dashboard dragged the page sideways on mobile. The cause was not
+  obvious and was worth measuring rather than guessing: an implicit grid
+  track is `auto`, whose minimum is its item's min-content, so the 506px
+  picks table sized the whole column. `minmax(0,1fr)` caps it.
+- The real fix for the table was the design's own: a **card list on a
+  phone, the table from `md` up**. Six columns of numbers at 390px is
+  either a scrollbar nobody finds or a column of two-character words.
+
+### One note on the mockup
+
+Its nav reads "Barlays" and its swatch list gives Dark Slate as `#1E329B`,
+a saturated blue that does not match the grey in the artwork. Built as
+"Parlays" and `#1E293B`. Say if either was deliberate.
+
+---
+
+## Step 5 — Entitlements and plans
+
+Not started. Free/Daily/Pro limits from `config/plans.php`, enforced
+server-side through one `Entitlements` service.

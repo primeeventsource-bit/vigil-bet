@@ -15,12 +15,35 @@ use Illuminate\Support\Facades\Route;
  */
 
 it('has no public api, feed or odds export route', function () {
+    /*
+     * The licence boundary is about data leaving in bulk, not about the
+     * word "odds" appearing in a URL. A signed-in HTML page that shows
+     * prices is the permitted case - displaying inside a paid interface
+     * is exactly what is allowed - so pages are judged on two things
+     * instead: they must be behind a login, and they must not be a
+     * machine-readable endpoint.
+     */
+    $dataShaped = '/\bapi\b|feed|export|\.csv|\.json|download|bulk/i';
+
     $offenders = collect(Route::getRoutes())
-        ->map(fn ($route) => $route->uri())
-        ->reject(fn (string $uri) => str_starts_with($uri, 'livewire/') || str_starts_with($uri, 'storage/'))
-        ->filter(fn (string $uri) => (bool) preg_match('/\bapi\b|odds|feed|export|\.csv|\.json|download|bulk/i', $uri));
+        ->reject(fn ($route) => str_starts_with($route->uri(), 'livewire/'))
+        ->reject(fn ($route) => str_starts_with($route->uri(), 'storage/'))
+        ->filter(fn ($route) => (bool) preg_match($dataShaped, $route->uri()))
+        ->map(fn ($route) => $route->uri());
 
     expect($offenders->values()->all())->toBe([]);
+});
+
+it('keeps every page that shows prices behind a login', function () {
+    $pricePages = collect(Route::getRoutes())
+        ->filter(fn ($route) => (bool) preg_match('/odds|prices/i', $route->uri()))
+        ->reject(fn ($route) => str_starts_with($route->uri(), 'livewire/'));
+
+    expect($pricePages)->not->toBeEmpty();
+
+    foreach ($pricePages as $route) {
+        expect($route->gatherMiddleware())->toContain('auth');
+    }
 });
 
 it('asks Edge Lab for odds one event at a time', function () {

@@ -201,3 +201,24 @@
         cursor: pointer;
     }
 }
+
+@layer base {
+    /*
+     * No horizontal page scroll, at any width. A dashboard is wide by
+     * nature and one unconstrained child is all it takes to push the
+     * whole document sideways on a phone, which reads as broken rather
+     * than as dense.
+     */
+    html, body {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    /*
+     * Tables are the exception that proves it: they scroll inside their
+     * own panel rather than dragging the page with them.
+     */
+    .panel > .overflow-x-auto {
+        max-width: 100%;
+    }
+}

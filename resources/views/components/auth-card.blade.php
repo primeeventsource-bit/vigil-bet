@@ -1,7 +1,7 @@
 @props(['title', 'subtitle' => null])
 
 <x-layouts.marketing :title="$title">
-    <div class="mx-auto flex max-w-md flex-col px-6 py-12">
+    <div class="mx-auto flex w-full max-w-md min-w-0 flex-col px-6 py-12">
         <h1 class="font-[family-name:var(--font-display)] text-2xl font-bold">{{ $title }}</h1>
 
         @if ($subtitle)

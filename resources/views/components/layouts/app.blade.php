@@ -1,52 +1,46 @@
-@props(['title' => null])
+@props(['title' => null, 'heading' => null])
 
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
-    {{--
-        No indexable flag, so partials/head emits noindex. Everything
-        behind a login stays out of search results.
-    --}}
+    {{-- No indexable flag, so partials/head emits noindex. --}}
     @include('partials.head', ['title' => $title])
 </head>
 <body class="min-h-screen bg-[var(--vg-night)] text-[var(--vg-paper)]">
     <a href="#main" class="skip-link">Skip to content</a>
 
-    <header class="border-b border-[var(--vg-line)] bg-[var(--vg-navy)]">
-        <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-            <a href="{{ route('today') }}" aria-label="{{ config('brand.name') }} home">
-                <x-brand.lockup size="h-7" />
-            </a>
+    <div class="flex min-h-screen">
+        <x-app.sidebar />
 
-            <div class="flex items-center gap-4 text-sm">
-                <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('account') }}">Account</a>
+        <div class="flex min-w-0 flex-1 flex-col">
+            <x-app.topbar />
 
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]">Sign out</button>
-                </form>
-            </div>
+            @if (session('status') || session('error'))
+                {{-- Every action says whether it worked. --}}
+                <div role="status" aria-live="polite" class="px-6 pt-4">
+                    <p @class([
+                        'rounded-md border px-4 py-2 text-sm',
+                        'border-[var(--vg-edge)] text-[var(--vg-edge)]' => session('status'),
+                        'border-[var(--vg-loss)] text-[var(--vg-loss)]' => session('error'),
+                    ])>{{ session('status') ?? session('error') }}</p>
+                </div>
+            @endif
+
+            <main id="main" class="min-w-0 max-w-full flex-1 overflow-x-hidden px-4 py-6 sm:px-6">
+                {{ $slot }}
+            </main>
+
+            <footer class="border-t border-[var(--vg-line)] px-6 py-4 text-xs text-[var(--vg-slate)]">
+                <p class="font-semibold text-[var(--vg-paper)]">
+                    {{ config('vigil.responsible_gambling_line') }}
+                </p>
+                <p class="mt-1">
+                    {{ config('brand.name') }} sells information and tools. It never takes a bet or
+                    holds your money. {{ config('vigil.minimum_age') }}+ only.
+                    <a class="underline" href="{{ route('legal.responsible-gambling') }}">Responsible gambling</a>
+                </p>
+            </footer>
         </div>
-    </header>
-
-    @if (session('status') || session('error'))
-        {{--
-            Every action says whether it worked. A silent success and a
-            silent failure look identical from the outside.
-        --}}
-        <div role="status" aria-live="polite" class="mx-auto mt-4 max-w-6xl px-6">
-            <p @class([
-                'rounded-md border px-4 py-2 text-sm',
-                'border-[var(--vg-edge)] text-[var(--vg-edge)]' => session('status'),
-                'border-[var(--vg-loss)] text-[var(--vg-loss)]' => session('error'),
-            ])>{{ session('status') ?? session('error') }}</p>
-        </div>
-    @endif
-
-    <main id="main" class="mx-auto max-w-6xl px-6 py-8">
-        {{ $slot }}
-    </main>
-
-    @include('partials.footer')
+    </div>
 </body>
 </html>
