@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Models\AiUsage;
+use App\Models\User;
 use App\Models\VigilRead;
 use App\Models\VlBoardEntry;
 
@@ -40,7 +41,7 @@ class ReadWriter
      * The Read for a board entry, generated once per prompt version and
      * served from storage thereafter.
      */
-    public function forBoardEntry(VlBoardEntry $entry, bool $bulk = false): VigilRead
+    public function forBoardEntry(VlBoardEntry $entry, bool $bulk = false, ?User $for = null): VigilRead
     {
         $version = (int) config('ai.prompt_version');
 
@@ -54,11 +55,11 @@ class ReadWriter
             return $existing;
         }
 
-        return $this->write('board_entry', $entry->id, $this->facts->forBoardEntry($entry), $version, $bulk);
+        return $this->write('board_entry', $entry->id, $this->facts->forBoardEntry($entry), $version, $bulk, $for);
     }
 
     /** @param  array<string, mixed>  $sheet */
-    private function write(string $type, int $id, array $sheet, int $version, bool $bulk): VigilRead
+    private function write(string $type, int $id, array $sheet, int $version, bool $bulk, ?User $for = null): VigilRead
     {
         $model = $bulk ? (string) config('ai.bulk_model') : (string) config('ai.model');
         $lastReason = null;
@@ -73,7 +74,7 @@ class ReadWriter
 
                 $check = $this->validator->check($result['body'], $sheet);
 
-                $this->recordUsage('read.'.$type, $model, $result, $check['ok'], $check['reason']);
+                $this->recordUsage('read.'.$type, $model, $result, $check['ok'], $check['reason'], $for);
 
                 if ($check['ok']) {
                     return $this->store($type, $id, $version, $result['body'], 'model', $model, $sheet, $attempt, null);
@@ -228,7 +229,7 @@ Your previous attempt was rejected: '.$retryBecause.'. '
     }
 
     /** @param  array{usage:array<string, int>, duration_ms:int}  $result */
-    private function recordUsage(string $purpose, string $model, array $result, bool $accepted, ?string $outcome): void
+    private function recordUsage(string $purpose, string $model, array $result, bool $accepted, ?string $outcome, ?User $for = null): void
     {
         $prices = (array) config('ai.pricing.'.$model, ['input' => 0, 'output' => 0]);
 
@@ -241,6 +242,14 @@ Your previous attempt was rejected: '.$retryBecause.'. '
 
         AiUsage::create([
             'purpose' => $purpose,
+            /*
+             * Who the call was made for, where it was made for
+             * somebody in particular. Null for the nightly board
+             * backfill, which is made for everybody - and counted
+             * against nobody's per-tier limit, because a customer must
+             * not spend their allowance by loading a page.
+             */
+            'user_id' => $for?->id,
             'model' => $model,
             'input_tokens' => $result['usage']['input'],
             'output_tokens' => $result['usage']['output'],

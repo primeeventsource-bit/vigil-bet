@@ -676,3 +676,76 @@ of that log.
 - The browser side of the card field is a placeholder: the hosted field is
   described in the markup and not yet mounted, because there is no merchant
   account to mount one against.
+
+---
+
+## Step 7 — The Vigil Read
+
+Built early, when the AI layer was first wired, and audited against §6
+rather than rebuilt. Three things were missing, and all three mattered.
+
+284 tests pass.
+
+### The fact sheet was incomplete
+
+§6 lists what the sheet must contain, and each item on that list is a thing
+the model would otherwise invent or write around. Three were absent:
+
+- **Teams and kickoff.** Without them the model had to write about "this
+  market" in the abstract. Read from the mirrored event rather than parsed
+  out of the selection string — a selection is a label, not a data source.
+  The kickoff goes in twice, ISO and in words, because the validator would
+  otherwise see the `8` in `8:15pm` as a figure it had to find in the sheet.
+- **Model version and its gate result.** This is the honest answer to "why
+  should I believe the probability": not because a model said so, but
+  because *this version* of it was measured against the closing line, over
+  this many predictions, against these thresholds — all carried verbatim.
+  A Read that says "proven" without them asks the customer to take the word
+  on trust.
+- **Line movement.** Written as a sentence rather than a list of quotes, so
+  the model can restate it without doing arithmetic: every figure it might
+  quote is already in the string, and the validator reads numbers out of
+  strings too. One stored quote produces *"not enough quotes to describe how
+  this price has moved"* — "unchanged" would be a claim about a history we
+  do not have. A test checks the direction reads the right way round, since
+  −110 → −130 is *shorter* however it looks as an integer.
+
+### Reads were being written and never shown
+
+`vigil:reads` generated them, `vigil_reads` stored them, and the only place
+they could appear passed `$read ?? null` — always null. The dashboard now
+loads them and the card and the board both render one.
+
+### "One Vigil Read a day" was configured and unenforced
+
+Two separate limits, easy to confuse:
+
+- **Viewing** is what the free plan *is* (§4). Board Reads are generated
+  once and shared, so an extra view costs nothing — the limit is the
+  product, not the bill.
+- **Generating** is what §6 rate limits per tier, because every call costs
+  money. Counted from `ai_usage`, the row that proves money was spent: a
+  limit enforced against a counter that can be cleared is a limit that can
+  be cleared.
+
+`read_views` is keyed `(user, read, day)` rather than being a counter,
+because re-opening a Read already read must not cost a second one — and a
+counter cannot tell reading two Reads from reading one twice. The free
+allowance is claimed in pick order, so it is spent on the strongest pick
+rather than on whichever row the database returned first. When it is spent,
+the card says so and links to the plan that lifts it: a customer who cannot
+tell a used-up allowance from a missing explanation will reasonably conclude
+the product is broken.
+
+`ai_usage` now carries a nullable `user_id`. The nightly board backfill is
+attributed to nobody, so loading a page cannot spend a customer's
+allowance — and the per-customer AI cost becomes answerable, which admin
+needs at step 11.
+
+### Still to come
+
+Reads on a parlay grade and on a customer's own bet. §6 names both, and
+both need subjects that do not exist until step 8 — `user_bets` and the
+parlay slip. The fact-sheet methods for them (including parlay hold and
+shaded edge) land with those models rather than being written against
+nothing.

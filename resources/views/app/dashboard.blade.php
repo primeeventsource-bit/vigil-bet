@@ -80,7 +80,9 @@
                 {{-- Cards on a phone, the table from md up. See PickCard. --}}
                 <ul class="space-y-3 p-4 md:hidden">
                     @foreach ($picks as $pick)
-                        <x-app.pick-card :pick="$pick" />
+                        <x-app.pick-card :pick="$pick"
+                                         :read="$reads[$pick->id] ?? null"
+                                         :locked="! isset($reads[$pick->id]) && $readsRemaining === 0" />
                     @endforeach
                 </ul>
 
@@ -107,6 +109,22 @@
                         </tbody>
                     </table>
                 </div>
+
+                @if ($reads->isNotEmpty())
+                    {{--
+                        Under the table rather than inside it: a paragraph
+                        does not belong in a six-column row, and the Read
+                        for the top pick is the one a customer on
+                        one-a-day actually has.
+                    --}}
+                    <div class="hidden px-5 pb-5 md:block">
+                        <x-vigil-read :read="$reads->first()" />
+                    </div>
+                @elseif ($readsRemaining === 0)
+                    <div class="hidden px-5 pb-5 md:block">
+                        <x-vigil-read :locked="true" />
+                    </div>
+                @endif
 
                 @if ($picksWithheld > 0)
                     {{--

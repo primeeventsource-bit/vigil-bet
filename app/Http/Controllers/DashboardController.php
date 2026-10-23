@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
+use App\Models\VigilRead;
 use App\Models\VlBoardEntry;
 use App\Models\VlEvent;
 use App\Models\VlModel;
 use App\Models\VlOddsDisplay;
+use App\Services\Ai\ReadQuota;
 use App\Services\EdgeLab\SyncHealth;
 use App\Services\Entitlements\Entitlements;
 use Illuminate\Http\Request;
@@ -32,8 +35,12 @@ class DashboardController extends Controller
     /** How many picks a customer sees on the dashboard without the daily card. */
     private const FREE_PICKS = 3;
 
-    public function __invoke(Request $request, SyncHealth $health, Entitlements $entitlements): View
-    {
+    public function __invoke(
+        Request $request,
+        SyncHealth $health,
+        Entitlements $entitlements,
+        ReadQuota $quota,
+    ): View {
         $sport = $request->query('sport');
         $user = $request->user();
 
@@ -78,7 +85,53 @@ class DashboardController extends Controller
             'movement' => $this->lineMovement(),
             'bankroll' => $this->bankroll(),
             'delayed' => $health->customerNotice(['board', 'models']),
+            // Reads, in pick order, until the day's allowance runs out. See
+            // readsFor(): the top pick gets the explanation, which is
+            // the one a customer on one-a-day would want.
+            'reads' => $this->readsFor($user, $picks, $quota),
+            'readsRemaining' => $quota->viewsRemaining($user),
         ]);
+    }
+
+    /**
+     * The Read for each pick, as far as the allowance goes.
+     *
+     * Claimed in pick order rather than all at once, so a customer on
+     * one-a-day spends it on the strongest pick rather than on whichever
+     * row the database happened to return first.
+     *
+     * A Read that is not claimed is absent from the map, and the card
+     * says why rather than silently showing nothing - a customer who
+     * cannot tell a used-up allowance from a missing explanation will
+     * assume the product is broken.
+     *
+     * @param  Collection<int, VlBoardEntry>  $picks
+     * @return Collection<int, VigilRead> keyed by board entry id
+     */
+    private function readsFor(?User $user, Collection $picks, ReadQuota $quota): Collection
+    {
+        if ($picks->isEmpty() || $user === null) {
+            return collect();
+        }
+
+        $reads = VigilRead::query()
+            ->where('subject_type', 'board_entry')
+            ->whereIn('subject_id', $picks->pluck('id'))
+            ->currentVersion()
+            ->get()
+            ->keyBy('subject_id');
+
+        $claimed = collect();
+
+        foreach ($picks as $pick) {
+            $read = $reads->get($pick->id);
+
+            if ($read !== null && $quota->claim($user, $read)) {
+                $claimed->put($pick->id, $read);
+            }
+        }
+
+        return $claimed;
     }
 
     private function averageModelProbability(Collection $picks): ?float

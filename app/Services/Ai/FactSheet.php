@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Models\VlBoardEntry;
+use App\Models\VlEvent;
+use App\Models\VlModel;
+use App\Models\VlOddsDisplay;
+use Illuminate\Support\Collection;
 
 /**
  * The only thing the model is ever shown.
@@ -30,6 +34,7 @@ class FactSheet
             'kind' => 'board_entry',
             'sport' => strtoupper((string) $entry->sport),
             'market' => $entry->market,
+            'side' => $entry->side,
             'selection' => $entry->selection,
             'line' => $entry->line,
 
@@ -77,7 +82,166 @@ class FactSheet
 
         $sheet['observed_at'] = $entry->observed_at?->toIso8601String();
 
+        $sheet += $this->game($entry);
+        $sheet += $this->model($entry);
+        $sheet += $this->movement($entry);
+
         return array_filter($sheet, static fn ($v) => $v !== null);
+    }
+
+    /**
+     * The teams and the kickoff.
+     *
+     * §6 asks for both in the sheet, and the reason is that without them
+     * the model has to write about "this market" in the abstract. Read
+     * from the mirrored event rather than parsed out of the selection
+     * string - a selection is a label, not a data source.
+     *
+     * @return array<string, mixed>
+     */
+    private function game(VlBoardEntry $entry): array
+    {
+        if ($entry->edge_lab_event_id === null) {
+            return [];
+        }
+
+        $event = VlEvent::query()->current()
+            ->forEdgeLabId($entry->edge_lab_event_id)
+            ->first();
+
+        if ($event === null) {
+            return [];
+        }
+
+        return array_filter([
+            'home_team' => $event->home_name,
+            'away_team' => $event->away_name,
+            'matchup' => $event->matchup(),
+            // ISO, and in words. The model quotes the words; without
+            // them the validator would see the "8" in "8:15pm" as a
+            // figure it had to find in the sheet.
+            'kickoff' => $event->starts_at?->toIso8601String(),
+            'kickoff_written' => $event->starts_at?->format('l j F, H:i T'),
+            'event_status' => $event->status,
+        ], static fn ($v) => $v !== null);
+    }
+
+    /**
+     * Which model version produced this, and how it did against the gate.
+     *
+     * §6 asks for "model version and its gate result". It is the honest
+     * answer to "why should I believe the probability": not because a
+     * model said so, but because this version of it was measured against
+     * the closing line, and here is what happened.
+     *
+     * @return array<string, mixed>
+     */
+    private function model(VlBoardEntry $entry): array
+    {
+        $model = VlModel::query()->current()
+            ->where('sport', $entry->sport)
+            ->where('market', $entry->market)
+            ->orderByDesc('trained_at')
+            ->first();
+
+        if ($model === null) {
+            return [];
+        }
+
+        $sheet = array_filter([
+            'model_version' => $model->version,
+            'model_type' => $model->model_type,
+            'model_verdict' => $model->verdict,
+            'model_verdict_reason' => $model->verdict_reason,
+            'model_may_produce_picks' => $model->allows_picks,
+            'model_trained_at' => $model->trained_at?->toIso8601String(),
+        ], static fn ($v) => $v !== null);
+
+        if ($model->predictions !== null) {
+            // The sample size, always. A verdict on 40 games and a
+            // verdict on 4,000 are different claims.
+            $sheet['model_predictions_measured'] = (int) $model->predictions;
+        }
+
+        if ($model->log_loss_improvement !== null) {
+            $sheet += $this->probability('model_log_loss_improvement', $model->log_loss_improvement);
+        }
+
+        /*
+         * The thresholds the verdict was measured against, carried
+         * verbatim. A Read that says "proven" without them is asking the
+         * customer to take the word on trust.
+         */
+        if (is_array($model->gate) && $model->gate !== []) {
+            $sheet['gate'] = $model->gate;
+        }
+
+        return $sheet;
+    }
+
+    /**
+     * What the price did, in one sentence.
+     *
+     * §6 asks for a line movement summary. Written as a sentence rather
+     * than a list of quotes so the model can restate it without doing
+     * arithmetic: every figure it might quote is already in the string,
+     * and the validator reads numbers out of strings too.
+     *
+     * Read from the display mirror, which only ever holds games somebody
+     * has looked at. There is no bulk odds feed on either side of this
+     * product and this is not allowed to become one.
+     *
+     * @return array<string, mixed>
+     */
+    private function movement(VlBoardEntry $entry): array
+    {
+        if ($entry->edge_lab_event_id === null || $entry->market === null) {
+            return [];
+        }
+
+        $quotes = VlOddsDisplay::query()
+            ->where('edge_lab_event_id', $entry->edge_lab_event_id)
+            ->where('market', $entry->market)
+            ->when($entry->side !== null, fn ($q) => $q->where('side', $entry->side))
+            ->when($entry->best_book !== null, fn ($q) => $q->where('book', $entry->best_book))
+            ->orderBy('quoted_at')
+            ->get();
+
+        if ($quotes->count() < 2) {
+            // One quote is not a movement, and saying "unchanged" would
+            // be a claim about a history we do not have.
+            return ['line_movement' => 'Not enough quotes stored to describe how this price has moved.'];
+        }
+
+        return ['line_movement' => $this->describeMovement($quotes)];
+    }
+
+    /** @param  Collection<int, VlOddsDisplay>  $quotes */
+    private function describeMovement(Collection $quotes): string
+    {
+        $first = $quotes->first();
+        $last = $quotes->last();
+
+        $write = static fn (?int $price): string => $price === null
+            ? 'no price'
+            : ($price > 0 ? '+' : '').$price;
+
+        $direction = match (true) {
+            $first->price_american === null || $last->price_american === null => 'changed',
+            $last->price_american > $first->price_american => 'drifted out',
+            $last->price_american < $first->price_american => 'shortened',
+            default => 'held',
+        };
+
+        $sentence = 'At '.($last->book_title ?? $last->book).' this price '.$direction
+            .' from '.$write($first->price_american).' to '.$write($last->price_american)
+            .' across '.$quotes->count().' stored quotes';
+
+        if ($first->line !== null && $last->line !== null && (float) $first->line !== (float) $last->line) {
+            $sentence .= ', and the line moved from '.$first->line.' to '.$last->line;
+        }
+
+        return $sentence.'.';
     }
 
     /**

@@ -19,3 +19,4 @@ pest()->extend(TestCase::class)->in('Unit');
 
 require_once __DIR__.'/Fixtures/edgelab.php';
 require_once __DIR__.'/Fixtures/payments.php';
+require_once __DIR__.'/Fixtures/ai.php';
