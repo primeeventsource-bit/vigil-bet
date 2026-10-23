@@ -18,6 +18,17 @@ return Application::configure(basePath: dirname(__DIR__))
          * somebody edits the URL.
          */
         $middleware->alias(['entitled' => EnsureEntitled::class]);
+
+        /*
+         * Payment processors do not carry CSRF tokens, and cannot: a
+         * webhook is a server talking to a server. What stands in for
+         * the token is a signature the driver verifies over the raw
+         * body before anything is parsed, and an event id that can only
+         * be used once.
+         */
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/payments/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

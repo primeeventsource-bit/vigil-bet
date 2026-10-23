@@ -2,17 +2,20 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\BetController;
+use App\Http\Controllers\BillingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LearningCenterController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\SyncHealthController;
 use App\Http\Controllers\UpgradeController;
+use App\Http\Controllers\WebhookController;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -118,7 +121,7 @@ Route::middleware('auth')->group(function (): void {
 
     Route::middleware('verified')->group(function (): void {
         Route::get('today', DashboardController::class)->name('today');
-        Route::view('account', 'app.account')->name('account');
+        Route::get('account', AccountController::class)->name('account');
 
         /*
          * The rest of the sidebar. Each is a real route with an honest
@@ -132,6 +135,20 @@ Route::middleware('auth')->group(function (): void {
          * a page they also cannot see would be its own kind of joke.
          */
         Route::get('upgrade', UpgradeController::class)->name('upgrade');
+
+        /*
+         * Billing. Throttled because each one is a call to a payment
+         * processor, and cancelling is a single POST with no
+         * confirmation funnel in front of it - §4 asks for one click
+         * and no dark patterns, and a "are you sure?" page is one.
+         */
+        Route::middleware('throttle:20,1')->group(function (): void {
+            Route::post('billing/subscribe', [BillingController::class, 'subscribe'])->name('billing.subscribe');
+            Route::post('billing/plan', [BillingController::class, 'changePlan'])->name('billing.plan');
+            Route::post('billing/cancel', [BillingController::class, 'cancel'])->name('billing.cancel');
+            Route::post('billing/resume', [BillingController::class, 'resume'])->name('billing.resume');
+            Route::post('billing/portal', [BillingController::class, 'portal'])->name('billing.portal');
+        });
 
         /*
          * Feature-gated routes.
@@ -201,3 +218,24 @@ Route::middleware('auth')->group(function (): void {
         Route::delete('account/two-factor', [TwoFactorController::class, 'destroy'])->name('two-factor.destroy');
     });
 });
+
+/*
+|--------------------------------------------------------------------------
+| Payment webhooks
+|--------------------------------------------------------------------------
+|
+| Outside auth, outside CSRF, outside the verified-email group: a
+| processor is a server, not a signed-in person. What takes the place of
+| all three is a signature verified over the raw body and an event id
+| that can only be written once.
+|
+| The driver name is in the path so a processor can be run alongside its
+| replacement during a switchover, which is the whole point of §5 - and
+| so a webhook meant for Stripe cannot be handed to the NMI verifier and
+| rejected as a mystery.
+|
+*/
+Route::post('webhooks/payments/{driver}', WebhookController::class)
+    ->whereIn('driver', ['nmi', 'stripe'])
+    ->middleware('throttle:120,1')
+    ->name('webhooks.payments');

@@ -45,3 +45,16 @@ Schedule::job(new SyncModels)
     ->dailyAt('05:30')
     ->name('edgelab-sync-models')
     ->withoutOverlapping();
+
+/*
+ * Dunning's deadline. Daily, early, before anybody is likely to be
+ * looking: a customer should not watch a tier disappear mid-session.
+ *
+ * The retries themselves are the processor's; this only closes out the
+ * ones whose window has run out, which has to be checked on a clock
+ * because a processor that gives up quietly sends nothing to react to.
+ */
+Schedule::command('vigil:dunning')
+    ->dailyAt('06:10')
+    ->name('billing-dunning')
+    ->withoutOverlapping();

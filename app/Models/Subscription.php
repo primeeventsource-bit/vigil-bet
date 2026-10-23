@@ -56,6 +56,21 @@ class Subscription extends Model
             return 'free';
         }
 
+        /*
+         * A customer who asked to leave, whose paid period has run out.
+         * The status is still `active` - it was true when they asked -
+         * and without this the subscription would go on granting Pro
+         * for as long as the processor stayed quiet.
+         *
+         * Only for a scheduled cancellation. An `active` subscription
+         * past its period end with no cancellation is a renewal webhook
+         * that has not arrived, and locking out a paying customer over
+         * our own missed message would be the wrong way to be wrong.
+         */
+        if ($this->cancel_at_period_end && ! $this->stillInPaidPeriod()) {
+            return 'free';
+        }
+
         return $this->tier;
     }
 

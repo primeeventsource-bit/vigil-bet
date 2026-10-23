@@ -12,6 +12,9 @@ use App\Services\EdgeLab\EdgeLabClient;
 use App\Services\EdgeLab\Mirror;
 use App\Services\EdgeLab\SyncHealth;
 use App\Services\Entitlements\Entitlements;
+use App\Services\Payments\PaymentDrivers;
+use App\Services\Payments\PaymentGateway;
+use App\Services\Payments\SubscriptionProjector;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -38,6 +41,19 @@ class VigilServiceProvider extends ServiceProvider
         $this->app->bind(Claude::class, AnthropicClaude::class);
 
         $this->app->singleton(Entitlements::class);
+
+        /*
+         * The only place a payment processor is chosen. Everything else
+         * asks for the interface, which is what makes §13 true:
+         * switching PAYMENT_DRIVER between `nmi` and `stripe` requires
+         * no code changes.
+         *
+         * Bound rather than a singleton so a test can change the driver
+         * mid-run and get the driver it asked for.
+         */
+        $this->app->bind(PaymentGateway::class, fn () => PaymentDrivers::make());
+
+        $this->app->singleton(SubscriptionProjector::class);
     }
 
     public function boot(): void

@@ -540,3 +540,139 @@ adds next month without reading this. It also asserts that each gated
 route names a feature some tier actually grants — a typo in a middleware
 argument gates a page against a feature nobody can ever have, which looks
 exactly like a paywall working.
+
+---
+
+## Step 6 — Payments
+
+Done, with one honest caveat: **no processor has ever answered.** There is
+no merchant account, so the NMI driver has been exercised against a faked
+HTTP layer and NMI's published v5 reference, never against NMI. The first
+real transaction is the first real proof. Everything above the driver — the
+event log, the projection, webhook verification, dunning, the Account page
+— is tested and does not depend on which processor is live.
+
+258 tests pass.
+
+### Why there are two drivers before there is one customer
+
+§5 asks that the processor can change without touching application code,
+and the reason is specific: sports-information subscriptions are routinely
+classed as high risk, and Stripe's prohibited-business list names sports
+forecasting with a monetary or material prize. Vigil sells forecasts. The
+switch may therefore have to happen at short notice, under pressure, while
+the current processor is closing the account — which is not the week to be
+rewriting controllers.
+
+So `PaymentGateway` is the only thing the product talks to, `PaymentDrivers`
+is the only place either class is named, and §13's check is tested by doing
+it: the same subscribe request runs twice with nothing changed but
+configuration, and both produce the same billing event.
+
+`PAYMENT_DRIVER=none` is the current and default setting, and it resolves to
+a driver that refuses everything. Deliberately — the obvious alternative, a
+driver that returns plausible ids and pretends the subscription worked, would
+grant a paid tier to somebody who was never charged, and would do it
+silently.
+
+### Subscription state is derived, not stored
+
+Everything lands in an append-only `billing_events` table and
+`SubscriptionProjector` folds the log into the `subscriptions` row. That row
+is a cache of the answer, never the answer.
+
+Billing disputes are arguments about history — *"we cancelled on the third"*,
+*"you charged us twice"* — and a row updated in place eleven times cannot
+settle one. A log can, and a projection can always be thrown away and
+rebuilt. The rebuild is a full replay rather than an incremental update, so
+the recovery path is the path that runs every day and cannot rot unnoticed.
+
+One exception, found by a test: a log with no `subscription.started` in it
+cannot be the whole story — the `vigil:owner` command writes a subscription
+row and no events. Replaying that from empty read the customer's first failed
+payment as proof they had never subscribed, and dropped them to Free. An
+incomplete log now starts from what is already there. Without that fix the
+owner account on production would have been downgraded by its first webhook.
+
+### Webhooks
+
+Three properties, each the kind of thing that is fine until the day it is
+not:
+
+- **Signature-verified**, in the driver, over the untouched bytes, before the
+  JSON is parsed — parsing and re-encoding first breaks the HMAC, and there
+  is a test that signs a body with odd whitespace to prove it does not.
+  With no signing key configured every webhook is refused: an unverified
+  webhook is an anonymous stranger asking for a free Pro subscription, and
+  this endpoint cannot sit behind a login.
+- **Idempotent**, by a unique column on the processor's event id. Every
+  processor eventually delivers the same event twice; here the duplicate
+  fails at the database rather than in a handler somebody might refactor.
+  NMI's signature carries a *nonce* rather than a timestamp, so there is no
+  replay window to enforce and deduplication is the whole defence. Stripe's
+  is a timestamp, and that window is enforced too.
+- **Unable to grant a tier.** The tier comes from what we recorded when the
+  plan was bought, never from the payload. A webhook that could name the tier
+  would be a webhook that could hand out Pro.
+
+The driver is resolved from the URL path, not from `PAYMENT_DRIVER`, so both
+processors can be live during a switchover without one's payload being handed
+to the other's verifier and rejected as a mystery.
+
+An event that verifies but matches no subscription is stored without a user
+rather than dropped — it is the only evidence that the processor believes it
+is billing somebody on our behalf. An event naming nobody at all is not
+matched to the first row in the table, which is a mistake a `when()` chain
+makes very easily.
+
+### Dunning
+
+The retries are the processor's; it holds the card. What Vigil owns is the
+deadline, and it owns it because a processor that gives up quietly sends
+nothing to react to — a customer left `past_due` would otherwise keep a paid
+tier indefinitely. `vigil:dunning` runs daily at 06:10 and ends it on either
+condition: three failures, or seven days.
+
+An email goes at each failure, naming the date access actually stops, because
+a customer told only "there is a problem with your payment" cannot tell
+whether they have an hour or a fortnight. At the end the account moves to Free
+and **nothing is deleted** — the logged bets, the record and the settings all
+stay, and the email says so.
+
+### Cancelling
+
+One POST from one button. No confirmation step, no retention offer in the
+way, nothing taken away today — §4 asks for one click and no dark patterns,
+and a test counts the occurrences of the cancel URL on the page to stop a
+funnel growing back.
+
+Access then stops on the **date**, not on a webhook: `effectiveTier()` drops a
+scheduled cancellation once the paid period ends, so a processor that goes
+quiet cannot leave somebody on Pro forever. The asymmetry is deliberate — an
+`active` subscription past its period end with *no* cancellation keeps its
+tier, because that is a renewal message we missed, and locking out a paying
+customer over our own missed message would be the wrong way to be wrong.
+
+A cancellation the processor refuses is still recorded. The customer asked to
+leave; that is a fact about them rather than about the processor.
+
+### Cards
+
+Never touch these servers. The browser mints a token against the processor's
+own hosted field and the driver sends only that, which is the whole of this
+product's PCI position. The form field is a hidden input rather than a text
+box, so there is nowhere for a customer to type sixteen digits; a test asserts
+nothing resembling a card number leaves the application, and failed calls are
+logged without the request body — a token in a log is a token in every backup
+of that log.
+
+### Still missing
+
+- No mailer (`MAIL_MAILER=log`), so dunning emails are written to the log
+  rather than sent. That has to be wired before any plan goes on sale.
+- `customerPortalUrl` returns null on NMI, which has no hosted page for a
+  customer to manage a card on. Account says so rather than linking nowhere,
+  but changing a card on NMI currently means emailing support.
+- The browser side of the card field is a placeholder: the hosted field is
+  described in the markup and not yet mounted, because there is no merchant
+  account to mount one against.

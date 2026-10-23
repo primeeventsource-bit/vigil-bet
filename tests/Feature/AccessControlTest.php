@@ -58,6 +58,16 @@ it('has no route of ours that writes anything without a session', function () {
      */
     $waysIn = ['register', 'login', 'two-factor', 'forgot-password', 'reset-password'];
 
+    /*
+     * Server to server, and so cannot carry a session or a CSRF token.
+     * What stands in for both is a signature the driver verifies over
+     * the raw body before anything is parsed, plus an event id that can
+     * only be written once. Listed here so that adding another such
+     * endpoint is a deliberate edit to this test rather than a silent
+     * pass.
+     */
+    $signedByAProcessor = ['webhooks/payments/{driver}'];
+
     $unprotected = collect(Route::getRoutes())
         ->filter(fn ($route) => array_intersect($route->methods(), ['POST', 'PUT', 'PATCH', 'DELETE']) !== [])
         // Framework and package routes. Livewire and the storage uploader
@@ -65,6 +75,7 @@ it('has no route of ours that writes anything without a session', function () {
         ->reject(fn ($route) => str_starts_with($route->uri(), 'livewire/'))
         ->reject(fn ($route) => str_starts_with($route->uri(), 'storage/'))
         ->reject(fn ($route) => in_array($route->uri(), $waysIn, true))
+        ->reject(fn ($route) => in_array($route->uri(), $signedByAProcessor, true))
         ->reject(fn ($route) => in_array('auth', $route->gatherMiddleware(), true))
         ->map(fn ($route) => $route->uri().' ['.$route->getName().']')
         ->values();
