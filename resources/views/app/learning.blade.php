@@ -61,6 +61,12 @@
                         <p class="mt-0.5 text-xs text-[var(--vg-slate)]" data-numeric>
                             {{ $t['points']->count() }} version(s) ·
                             {{ number_format((int) $t['current']['predictions']) }} predictions measured
+                            @if ($t['measured'] < $t['points']->count())
+                                {{-- Say what is missing from the chart, rather than leave a gap. --}}
+                                <span class="block">
+                                    {{ $t['points']->count() - $t['measured'] }} never measured against a closing line
+                                </span>
+                            @endif
                         </p>
                     </div>
 

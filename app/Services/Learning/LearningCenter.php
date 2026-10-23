@@ -63,6 +63,10 @@ class LearningCenter
                     'market' => $market,
                     'points' => $points,
                     'current' => $points->last(),
+                    // How many of those versions could be plotted at all.
+                    // A card reading "5 versions" above three bars leaves
+                    // the reader to wonder which two went missing.
+                    'measured' => $points->filter(fn (array $p) => $p['improvement'] !== null)->count(),
                     'direction' => $this->direction($points),
                     'best_improvement' => $points->pluck('improvement')->filter(fn ($v) => $v !== null)->max(),
                 ];
