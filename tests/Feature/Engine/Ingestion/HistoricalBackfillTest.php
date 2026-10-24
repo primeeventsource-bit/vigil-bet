@@ -287,3 +287,52 @@ it('spends nothing on a provider while live work is waiting', function () {
     Http::assertNothingSent();
     expect(OddsSnapshot::count())->toBe(0);
 });
+
+it('defers every queued sibling at once rather than one at a time', function () {
+    /*
+     * Releasing only itself is correct and useless at scale: the worker
+     * has to pick up every queued backfill job, check, and put each back.
+     * At four thousand jobs that took four hours in production while live
+     * ingestion stayed dead, so the whole batch stands aside together.
+     */
+    foreach (range(1, 5) as $i) {
+        DB::table('jobs')->insert([
+            'queue' => 'default',
+            'payload' => json_encode(['displayName' => 'App\Jobs\Odds\BackfillHistoricalOdds', 'n' => $i]),
+            'attempts' => 0,
+            'available_at' => now()->timestamp,
+            'created_at' => now()->timestamp,
+        ]);
+    }
+
+    DB::table('jobs')->insert([
+        'queue' => 'default',
+        'payload' => json_encode(['displayName' => 'App\Jobs\Odds\PullOddsForSport']),
+        'attempts' => 0,
+        'available_at' => now()->timestamp,
+        'created_at' => now()->timestamp,
+    ]);
+
+    $kickoff = now()->subDays(30);
+    pastNbaGame('a', $kickoff);
+    Http::fake(['api.the-odds-api.com/*' => Http::response([], 200)]);
+
+    dispatch_sync(new BackfillHistoricalOdds(
+        Sport::Nba,
+        $kickoff->copy()->subMinutes(5)->toIso8601String(),
+    ));
+
+    $deferred = DB::table('jobs')
+        ->where('payload', 'like', '%BackfillHistoricalOdds%')
+        ->where('available_at', '>', now()->timestamp)
+        ->count();
+
+    // All five siblings pushed out together.
+    expect($deferred)->toBe(5);
+
+    // And the live pull is untouched, so the worker reaches it next poll.
+    expect(DB::table('jobs')
+        ->where('payload', 'like', '%PullOddsForSport%')
+        ->where('available_at', '<=', now()->timestamp)
+        ->count())->toBe(1);
+});

@@ -65,6 +65,30 @@ class BackfillHistoricalOdds implements ShouldQueue
     }
 
     /**
+     * Defer this job and every queued sibling, in one statement.
+     *
+     * Releasing only this job is correct and useless at scale: the worker
+     * would have to pick up all four thousand of them, check, and put
+     * each back, which took four hours in practice while live ingestion
+     * stayed dead. The whole batch is yielding, so the whole batch is
+     * deferred at once.
+     *
+     * Rows being processed are left alone - `reserved_at` not null means
+     * a worker already has it, and moving its availability would do
+     * nothing but confuse the retry accounting.
+     */
+    private function standAside(): void
+    {
+        DB::table('jobs')
+            ->whereNull('reserved_at')
+            ->where('payload', 'like', '%BackfillHistoricalOdds%')
+            ->where('available_at', '<=', now()->addSeconds(self::YIELD_SECONDS)->timestamp)
+            ->update(['available_at' => now()->addSeconds(self::YIELD_SECONDS)->timestamp]);
+
+        $this->release(self::YIELD_SECONDS);
+    }
+
+    /**
      * Stand aside while anything live is queued.
      *
      * A backfill is historical by definition: every row it writes is
@@ -100,7 +124,7 @@ class BackfillHistoricalOdds implements ShouldQueue
         JobRunRecorder $recorder,
     ): void {
         if ($this->liveWorkIsWaiting()) {
-            $this->release(self::YIELD_SECONDS);
+            $this->standAside();
 
             return;
         }
