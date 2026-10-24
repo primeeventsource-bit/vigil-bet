@@ -28,7 +28,7 @@ class SyncCommand extends Command
     public function handle(): int
     {
         if (! config('edgelab.enabled')) {
-            $this->warn('EDGE_LAB_TOKEN is not set, so there is nothing to read.');
+            $this->warn('The engine is switched off, so there is nothing to read.');
             $this->line('<fg=gray>Every sync will record a skip rather than failing. See config/edgelab.php.</>');
 
             return self::SUCCESS;

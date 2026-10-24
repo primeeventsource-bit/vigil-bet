@@ -21,7 +21,7 @@ class BankrollSettings extends Model
 {
     use HasFactory;
 
-    protected $table = 'bankroll_settings';
+    protected $table = 'user_bankroll_settings';
 
     protected $guarded = [];
 

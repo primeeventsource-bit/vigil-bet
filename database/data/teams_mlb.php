@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    ['BAL', 'Baltimore Orioles', 'AL', 'East', []],
+    ['BOS', 'Boston Red Sox', 'AL', 'East', []],
+    ['NYY', 'New York Yankees', 'AL', 'East', ['NYA']],
+    ['TB', 'Tampa Bay Rays', 'AL', 'East', ['TBR', 'Tampa Bay Devil Rays']],
+    ['TOR', 'Toronto Blue Jays', 'AL', 'East', []],
+    ['CWS', 'Chicago White Sox', 'AL', 'Central', ['CHW']],
+    ['CLE', 'Cleveland Guardians', 'AL', 'Central', ['Cleveland Indians']],
+    ['DET', 'Detroit Tigers', 'AL', 'Central', []],
+    ['KC', 'Kansas City Royals', 'AL', 'Central', ['KCR']],
+    ['MIN', 'Minnesota Twins', 'AL', 'Central', []],
+    ['HOU', 'Houston Astros', 'AL', 'West', []],
+    ['LAA', 'Los Angeles Angels', 'AL', 'West', ['ANA', 'Anaheim Angels', 'Los Angeles Angels of Anaheim']],
+    ['ATH', 'Athletics', 'AL', 'West', ['OAK', 'Oakland Athletics', 'Sacramento Athletics']],
+    ['SEA', 'Seattle Mariners', 'AL', 'West', []],
+    ['TEX', 'Texas Rangers', 'AL', 'West', []],
+    ['ATL', 'Atlanta Braves', 'NL', 'East', []],
+    ['MIA', 'Miami Marlins', 'NL', 'East', ['FLA', 'Florida Marlins']],
+    ['NYM', 'New York Mets', 'NL', 'East', ['NYN']],
+    ['PHI', 'Philadelphia Phillies', 'NL', 'East', []],
+    ['WSH', 'Washington Nationals', 'NL', 'East', ['WAS', 'Montreal Expos']],
+    ['CHC', 'Chicago Cubs', 'NL', 'Central', ['CHN']],
+    ['CIN', 'Cincinnati Reds', 'NL', 'Central', []],
+    ['MIL', 'Milwaukee Brewers', 'NL', 'Central', []],
+    ['PIT', 'Pittsburgh Pirates', 'NL', 'Central', []],
+    ['STL', 'St. Louis Cardinals', 'NL', 'Central', ['SLN', 'Saint Louis Cardinals']],
+    ['ARI', 'Arizona Diamondbacks', 'NL', 'West', ['AZ']],
+    ['COL', 'Colorado Rockies', 'NL', 'West', []],
+    ['LAD', 'Los Angeles Dodgers', 'NL', 'West', ['LAN']],
+    ['SD', 'San Diego Padres', 'NL', 'West', ['SDP']],
+    ['SF', 'San Francisco Giants', 'NL', 'West', ['SFG']],
+];

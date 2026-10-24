@@ -9,7 +9,6 @@ use App\Services\Ai\AnthropicClaude;
 use App\Services\Ai\Claude;
 use App\Services\Alerts\PushSender;
 use App\Services\Alerts\WebPushSender;
-use App\Services\EdgeLab\CircuitBreaker;
 use App\Services\EdgeLab\EdgeLabClient;
 use App\Services\EdgeLab\Mirror;
 use App\Services\EdgeLab\SyncHealth;
@@ -25,11 +24,10 @@ class VigilServiceProvider extends ServiceProvider
     public function register(): void
     {
         /*
-         * One breaker per process, shared by the client and the health
+         * One health reader per process, shared by the pages that
          * page. Two instances would each keep their own failure count and
          * neither would ever reach the threshold.
          */
-        $this->app->singleton(CircuitBreaker::class);
 
         $this->app->singleton(EdgeLabClient::class);
         $this->app->singleton(SyncHealth::class);

@@ -85,4 +85,9 @@ return new class extends Migration
             $table->index(['user_id', 'status']);
         });
     }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('user_bets');
+    }
 };

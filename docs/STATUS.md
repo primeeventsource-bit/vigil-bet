@@ -1319,3 +1319,194 @@ Two of them changed shape while being written:
   calibration chart and `backtest_predictions` the Learning Center's
   per-prediction view. Both exist in Edge Lab and neither is exposed by its
   read-only API.
+
+---
+
+## One application
+
+Edge Lab and Vigil were two Laravel applications. Edge Lab ingested odds,
+trained models, scanned for value and published a private read-only HTTP
+API; Vigil authenticated customers, took payment, and read that API over
+the network into its own mirror tables. They are now one codebase sharing
+one database, which is what this section records.
+
+The chosen shape was one deployment and one database. **Edge Lab's
+database is the one that was kept** — it holds 3.3 million odds snapshots,
+21,834 events and a historical backfill that was still draining, against a
+handful of accounts on Vigil's side that `vigil:owner` can recreate.
+Moving the product onto the engine's data is a few rows; the reverse is
+millions.
+
+That choice decided several others. The engine's migrations are already
+recorded as run on that database, so none of them could be edited — which
+is why the one real table collision resolved the way it did.
+
+### What came across, and what did not
+
+The engine's own tree moved unchanged: `app/Modeling`, `app/Data`,
+`app/Enums`, `app/Exceptions`, its models, its 28 `edge:*` commands, its
+jobs, its ingestion and value services, and its migrations less the three
+Laravel scaffold files.
+
+Dropped with the deployment it belonged to: the engine's authentication
+(its own `users` table, 2FA, `login_activity`, `audit_events`, password
+links, admin-account commands), its nine Livewire operator screens, and
+the internal HTTP API — routes, controllers, middleware, rate limiter and
+request log.
+
+**Dropping the operator screens is a real loss and worth naming.** The
+Command Center, Model Lab, Jobs, Cross Book, Performance and Bankroll
+pages were richer than the product's admin area. They were dropped because
+they were built on the engine's single-user login, which no longer exists,
+and because the product has its own controllers covering most of the same
+ground. The code is in the `edge-lab` repository's history if any of it
+turns out to be missed.
+
+### Eight collisions
+
+Only eight files existed at the same path in both trees, and six were
+trivial — an identical base `Controller`, an empty `AppServiceProvider`,
+and four that belonged to the auth system being dropped. Two were real:
+
+- **`App\Services\Bets\BetLedger` existed twice**, meaning two different
+  things. The engine's is the operator's own bet ledger, used for
+  measuring closing line value; the product's is the customer's. The
+  engine's moved to `App\Services\Engine\Bets`, and its stake sizer with
+  it, so the boundary is legible in the namespace. The rename was scoped
+  to engine files for exactly this reason: a blanket replace would have
+  repointed the product's six callers at the operator's ledger.
+- **`bankroll_settings` existed twice**, with different schemas and
+  different meanings — the engine's is one global, append-only, versioned
+  row set; the product's is per customer with a cooling-off date on
+  loosening a limit. The product's table was renamed to
+  `user_bankroll_settings`. That direction was forced by the database
+  choice above, and it is the better name anyway: the engine's is the
+  house bankroll and the product's is the customer's.
+
+### The wire is gone
+
+`EdgeLabClient` kept its name and its entire public surface — `board()`,
+`events()`, `models()`, `event()`, `odds()`, `predictions()`,
+`evaluateParlay()` — and had its body replaced with local queries. The
+mirror jobs that consume it needed no edit at all, because the rows are
+still built by `App\Support\Internal\Present`, which is the same code that
+built the HTTP payloads.
+
+Keeping that seam was deliberate. The product's read model is still fed
+through one narrow, named interface rather than by queries spread across
+controllers, and the rule the whole thing rests on is unchanged: nothing
+in there interprets a number. The edge, the verdict, the stake and the
+reason are read off stored rows, never derived. That was true across a
+network and it is true across a function call.
+
+Gone with the network: the bearer token, the HTTP timeouts, the retry
+policy, and the circuit breaker. The breaker protected a per-minute rate
+limit on an API that no longer exists, and a breaker with nothing to break
+would have sat on the health page reporting "closed" forever — which is
+worse than no panel, because it reads as a working safeguard. Its state
+display came off the sync-health and admin pages with it.
+
+`ResilienceTest` lost two thirds of its tests for the same reason. What
+remains is the part that was never about transport — a failure is recorded
+rather than swallowed, and a failed run does not move the cursor past rows
+it never read — plus one test that is new and only possible now: **the
+projection reads the engine without writing to it.** That rule used to be
+enforced by the shape of an API with no write routes. With the tables
+directly in reach, nothing enforces it but a test that notices.
+
+### The mirror was kept, and is now redundant storage
+
+`vl_events`, `vl_board_entries`, `vl_odds_display` and `vl_models` are
+still there, still append-only, still rebuilt on a schedule. They are now
+a second copy, in the same database, of data that is already immutable in
+the engine's own tables.
+
+That is worth saying plainly rather than leaving for somebody to discover.
+The mirror was kept because collapsing it means rewriting every read path
+in the product — the board, the dashboard, the fact sheets, the publisher,
+the parlay judge — and their tests, which is a large change with real risk
+on top of a merge that already touched well over a hundred files. It still
+earns part of its keep: `vl_board_entries` is a deliberately denormalised
+read model, so the board filters and sorts on one table instead of a
+four-table join, which is what the dashboard's query count depends on.
+
+Collapsing it is the next simplification available, and it is now possible
+where it was not before.
+
+### Three things the merge found
+
+Each of these was a real defect, live in production, and each was found
+because the two halves could finally be tested against each other.
+
+**Vigil's migrations did not roll back.** Thirteen had no `down()`. A
+rollback dropped the mirrors, left every table that referenced them
+standing, and then failed on the first drop that made SQLite check a
+foreign key. Found by the engine's `MigrationsTest`, which asserts the
+whole chain runs forwards and comes back; the product had no equivalent
+test. All thirteen now have one, and the chain reverses cleanly.
+
+**Four of seven columns on every parlay grade were null.** `ParlayJudge`
+read `win_probability`, `fair_price_american`, `shaded_edge` and `verdict`
+from the judge's answer. The engine calls those `model_joint_prob`,
+`ev_shaded` and `recommendation`, and has never had a field by any of the
+other names. Every parlay a customer graded stored nulls in those columns.
+
+The reason it survived step 8 is the more useful part. The test fixture's
+own header said it:
+
+> these fixtures are the contract written down a second time. If Edge
+> Lab's shape changes, they keep passing while production breaks.
+
+It was not a shape change — the shape was never right. The fake agreed
+with the code, the code agreed with the fake, and neither had ever been
+compared to the engine. That gap cannot exist now, so
+`engineParlayVerdict()` builds its answer by running `Present::parlay()`
+over a real `ParlayEvaluation`, which makes the field names in a test the
+field names in the database by construction.
+
+The engine had no fair parlay price to give, so `Present::parlay()` now
+converts its stored `fair_joint_prob` into one using the engine's own
+converter — the same relationship `offered_decimal` already has to
+`offered_price_american`. A unit conversion of a stored probability, not a
+second opinion about one, and the conversion stays on the engine's side.
+
+**An append-only trigger guarded a table nothing in PHP admitted to.**
+Deleting the now-dead `InternalRequest` model left `internal_requests`
+protected in Postgres with no model declaring it. The hardening sweep from
+§12 caught it within one run. The model was restored — the rows are real
+history on the database still in use — with a comment saying why it stays
+when nothing writes it.
+
+### The projection tests no longer fake anything
+
+`SyncTest` seeds real `ValueBet`, `Event` and `ModelVersion` rows and
+asserts the mirror agrees with them. Where it used to compare a mirrored
+column against a hardcoded `0.58`, it now compares it against the engine
+record itself — so a column the projection quietly stops copying fails a
+test, instead of matching a number somebody typed into a fixture.
+
+The engine's `ViewsCompileTest` was promoted out of the engine subtree
+while moving, because it walks `resource_path('views')` and so now covers
+the product's templates too. That is coverage the product did not have.
+
+### Counts
+
+1,354 tests pass. That is fewer than the 549 plus 1,158 the two suites
+had, and the difference is almost entirely the tests that covered the
+dropped operator UI and the dropped authentication. The full migration
+chain — 50 migrations — runs forwards and backwards against an empty
+database. 37 artisan commands and 57 scheduled entries, in one
+application.
+
+### Still outstanding from this merge
+
+- **Production environment variables.** `ODDS_API_KEY`, `CFBD_API_KEY` and
+  `CBD_API_KEY` are set on the engine's Laravel Cloud application, not the
+  product's. Nothing ingests until they are copied across.
+- **The `EDGE_LAB_*` variables are dead** and should be removed from the
+  deployed environment: there is no URL to call and no token to present.
+- **The two missing endpoints noted above are no longer endpoints.**
+  `calibration_bins` and `backtest_predictions` were listed as Edge Lab
+  tables its API did not expose. There is no API; they are local tables
+  now, and Model Lab's calibration chart and the Learning Center's
+  per-prediction view are ordinary queries away.

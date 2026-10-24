@@ -7,8 +7,14 @@ namespace App\Services\EdgeLab;
 use RuntimeException;
 
 /**
- * Edge Lab could not be read. Never swallowed: a sync that fails quietly
- * leaves a board that looks merely quiet.
+ * The engine could not be read. Never swallowed: a projection that fails
+ * quietly leaves a board that looks merely quiet.
+ *
+ * Thinner than it was. When this crossed a network it also carried a
+ * breaker flag and an isPermanent() test, for deciding whether asking
+ * again would get a different answer. A local query has no such
+ * distinction: either it answered, or the database is unreachable and the
+ * queue's own retry is the right response to that.
  */
 class EdgeLabException extends RuntimeException
 {
@@ -16,29 +22,12 @@ class EdgeLabException extends RuntimeException
         string $message,
         public readonly ?int $status = null,
         public readonly ?string $endpoint = null,
-        public readonly bool $breakerOpen = false,
     ) {
         parent::__construct($message);
     }
 
-    public static function breakerOpen(?int $retryIn): self
-    {
-        return new self(
-            $retryIn === null
-                ? 'Edge Lab is being left alone after repeated failures.'
-                : "Edge Lab is being left alone after repeated failures; retrying in about {$retryIn}s.",
-            breakerOpen: true,
-        );
-    }
-
     public static function notConfigured(): self
     {
-        return new self('EDGE_LAB_TOKEN is not set, so Edge Lab cannot be read.');
-    }
-
-    /** A 4xx is a disagreement about the request; retrying asks the same question. */
-    public function isPermanent(): bool
-    {
-        return $this->status !== null && $this->status >= 400 && $this->status < 500 && $this->status !== 429;
+        return new self('The engine is switched off, so there is nothing to read.');
     }
 }

@@ -9,7 +9,7 @@
     @unless ($configured)
         <p role="status" class="mt-6 rounded-md border border-[var(--vg-warning)] px-4 py-3 text-sm">
             <span class="badge badge-warning">Not connected</span>
-            <span class="ml-2">EDGE_LAB_TOKEN is not set. Every sync records a skip and spends nothing.</span>
+            <span class="ml-2">The engine is switched off. Every run records a skip and reads nothing.</span>
         </p>
     @endunless
 
@@ -55,21 +55,6 @@
                 @endforeach
             </tbody>
         </table>
-    </div>
-
-    <div class="panel mt-6 p-5">
-        <h2 class="font-semibold">Circuit breaker</h2>
-        <p class="mt-1 text-sm text-[var(--vg-slate)]">
-            Stops one Edge Lab outage becoming two by spending its rate limit on failures.
-        </p>
-        <p class="mt-3 text-sm">
-            State:
-            <strong>{{ $breaker['state'] }}</strong>,
-            {{ $breaker['consecutive_failures'] }} consecutive failure(s)
-            @if ($breaker['retry_in_seconds'])
-                , retrying in about {{ $breaker['retry_in_seconds'] }}s
-            @endif
-        </p>
     </div>
 
     <h2 class="mt-8 font-[family-name:var(--font-display)] text-lg font-semibold">Recent runs</h2>

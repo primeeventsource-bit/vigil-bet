@@ -8,7 +8,6 @@ use App\Services\EdgeLab\SyncHealth;
 
 beforeEach(function () {
     config()->set('edgelab.enabled', true);
-    config()->set('edgelab.token', 'a-shared-secret');
     config()->set('edgelab.stale_after_minutes.board', 90);
 });
 
@@ -53,7 +52,7 @@ it('does not count a failed run as a sync', function () {
     boardSyncedMinutesAgo(200);
 
     SyncRun::create([
-        'feed' => 'board', 'status' => 'failed', 'message' => 'Edge Lab answered 500.',
+        'feed' => 'board', 'status' => 'failed', 'message' => 'The engine refused the query.',
         'started_at' => now(), 'finished_at' => now(),
     ]);
 
@@ -84,7 +83,7 @@ it('warns a customer on the daily card when the data is behind', function () {
         ->assertSee('Delayed');
 });
 
-it('shows the operator every feed and the breaker', function () {
+it('shows the operator every feed', function () {
     boardSyncedMinutesAgo(5);
 
     $user = User::forceCreate([
@@ -100,8 +99,7 @@ it('shows the operator every feed and the breaker', function () {
         ->assertSee('events')
         ->assertSee('models')
         ->assertSee('Current')
-        ->assertSee('Never synced')
-        ->assertSee('Circuit breaker');
+        ->assertSee('Never synced');
 });
 
 it('keeps sync health behind a login', function () {

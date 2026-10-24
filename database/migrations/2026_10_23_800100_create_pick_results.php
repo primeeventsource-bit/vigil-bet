@@ -69,4 +69,9 @@ return new class extends Migration
             SQL);
         }
     }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('pick_results');
+    }
 };

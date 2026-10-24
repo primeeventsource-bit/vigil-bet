@@ -67,7 +67,6 @@ class AdminController extends Controller
 
             'record' => $record->summary(),
             'syncHealth' => $health->all(),
-            'breaker' => $health->breakerState(),
 
             'aiSpendMonth' => (int) AiUsage::where('created_at', '>=', now()->startOfMonth())
                 ->sum('cost_millicents'),

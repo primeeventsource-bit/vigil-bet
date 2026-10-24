@@ -21,3 +21,7 @@ require_once __DIR__.'/Fixtures/edgelab.php';
 require_once __DIR__.'/Fixtures/payments.php';
 require_once __DIR__.'/Fixtures/ai.php';
 require_once __DIR__.'/Fixtures/bets.php';
+require_once __DIR__.'/Fixtures/parlays.php';
+require_once __DIR__.'/Fixtures/live.php';
+require_once __DIR__.'/Fixtures/teams.php';
+require_once __DIR__.'/Fixtures/internal.php';

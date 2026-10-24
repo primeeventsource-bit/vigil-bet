@@ -11,9 +11,9 @@ use App\Services\EdgeLab\EdgeLabException;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Sends a slip to Edge Lab's parlay judge and stores what came back.
+ * Sends a slip to the engine's parlay judge and stores what came back.
  *
- * Vigil computes nothing here. The correlation-aware probability, the
+ * The product computes nothing here. The correlation-aware probability, the
  * fair price, the book's hold and the shaded edge are all Edge Lab's
  * work, and multiplying leg probabilities together on this side would
  * produce a number that looked like a parlay probability and was not one
@@ -67,12 +67,24 @@ class ParlayJudge
             'legs' => $legs,
             'result' => $result,
             'leg_count' => count($legs),
-            'win_probability' => $this->number($result['win_probability'] ?? $result['probability'] ?? null),
+            /*
+             * These names are the engine's, checked against its columns.
+             * They used to be guesses with fallbacks - 'win_probability'
+             * with 'probability' behind it, 'verdict' with nothing - and
+             * four of the six resolved to null on every real slip,
+             * because the engine calls them something else. The tests did
+             * not catch it: they asserted against a hand-written fake of
+             * a payload that crossed a network, so the fake and the code
+             * agreed with each other and neither agreed with the engine.
+             * There is no wire and no fake any more, and these are read
+             * off parlay_evaluations.
+             */
+            'win_probability' => $this->number($result['model_joint_prob'] ?? null),
             'fair_price_american' => $this->integer($result['fair_price_american'] ?? null),
-            'offered_price_american' => $this->integer($result['offered_price_american'] ?? $result['price_american'] ?? null),
-            'book_hold' => $this->number($result['hold'] ?? $result['book_hold'] ?? null),
-            'shaded_edge' => $this->number($result['shaded_edge'] ?? $result['edge'] ?? null),
-            'verdict' => is_string($result['verdict'] ?? null) ? $result['verdict'] : null,
+            'offered_price_american' => $this->integer($result['offered_price_american'] ?? null),
+            'book_hold' => $this->number($result['hold'] ?? null),
+            'shaded_edge' => $this->number($result['ev_shaded'] ?? null),
+            'verdict' => is_string($result['recommendation'] ?? null) ? $result['recommendation'] : null,
             'unavailable_reason' => $unavailable,
             'created_at' => now(),
         ]);

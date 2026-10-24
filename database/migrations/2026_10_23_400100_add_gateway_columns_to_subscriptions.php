@@ -36,4 +36,18 @@ return new class extends Migration
             $table->index('gateway_subscription_id');
         });
     }
+
+    public function down(): void
+    {
+        Schema::table('subscriptions', function (Blueprint $table): void {
+            $table->dropIndex(['gateway_subscription_id']);
+            $table->dropColumn([
+                'interval',
+                'gateway',
+                'gateway_customer_id',
+                'gateway_subscription_id',
+                'last_billing_event_id',
+            ]);
+        });
+    }
 };
