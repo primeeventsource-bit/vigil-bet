@@ -1615,3 +1615,41 @@ needs a permission this session does not have.
 The old product deployment and its database are still there, untouched and
 no longer deploying. Worth keeping until the switch is known to be good,
 then deleting.
+
+### The engine's documentation, which the merge first left behind
+
+The code moved and the docs did not. That was an oversight rather than a
+decision, and 2,237 lines of it were still sitting in the other
+repository. Brought across now:
+
+- `DATA_SOURCES.md` - where every fact comes from, per sport.
+- `SCHEMA.md` - the engine's tables and what each is for.
+- `PARLAY_ENGINE_PLAN.md` - how correlated legs are priced.
+- `DEPLOY_LARAVEL_CLOUD.md` - the resources the engine needs: serverless
+  Postgres, one queue worker, the scheduler, a key-value store.
+- `EDGE_FINDINGS.md` - the measurements, including the ones that say there
+  is no edge.
+- `DECISIONS.md` arrived as `ENGINE_DECISIONS.md`, because both halves
+  kept a decision log and both are worth having. The product's covers the
+  product's choices; the engine's covers Laravel and Livewire versions,
+  why the modelling is PHP rather than a Python service, and the
+  leakage rules.
+
+Two things were deliberately not brought across.
+
+`INTERNAL_API.md` documented the private read-only HTTP API between the
+two deployments, and there is no such API any more. The part of it worth
+keeping was never the endpoint list but the reason the odds endpoint took
+one event at a time: the feed licence permits showing prices inside a paid
+interface and forbids repackaging the feed, and the practical difference
+is almost entirely whether a caller can pull a whole slate in one request.
+That constraint now lives where it is enforced - in the comments on
+`EdgeLabClient::odds()` - and is asserted by `NoOddsExportTest`, including
+a test that no method exists which could fetch odds in bulk. A document
+describing a deleted API would have been the third place that rule was
+written down and the first place it stopped being true.
+
+`docs/reference/` held an alternate build prompt and a dashboard mockup,
+plus `.duplicate` copies of both that look accidental. Design scratch for
+a UI that no longer exists; it stays in the `edge-lab` repository rather
+than being deleted or carried.
