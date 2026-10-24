@@ -240,8 +240,10 @@ class AdminController extends Controller
         $clvCount = (clone $settled)->whereNotNull('shadow_results.clv')->count();
 
         return view('admin.shadow', [
-            'recorded' => ShadowPick::count(),
-            'pending' => ShadowPick::query()->whereDoesntHave('result')->count(),
+            // Canonical throughout: the table holds pre-fix duplicates
+            // that must not be counted as separate bets.
+            'recorded' => ShadowPick::query()->canonical()->count(),
+            'pending' => ShadowPick::query()->canonical()->whereDoesntHave('result')->count(),
             'gradedCount' => $gradedCount,
             // No rate without a sample behind it. An unmeasured figure
             // and a zero look identical on a page and are not.
@@ -264,7 +266,7 @@ class AdminController extends Controller
                 ->groupBy('shadow_picks.sport')
                 ->orderByDesc('n')
                 ->get(),
-            'recent' => ShadowPick::query()->with('result')->orderByDesc('recorded_at')->limit(40)->get(),
+            'recent' => ShadowPick::query()->canonical()->with('result')->orderByDesc('recorded_at')->limit(40)->get(),
         ]);
     }
 

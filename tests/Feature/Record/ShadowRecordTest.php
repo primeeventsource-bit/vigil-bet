@@ -9,6 +9,7 @@ use App\Models\ShadowPick;
 use App\Models\ShadowResult;
 use App\Models\ValueBet;
 use App\Services\Record\ShadowRecorder;
+use Illuminate\Database\QueryException;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,6 +41,56 @@ function shadowCandidate(array $overrides = [], int $hoursToKickoff = 6): ValueB
         'edge_at_price' => 0.0962,
         'kelly_fraction' => 0.04,
     ], $overrides));
+}
+
+/**
+ * A duplicate written the way the real ones got there: before the guard.
+ *
+ * Production holds 61 of these from the hours between the recorder being
+ * wrong and the trigger being added. They cannot be deleted, so the
+ * readers have to cope with them, so the tests have to produce them -
+ * and the only honest way is with the guard off, which is the state the
+ * database was actually in when they were written.
+ */
+function duplicateOf(ShadowPick $pick): void
+{
+    DB::getDriverName() === 'pgsql'
+        ? DB::unprepared('DROP TRIGGER IF EXISTS shadow_picks_one_per_selection ON shadow_picks')
+        : DB::unprepared('DROP TRIGGER IF EXISTS shadow_picks_one_per_selection');
+
+    /*
+     * Its own value bet, because `value_bet_id` is unique - which is how
+     * the real duplicates look too: one per rescan, each pointing at that
+     * scan's own row for the same selection.
+     */
+    $rescan = engineBoardEntry(null, $pick->event, [
+        'recommendation' => 'pass',
+        'pass_reason' => 'market_unproven',
+        'market_verdict' => 'negative',
+        'shadow_recommendation' => 'bet',
+        'shadow_pass_reason' => null,
+        'market' => $pick->market,
+        'side' => $pick->side,
+        'line' => $pick->line,
+        'model_prob' => $pick->model_prob,
+        'best_price_american' => $pick->price_american,
+    ]);
+
+    DB::table('shadow_picks')->insert([
+        'value_bet_id' => $rescan->id,
+        'event_id' => $pick->event_id,
+        'sport' => $pick->sport,
+        'market' => $pick->market,
+        'side' => $pick->side,
+        'line' => $pick->line,
+        'selection' => $pick->selection,
+        'matchup' => $pick->matchup,
+        'price_american' => $pick->price_american,
+        'model_prob' => $pick->model_prob,
+        'kickoff_at' => $pick->kickoff_at,
+        'recorded_at' => now(),
+        'created_at' => now(),
+    ]);
 }
 
 it('records a bet the gate declined on its merits', function () {
@@ -310,4 +361,120 @@ it('shows a settled sport in the by-sport table', function () {
         ->assertOk()
         ->assertSee('By sport')
         ->assertSee('n = 1');
+});
+
+it('records a selection once across rescans, not once per scan', function () {
+    /*
+     * The bug this replaces: the recorder deduplicated on value_bet_id,
+     * and the board is rescanned hourly, so each scan minted a fresh
+     * value_bets row for the same game at the same price and the same
+     * selection was written down again. 92 rows for 31 selections in six
+     * hours, each of which would have been settled and counted alone.
+     *
+     * The existing "records a game once however often it runs" test
+     * reused one value bet, so it could never see this.
+     */
+    $bet = shadowCandidate();
+    app(ShadowRecorder::class)->record();
+
+    expect(ShadowPick::count())->toBe(1);
+
+    // The next scan: the same event, side and line, its own value_bets row.
+    engineBoardEntry(null, $bet->event, [
+        'recommendation' => 'pass',
+        'pass_reason' => 'market_unproven',
+        'market_verdict' => 'negative',
+        'shadow_recommendation' => 'bet',
+        'shadow_pass_reason' => null,
+        'side' => $bet->side->value,
+        'market' => $bet->market->value,
+        'model_prob' => 0.62,
+        'best_price_american' => -110,
+        'edge_at_price' => 0.0962,
+        'kelly_fraction' => 0.04,
+    ]);
+
+    $outcome = app(ShadowRecorder::class)->record();
+
+    expect(ShadowPick::count())->toBe(1)
+        ->and($outcome['recorded'])->toBe(0);
+});
+
+it('refuses a duplicate selection in the database, not only in the recorder', function () {
+    // The application guard is the one that runs; this is the one that
+    // holds when something writes the row by another route.
+    $bet = shadowCandidate();
+    app(ShadowRecorder::class)->record();
+
+    $first = ShadowPick::sole();
+
+    expect(fn () => ShadowPick::create([
+        'value_bet_id' => $bet->id,
+        'event_id' => $first->event_id,
+        'sport' => $first->sport,
+        'market' => $first->market,
+        'side' => $first->side,
+        'line' => $first->line,
+        'selection' => $first->selection,
+        'matchup' => $first->matchup,
+        'price_american' => $first->price_american,
+        'model_prob' => $first->model_prob,
+        'kickoff_at' => $first->kickoff_at,
+        'recorded_at' => now(),
+        'created_at' => now(),
+    ]))->toThrow(QueryException::class);
+
+    expect(ShadowPick::count())->toBe(1);
+});
+
+it('counts one bet per selection even with duplicates already stored', function () {
+    /*
+     * Production holds 61 rows written before the guard existed. They
+     * cannot be deleted - the table refuses it, and that refusal is why
+     * the table is worth anything - so readers take the earliest row per
+     * selection instead. This proves they do.
+     */
+    $bet = shadowCandidate();
+    app(ShadowRecorder::class)->record();
+
+    $first = ShadowPick::sole();
+
+    duplicateOf($first);
+
+    expect(ShadowPick::count())->toBe(2)
+        ->and(ShadowPick::query()->canonical()->count())->toBe(1)
+        // And the row kept is the first one written, not the later one.
+        ->and(ShadowPick::query()->canonical()->sole()->id)->toBe($first->id);
+
+    $admin = betUser('pro');
+    $admin->forceFill(['is_admin' => true])->save();
+
+    // The tile reads selections, not rows.
+    $this->actingAs($admin)->get(route('admin.shadow'))
+        ->assertOk()
+        ->assertSeeInOrder(['Recorded', '1']);
+});
+
+it('settles a duplicated selection once, not once per duplicate', function () {
+    $bet = shadowCandidate(hoursToKickoff: 2);
+    app(ShadowRecorder::class)->record();
+
+    $first = ShadowPick::sole();
+
+    duplicateOf($first);
+
+    $this->travel(4)->hours();
+
+    Event::query()->whereKey($first->event_id)->update([
+        'status' => 'final',
+        'final_home_score' => 27,
+        'final_away_score' => 20,
+    ]);
+
+    $outcome = app(ShadowRecorder::class)->settle();
+
+    // One graded bet. Two would double the units and the CLV.
+    expect($outcome['settled'])->toBe(1)
+        ->and(ShadowResult::count())->toBe(1)
+        ->and(ShadowResult::sole()->shadow_pick_id)->toBe($first->id);
 });

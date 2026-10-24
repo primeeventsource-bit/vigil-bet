@@ -61,6 +61,29 @@ class ShadowRecorder
             ->where('shadow_recommendation', 'bet')
             ->whereNotNull('best_price_american')
             ->whereDoesntHave('shadowPick')
+            /*
+             * Not already recorded as a selection, which is a different
+             * question from not already recorded as a value bet.
+             *
+             * The board is rescanned hourly and each scan writes its own
+             * value_bets row, so `whereDoesntHave('shadowPick')` is true
+             * again every hour for the same game at the same price. That
+             * wrote one row per rescan - 92 rows for 31 selections in six
+             * hours - and each would have been settled and counted on its
+             * own, scaling the record by the scan rate.
+             *
+             * The line is part of the identity: on spreads a genuinely
+             * different number is a genuinely different bet, and it is
+             * compared null-safely because a moneyline has no line at all.
+             */
+            ->whereNotExists(function ($recorded): void {
+                $recorded->selectRaw('1')
+                    ->from('shadow_picks')
+                    ->whereColumn('shadow_picks.event_id', 'value_bets.event_id')
+                    ->whereColumn('shadow_picks.market', 'value_bets.market')
+                    ->whereColumn('shadow_picks.side', 'value_bets.side')
+                    ->whereRaw('(shadow_picks.line = value_bets.line or (shadow_picks.line is null and value_bets.line is null))');
+            })
             ->orderByDesc('flagged_at')
             ->limit(500)
             ->get();
