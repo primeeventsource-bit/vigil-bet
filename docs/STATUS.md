@@ -1918,3 +1918,27 @@ credits**, 1.3% of the 22.3 million spendable this month:
 
 That is the single thing that would most change what can be said about
 the models, and it is not queued because it spends real money.
+
+### The diagnostic found one live bug, and the fixes are confirmed
+
+Running `edge:doctor` against production is what turned up the props
+failure: four `odds:props:nfl` runs in six minutes, each a 422
+`Invalid event_id`. Nothing was visibly broken - the props were simply
+not arriving, which looks identical to a quiet night.
+
+Both fixes verified on production rather than assumed:
+
+| | before | after |
+|---|---|---|
+| `odds:close` | 4 hours, reaped at 30 min | **14.6 s**, 4,312 markers |
+| queue depth | ~102, oscillating | **0** |
+| `odds:props:nfl` | failed, 0 written | **success, 8,626 snapshots**, 1 expired id counted |
+| skipped runs per tick | 6 a minute | **none** |
+
+The props run that proved it reported `in=11, out=8626, expired=1`: one
+game had kicked off and lost its id, that was counted, and the other
+eleven games' props were written. Before the fix all twelve were lost
+because of the one.
+
+`edge:verify:guards` passes - append-only updates and deletes rejected on
+`odds_snapshots`, and a prediction timestamped after kickoff rejected.
