@@ -16,6 +16,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The board of one sport as it stood at one past moment, written as
@@ -49,10 +50,48 @@ class BackfillHistoricalOdds implements ShouldQueue
         public readonly TriggerSource $triggeredBy = TriggerSource::Manual,
     ) {}
 
+    /**
+     * How long to stand aside when live work is waiting.
+     *
+     * Long enough that a backlog of live pulls clears before this asks
+     * again, short enough that a quiet queue is not left idle.
+     */
+    private const YIELD_SECONDS = 90;
+
     /** @return array<int, object> */
     public function middleware(): array
     {
         return [(new WithoutOverlapping('odds-backfill:'.$this->sport->value))->expireAfter(900)];
+    }
+
+    /**
+     * Stand aside while anything live is queued.
+     *
+     * A backfill is historical by definition: every row it writes is
+     * months old and nothing downstream is waiting on it. A live odds
+     * pull is the opposite - a closing line exists only in the minutes
+     * before kickoff, and a pull that runs an hour late has lost that
+     * game's closing line for good.
+     *
+     * So when both are queued, the one that can wait does. Without this,
+     * queueing a few thousand of these silently stops live ingestion for
+     * as long as they take to drain, and the damage is to exactly the
+     * measurement the backfill exists to improve.
+     *
+     * Checked here rather than solved with a second queue because the
+     * worker's queue list is deployment configuration: a job moved to a
+     * queue nothing is listening to does not get deprioritised, it never
+     * runs at all.
+     */
+    public function liveWorkIsWaiting(): bool
+    {
+        foreach (['PullOddsForSport', 'PullPropsForSport', 'MarkClosingLines'] as $class) {
+            if (DB::table('jobs')->where('payload', 'like', '%'.$class.'%')->exists()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function handle(
@@ -60,6 +99,12 @@ class BackfillHistoricalOdds implements ShouldQueue
         HistoricalOddsWriter $writer,
         JobRunRecorder $recorder,
     ): void {
+        if ($this->liveWorkIsWaiting()) {
+            $this->release(self::YIELD_SECONDS);
+
+            return;
+        }
+
         $this->tracked(
             "odds:backfill:{$this->sport->value}",
             function (JobRun $run) use ($client, $writer, $recorder): array {
