@@ -21,6 +21,7 @@ use App\Jobs\Odds\PullPropsForSport;
 use App\Jobs\Ops\ReapStaleJobRuns;
 use App\Jobs\Value\ScanCrossBook;
 use App\Jobs\Value\ScanValue;
+use App\Services\Odds\PullCadence;
 use Illuminate\Support\Facades\Schedule;
 
 /*
@@ -139,7 +140,16 @@ foreach (Sport::enabled() as $sport) {
     Schedule::job(new PullOddsForSport($sport))
         ->everyMinute()
         ->name("odds-pull-{$sport->value}")
-        ->withoutOverlapping();
+        ->withoutOverlapping()
+        /*
+         * Due-checked here rather than inside the job. The job still
+         * checks for itself - two processes deciding the same thing a
+         * second apart can disagree - but the common answer is no, and
+         * queueing eight thousand jobs a day to hear it put every pull a
+         * quarter of an hour behind, in the window the closing line
+         * comes from.
+         */
+        ->when(fn (): bool => app(PullCadence::class)->isDue($sport));
 
     /*
      * Player props, on their own looser clock. One call per game rather
@@ -153,7 +163,8 @@ foreach (Sport::enabled() as $sport) {
     Schedule::job(new PullPropsForSport($sport))
         ->everyFiveMinutes()
         ->name("odds-props-{$sport->value}")
-        ->withoutOverlapping();
+        ->withoutOverlapping()
+        ->when(fn (): bool => app(PullCadence::class)->isDueForProps($sport));
 
     Schedule::job(new SyncSchedules($sport))
         ->twiceDaily(6, 18)
