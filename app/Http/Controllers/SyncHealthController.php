@@ -9,12 +9,13 @@ use App\Services\EdgeLab\SyncHealth;
 use Illuminate\View\View;
 
 /**
- * Whether Vigil's copy of Edge Lab is current, and what the last few sync
- * attempts did.
+ * Whether the product's projection of the engine is current, and what the
+ * last few runs did.
  *
- * Built to make a broken sync obvious rather than to look healthy. A feed
- * that stopped answering looks exactly like a quiet night from the board
- * itself, and this page is the only place the difference is visible.
+ * Built to make a broken projection obvious rather than to look healthy.
+ * A feed that stopped being rebuilt looks exactly like a quiet night from
+ * the board itself, and this page is the only place the difference is
+ * visible.
  */
 class SyncHealthController extends Controller
 {
@@ -22,7 +23,6 @@ class SyncHealthController extends Controller
     {
         return view('app.sync-health', [
             'feeds' => $health->all(),
-            'breaker' => $health->breakerState(),
             'configured' => (bool) config('edgelab.enabled'),
             'recent' => SyncRun::query()->latestFirst()->limit(25)->get(),
         ]);

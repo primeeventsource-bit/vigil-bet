@@ -76,4 +76,16 @@ return new class extends Migration
             SQL);
         }
     }
+
+    public function down(): void
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        foreach (self::TABLES as $table) {
+            DB::unprepared("DROP TRIGGER IF EXISTS {$table}_append_only ON {$table};");
+            DB::unprepared("DROP FUNCTION IF EXISTS vigil_{$table}_append_only();");
+        }
+    }
 };

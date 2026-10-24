@@ -2,9 +2,25 @@
 
 declare(strict_types=1);
 
+use App\Enums\Sport;
+use App\Jobs\Bets\RecordBetClv;
+use App\Jobs\Bets\SettleBets;
 use App\Jobs\EdgeLab\SyncBoard;
 use App\Jobs\EdgeLab\SyncEvents;
 use App\Jobs\EdgeLab\SyncModels;
+use App\Jobs\Ingest\SyncInjuries;
+use App\Jobs\Ingest\SyncProbableStarters;
+use App\Jobs\Ingest\SyncResults;
+use App\Jobs\Ingest\SyncSchedules;
+use App\Jobs\Ingest\SyncWeather;
+use App\Jobs\Modeling\PredictUpcoming;
+use App\Jobs\Modeling\TrainModel;
+use App\Jobs\Odds\MarkClosingLines;
+use App\Jobs\Odds\PullOddsForSport;
+use App\Jobs\Odds\PullPropsForSport;
+use App\Jobs\Ops\ReapStaleJobRuns;
+use App\Jobs\Value\ScanCrossBook;
+use App\Jobs\Value\ScanValue;
 use Illuminate\Support\Facades\Schedule;
 
 /*
@@ -102,3 +118,162 @@ Schedule::command('vigil:alerts')
     ->hourlyAt(2)
     ->name('alerts')
     ->withoutOverlapping();
+
+/*
+|--------------------------------------------------------------------------
+| The engine
+|--------------------------------------------------------------------------
+|
+| Ingestion, pricing and training. Everything below used to run in a
+| second deployment and reach this one over HTTP; it now runs here,
+| against the same database, which is why the sync jobs above no longer
+| leave the building.
+|
+| The odds tick runs every minute but each sport decides for itself
+| whether it is actually due - see PullCadence. That is what keeps a
+| monthly API quota from being spent on games that are days away.
+|
+*/
+
+foreach (Sport::enabled() as $sport) {
+    Schedule::job(new PullOddsForSport($sport))
+        ->everyMinute()
+        ->name("odds-pull-{$sport->value}")
+        ->withoutOverlapping();
+
+    /*
+     * Player props, on their own looser clock. One call per game rather
+     * than one per league, so the tick is frequent and PullCadence decides
+     * per sport whether anything is actually due - the same arrangement as
+     * the board above, with a cadence an order of magnitude cheaper.
+     *
+     * A sport with no prop markets configured, or props switched off,
+     * records a skip and spends nothing.
+     */
+    Schedule::job(new PullPropsForSport($sport))
+        ->everyFiveMinutes()
+        ->name("odds-props-{$sport->value}")
+        ->withoutOverlapping();
+
+    Schedule::job(new SyncSchedules($sport))
+        ->twiceDaily(6, 18)
+        ->name("schedules-{$sport->value}")
+        ->withoutOverlapping();
+
+    Schedule::job(new SyncResults($sport))
+        ->hourly()
+        ->name("results-{$sport->value}")
+        ->withoutOverlapping();
+
+    // Availability moves on practice reports and warmups, not
+    // continuously, and one request covers a whole league. What matters is
+    // having a stamped record of what was known before kickoff.
+    Schedule::job(new SyncInjuries($sport))
+        ->cron('0 */4 * * *')
+        ->name("injuries-{$sport->value}")
+        ->withoutOverlapping();
+
+    // Price the next few days with the active model. A prediction is only
+    // worth writing while the game is still ahead of it, so this runs often
+    // rather than waiting for a nightly pass; one prediction per game per
+    // model version means a repeat pass over the same slate writes nothing.
+    Schedule::job(new PredictUpcoming($sport))
+        ->hourlyAt(40)
+        ->name("predict-{$sport->value}")
+        ->withoutOverlapping();
+}
+
+/*
+ * Probable starting pitchers. MLB only: the NHL publishes nothing
+ * equivalent for starting goalies, so there is no second half to run.
+ */
+Schedule::job(new SyncProbableStarters)
+    ->cron('15 */4 * * *')
+    ->name('probable-starters')
+    ->withoutOverlapping();
+
+/*
+ * Forecasts for kickoff at outdoor venues. Every run writes a new row: a
+ * forecast three days out and one three hours out are different facts, and
+ * the gap between them is the error a model would have to live with.
+ */
+Schedule::job(new SyncWeather)
+    ->cron('30 */6 * * *')
+    ->name('weather')
+    ->withoutOverlapping();
+
+// Freeze closing lines shortly after games start.
+Schedule::job(new MarkClosingLines)
+    ->hourly()
+    ->name('mark-closing-lines')
+    ->withoutOverlapping();
+
+// Grade bets whose games have finished. Offset past the top of the hour so
+// the results pull above has usually landed before this reads it; a bet that
+// misses one pass is picked up by the next, since neither job uses a window.
+Schedule::job(new SettleBets)
+    ->hourlyAt(20)
+    ->name('settle-bets')
+    ->withoutOverlapping();
+
+// Sweep the board. Runs after the odds pull and the prediction pass, since
+// it compares one against the other and is only as fresh as its prices.
+Schedule::job(new ScanValue)
+    ->hourlyAt(45)
+    ->name('scan-value')
+    ->withoutOverlapping();
+
+// Stamp closing line value. Runs after the closing lines it reads are frozen.
+Schedule::job(new RecordBetClv)
+    ->hourlyAt(25)
+    ->name('record-bet-clv')
+    ->withoutOverlapping();
+
+/*
+ * Look across books for arbitrages and middles. Runs on the odds cadence
+ * rather than the scan cadence because it reads nothing but prices: there
+ * is no model in it, and a disagreement between two books is worth
+ * nothing once it is an hour old.
+ */
+Schedule::job(new ScanCrossBook)
+    ->everyFiveMinutes()
+    ->name('scan-crossbook')
+    ->withoutOverlapping();
+
+/*
+ * Close out runs whose worker never came back.
+ *
+ * Runs last in this file because it reads what everything above it wrote.
+ * A row stuck on "running" is the one failure the Jobs screen cannot see
+ * through - it reads as work in progress - so something has to notice that
+ * nothing came back.
+ */
+Schedule::job(new ReapStaleJobRuns)
+    ->everyFifteenMinutes()
+    ->name('reap-stale-runs')
+    ->withoutOverlapping();
+
+/*
+ * Retrain weekly, so a verdict can change its mind.
+ *
+ * Every other job here keeps the data current and nothing kept the models
+ * current. A market that reports "230 of 300 graded predictions needed"
+ * is waiting on games that arrive daily, and without this it would go on
+ * reporting that number for as long as the app ran: the closing lines
+ * would accumulate, the evidence would arrive, and nobody would look at
+ * it again.
+ *
+ * Weekly rather than nightly. A rating moves a little with each game and
+ * a verdict moves hardly at all, so a nightly retrain would spend an hour
+ * of CPU to write a new version row that says the same thing, and would
+ * bury the runs that mattered under six that did not.
+ *
+ * Sunday at 4am: after Saturday's college slate has settled and graded,
+ * and before anything is priced on Sunday.
+ */
+foreach (Sport::enabled() as $sport) {
+    Schedule::job(new TrainModel($sport))
+        ->weeklyOn(0, '04:00')
+        ->name("retrain-{$sport->value}")
+        ->withoutOverlapping();
+}

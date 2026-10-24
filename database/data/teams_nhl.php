@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    ['BOS', 'Boston Bruins', 'Eastern', 'Atlantic', []],
+    ['BUF', 'Buffalo Sabres', 'Eastern', 'Atlantic', []],
+    ['DET', 'Detroit Red Wings', 'Eastern', 'Atlantic', []],
+    ['FLA', 'Florida Panthers', 'Eastern', 'Atlantic', []],
+    ['MTL', 'Montreal Canadiens', 'Eastern', 'Atlantic', ['Montreal Canadiens', 'Montreal Canadien']],
+    ['OTT', 'Ottawa Senators', 'Eastern', 'Atlantic', []],
+    ['TBL', 'Tampa Bay Lightning', 'Eastern', 'Atlantic', ['TB']],
+    ['TOR', 'Toronto Maple Leafs', 'Eastern', 'Atlantic', []],
+    ['CAR', 'Carolina Hurricanes', 'Eastern', 'Metropolitan', []],
+    ['CBJ', 'Columbus Blue Jackets', 'Eastern', 'Metropolitan', []],
+    ['NJD', 'New Jersey Devils', 'Eastern', 'Metropolitan', ['NJ']],
+    ['NYI', 'New York Islanders', 'Eastern', 'Metropolitan', []],
+    ['NYR', 'New York Rangers', 'Eastern', 'Metropolitan', []],
+    ['PHI', 'Philadelphia Flyers', 'Eastern', 'Metropolitan', []],
+    ['PIT', 'Pittsburgh Penguins', 'Eastern', 'Metropolitan', []],
+    ['WSH', 'Washington Capitals', 'Eastern', 'Metropolitan', ['WAS']],
+    ['CHI', 'Chicago Blackhawks', 'Western', 'Central', []],
+    ['COL', 'Colorado Avalanche', 'Western', 'Central', []],
+    ['DAL', 'Dallas Stars', 'Western', 'Central', []],
+    ['MIN', 'Minnesota Wild', 'Western', 'Central', []],
+    ['NSH', 'Nashville Predators', 'Western', 'Central', []],
+    ['STL', 'St. Louis Blues', 'Western', 'Central', ['Saint Louis Blues']],
+    ['UTA', 'Utah Mammoth', 'Western', 'Central', ['UTAH', 'Utah Hockey Club', 'Arizona Coyotes', 'ARI']],
+    ['WPG', 'Winnipeg Jets', 'Western', 'Central', []],
+    ['ANA', 'Anaheim Ducks', 'Western', 'Pacific', ['Mighty Ducks of Anaheim']],
+    ['CGY', 'Calgary Flames', 'Western', 'Pacific', []],
+    ['EDM', 'Edmonton Oilers', 'Western', 'Pacific', []],
+    ['LAK', 'Los Angeles Kings', 'Western', 'Pacific', ['LA']],
+    ['SJS', 'San Jose Sharks', 'Western', 'Pacific', ['SJ']],
+    ['SEA', 'Seattle Kraken', 'Western', 'Pacific', []],
+    ['VAN', 'Vancouver Canucks', 'Western', 'Pacific', []],
+    ['VGK', 'Vegas Golden Knights', 'Western', 'Pacific', ['VEG', 'Las Vegas Golden Knights']],
+];

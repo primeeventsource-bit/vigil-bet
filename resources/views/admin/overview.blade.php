@@ -118,10 +118,6 @@
                 </li>
             @endforeach
         </ul>
-
-        <p class="mt-3 text-xs text-[var(--vg-slate)]">
-            Circuit breaker: <strong>{{ $breaker['state'] ?? 'unknown' }}</strong>
-        </p>
     </section>
 
     {{-- Feature flags --}}

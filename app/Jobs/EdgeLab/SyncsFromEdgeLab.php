@@ -42,7 +42,7 @@ trait SyncsFromEdgeLab
         ]);
 
         if (! $client->isConfigured()) {
-            $this->finish($run, 'skipped', 'EDGE_LAB_TOKEN is not set, so there is nothing to read.');
+            $this->finish($run, 'skipped', 'The engine is switched off, so there is nothing to read.');
 
             return;
         }
@@ -61,17 +61,9 @@ trait SyncsFromEdgeLab
                 'finished_at' => now(),
             ])->save();
         } catch (EdgeLabException $e) {
-            /*
-             * An open breaker is not a failure of this run - it is this
-             * run correctly declining to make an outage worse. Recorded
-             * as a skip so it does not read as Edge Lab having rejected
-             * us, which is a different problem with a different fix.
-             */
-            $this->finish($run, $e->breakerOpen ? 'skipped' : 'failed', $e->getMessage());
+            $this->finish($run, 'failed', $e->getMessage());
 
-            if (! $e->breakerOpen) {
-                Log::warning('Edge Lab sync failed', ['feed' => $this->feed(), 'error' => $e->getMessage()]);
-            }
+            Log::warning('Engine projection failed', ['feed' => $this->feed(), 'error' => $e->getMessage()]);
         } catch (Throwable $e) {
             $this->finish($run, 'failed', $e->getMessage());
 

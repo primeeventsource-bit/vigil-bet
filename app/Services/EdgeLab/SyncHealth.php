@@ -7,7 +7,8 @@ namespace App\Services\EdgeLab;
 use App\Models\SyncRun;
 
 /**
- * How old Vigil's copy of Edge Lab is, per feed, and whether to say so.
+ * How old the product's projection of the engine is, per feed, and
+ * whether to say so.
  *
  * This exists because of one rule in the spec: a failure shows "data
  * delayed" with the age of the last good sync, and stale data is never
@@ -19,8 +20,6 @@ use App\Models\SyncRun;
 class SyncHealth
 {
     public const FEEDS = ['board', 'events', 'models'];
-
-    public function __construct(private readonly CircuitBreaker $breaker) {}
 
     /**
      * @return array<int, array<string, mixed>>
@@ -134,16 +133,6 @@ class SyncHealth
         }
 
         return 'Data delayed: last updated '.$this->humanise($oldest).' ago.';
-    }
-
-    /** @return array<string, mixed> */
-    public function breakerState(): array
-    {
-        return [
-            'state' => $this->breaker->state(),
-            'consecutive_failures' => $this->breaker->consecutiveFailures(),
-            'retry_in_seconds' => $this->breaker->retryInSeconds(),
-        ];
     }
 
     private function humanise(int $minutes): string

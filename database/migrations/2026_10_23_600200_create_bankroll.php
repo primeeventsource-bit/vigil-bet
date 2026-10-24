@@ -23,7 +23,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('bankroll_settings', function (Blueprint $table): void {
+        Schema::create('user_bankroll_settings', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('user_id')->unique()->constrained()->cascadeOnDelete();
 
@@ -90,5 +90,11 @@ return new class extends Migration
                 FOR EACH ROW EXECUTE FUNCTION vigil_bankroll_entries_append_only();
             SQL);
         }
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('bankroll_entries');
+        Schema::dropIfExists('user_bankroll_settings');
     }
 };

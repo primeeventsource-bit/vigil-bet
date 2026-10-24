@@ -46,4 +46,13 @@ return new class extends Migration
             $table->timestamps();
         });
     }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table): void {
+            $table->dropColumn('is_admin');
+        });
+
+        Schema::dropIfExists('feature_flags');
+    }
 };

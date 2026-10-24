@@ -172,4 +172,13 @@ return new class extends Migration
             }
         }
     }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('alert_deliveries');
+        Schema::dropIfExists('alerts');
+        Schema::dropIfExists('alert_preferences');
+        Schema::dropIfExists('push_subscriptions');
+        Schema::dropIfExists('event_watches');
+    }
 };

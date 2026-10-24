@@ -4,18 +4,61 @@ declare(strict_types=1);
 
 use App\Models\ParlayGrade;
 use App\Models\VigilRead;
+use App\Services\EdgeLab\EdgeLabClient;
+use App\Services\EdgeLab\EdgeLabException;
 use App\Services\Parlay\ParlaySlip;
-use Illuminate\Support\Facades\Http;
+
+/**
+ * What the judge was asked, so a test can check the question as well as
+ * the answer. Static because the stub is built inside a closure the test
+ * does not hold a reference to; reset below so it cannot leak between
+ * tests.
+ */
+final class RecordedJudge
+{
+    /** @var array<int, array<string, mixed>> */
+    public static array $legs = [];
+}
 
 beforeEach(function () {
     config()->set('ai.enabled', false);
+    config()->set('edgelab.enabled', true);
+    RecordedJudge::$legs = [];
 });
 
-function judgeReturns(array $body, int $status = 200): void
+/**
+ * A judge that answers in the engine's own shape.
+ *
+ * `engineParlayVerdict` builds that shape with Present::parlay() from a
+ * real ParlayEvaluation, so the field names asserted below are the field
+ * names in parlay_evaluations by construction rather than by somebody
+ * having typed them correctly. The previous version of this helper faked
+ * an HTTP response and invented four field names the engine does not
+ * have - see the note at the top of tests/Fixtures/edgelab.php.
+ *
+ * @param  array<string, mixed>  $overrides  engine columns
+ * @param  array<string, mixed>  $extra  fields the product does not read
+ */
+function judgeReturns(array $overrides = [], array $extra = []): void
 {
-    Http::fake([
-        '*/parlay/evaluate' => Http::response(['data' => $body], $status),
-    ]);
+    $answer = engineParlayVerdict($overrides) + $extra;
+
+    test()->partialMock(EdgeLabClient::class, function ($client) use ($answer) {
+        $client->shouldReceive('evaluateParlay')
+            ->andReturnUsing(function (array $legs, ?float $shade = null) use ($answer) {
+                RecordedJudge::$legs = $legs;
+
+                return $answer;
+            });
+    });
+}
+
+/** A judge that cannot answer at all. */
+function judgeUnavailable(string $reason = 'The parlay judge could not price this slip.'): void
+{
+    test()->partialMock(EdgeLabClient::class, function ($client) use ($reason) {
+        $client->shouldReceive('evaluateParlay')->andThrow(new EdgeLabException($reason));
+    });
 }
 
 function slipOf(int $legs): array
@@ -123,17 +166,21 @@ it('will not grade a slip with fewer than two legs', function () {
  | The judge
  ---------------------------------------------------------------------- */
 
-it('stores what edge lab said, verbatim, and never computes it here', function () {
-    judgeReturns([
-        'win_probability' => 0.186,
-        'fair_price_american' => 438,
-        'offered_price_american' => 380,
-        'hold' => 0.0925,
-        'shaded_edge' => -0.041,
-        'verdict' => 'pass',
-        // A field Vigil knows nothing about. It still has to survive.
-        'correlation_adjustment' => 0.014,
-    ]);
+it('stores what the engine said, verbatim, and never computes it here', function () {
+    judgeReturns(
+        [
+            'model_joint_prob' => 0.186,
+            'fair_joint_prob' => 0.1856,
+            'offered_price_american' => 380,
+            'hold' => 0.0925,
+            'ev_shaded' => -0.041,
+            'recommendation' => 'pass',
+        ],
+        // A field the product knows nothing about. It still has to survive,
+        // because a grade reproduced from a subset of its own fields is not
+        // the grade the customer saw.
+        ['correlation_adjustment' => 0.014],
+    );
 
     $ids = slipOf(3);
     $user = betUser();
@@ -150,14 +197,20 @@ it('stores what edge lab said, verbatim, and never computes it here', function (
         ->and($grade->win_probability)->toBe(0.186)
         ->and($grade->book_hold)->toBe(0.0925)
         ->and($grade->shaded_edge)->toBe(-0.041)
+        ->and($grade->verdict)->toBe('pass')
         ->and($grade->isWorthBacking())->toBeFalse()
-        // Verbatim: a grade reproduced from a subset of its own fields
-        // is not the grade the customer saw.
+        /*
+         * Plus money, because the fair probability is well under a half.
+         * Asserted as a property rather than as a number: the engine owns
+         * the conversion from its stored probability to a price, and a
+         * literal here would just be that conversion typed out again.
+         */
+        ->and($grade->fair_price_american)->toBeGreaterThan(0)
         ->and($grade->result['correlation_adjustment'])->toBe(0.014);
 });
 
-it('sends one leg per selection in edge labs shape', function () {
-    judgeReturns(['win_probability' => 0.2, 'hold' => 0.08, 'shaded_edge' => 0.01]);
+it('sends one leg per selection in the shape the engine prices', function () {
+    judgeReturns(['model_joint_prob' => 0.2, 'hold' => 0.08, 'ev_shaded' => 0.01]);
 
     $ids = slipOf(2);
     $user = betUser();
@@ -168,16 +221,12 @@ it('sends one leg per selection in edge labs shape', function () {
 
     $this->actingAs($user)->post(route('parlays.grade'));
 
-    Http::assertSent(function ($request) {
-        $legs = $request->data()['legs'] ?? [];
-
-        return count($legs) === 2
-            && isset($legs[0]['event_id'], $legs[0]['market'], $legs[0]['side']);
-    });
+    expect(RecordedJudge::$legs)->toHaveCount(2)
+        ->and(RecordedJudge::$legs[0])->toHaveKeys(['event_id', 'market', 'side']);
 });
 
 it('records that the judge could not be reached rather than calling the slip worthless', function () {
-    judgeReturns([], 503);
+    judgeUnavailable();
 
     $ids = slipOf(2);
     $user = betUser();
@@ -203,11 +252,11 @@ it('records that the judge could not be reached rather than calling the slip wor
 
 it('writes a read explaining the grade', function () {
     judgeReturns([
-        'win_probability' => 0.186,
-        'fair_price_american' => 438,
+        'model_joint_prob' => 0.186,
+        'fair_joint_prob' => 0.1856,
         'offered_price_american' => 380,
         'hold' => 0.0925,
-        'shaded_edge' => -0.041,
+        'ev_shaded' => -0.041,
     ]);
 
     $ids = slipOf(2);
@@ -229,7 +278,7 @@ it('writes a read explaining the grade', function () {
 });
 
 it('does not let a read describe an ungraded slip as a bad bet', function () {
-    judgeReturns([], 500);
+    judgeUnavailable();
 
     $ids = slipOf(2);
     $user = betUser();

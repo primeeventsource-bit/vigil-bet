@@ -52,4 +52,13 @@ return new class extends Migration
                 ->constrained()->nullOnDelete();
         });
     }
+
+    public function down(): void
+    {
+        Schema::table('ai_usage', function (Blueprint $table): void {
+            $table->dropConstrainedForeignId('user_id');
+        });
+
+        Schema::dropIfExists('read_views');
+    }
 };

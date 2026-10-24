@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    ['BOS', 'Boston Celtics', 'Eastern', 'Atlantic', []],
+    ['BKN', 'Brooklyn Nets', 'Eastern', 'Atlantic', ['BRK', 'New Jersey Nets']],
+    ['NYK', 'New York Knicks', 'Eastern', 'Atlantic', ['NY']],
+    ['PHI', 'Philadelphia 76ers', 'Eastern', 'Atlantic', ['Philadelphia Sixers']],
+    ['TOR', 'Toronto Raptors', 'Eastern', 'Atlantic', []],
+    ['CHI', 'Chicago Bulls', 'Eastern', 'Central', []],
+    ['CLE', 'Cleveland Cavaliers', 'Eastern', 'Central', []],
+    ['DET', 'Detroit Pistons', 'Eastern', 'Central', []],
+    ['IND', 'Indiana Pacers', 'Eastern', 'Central', []],
+    ['MIL', 'Milwaukee Bucks', 'Eastern', 'Central', []],
+    ['ATL', 'Atlanta Hawks', 'Eastern', 'Southeast', []],
+    ['CHA', 'Charlotte Hornets', 'Eastern', 'Southeast', ['CHO', 'Charlotte Bobcats']],
+    ['MIA', 'Miami Heat', 'Eastern', 'Southeast', []],
+    ['ORL', 'Orlando Magic', 'Eastern', 'Southeast', []],
+    ['WAS', 'Washington Wizards', 'Eastern', 'Southeast', ['WSH']],
+    ['DEN', 'Denver Nuggets', 'Western', 'Northwest', []],
+    ['MIN', 'Minnesota Timberwolves', 'Western', 'Northwest', []],
+    ['OKC', 'Oklahoma City Thunder', 'Western', 'Northwest', ['Seattle SuperSonics']],
+    ['POR', 'Portland Trail Blazers', 'Western', 'Northwest', ['Portland Trailblazers']],
+    ['UTA', 'Utah Jazz', 'Western', 'Northwest', ['UTH']],
+    ['GSW', 'Golden State Warriors', 'Western', 'Pacific', ['GS']],
+    ['LAC', 'LA Clippers', 'Western', 'Pacific', ['Los Angeles Clippers']],
+    ['LAL', 'Los Angeles Lakers', 'Western', 'Pacific', ['LA Lakers']],
+    ['PHX', 'Phoenix Suns', 'Western', 'Pacific', ['PHO']],
+    ['SAC', 'Sacramento Kings', 'Western', 'Pacific', []],
+    ['DAL', 'Dallas Mavericks', 'Western', 'Southwest', []],
+    ['HOU', 'Houston Rockets', 'Western', 'Southwest', []],
+    ['MEM', 'Memphis Grizzlies', 'Western', 'Southwest', []],
+    ['NOP', 'New Orleans Pelicans', 'Western', 'Southwest', ['NO', 'New Orleans Hornets']],
+    ['SAS', 'San Antonio Spurs', 'Western', 'Southwest', ['SA']],
+];

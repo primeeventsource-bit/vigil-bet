@@ -132,4 +132,9 @@ return new class extends Migration
             SQL);
         }
     }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('published_picks');
+    }
 };
