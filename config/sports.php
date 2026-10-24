@@ -44,7 +44,10 @@ return [
         'sources' => [
             'schedules' => 'nflverse',
             'results' => 'nflverse',
-            'team_stats' => 'nflverse',
+            // Box scores only: nflverse games.csv has scores and rest days
+            // and nothing from inside the game. ESPN event ids are linked
+            // onto these events by ingest:link-espn so this can join.
+            'team_stats' => 'espn',
             'injuries' => 'espn',
             'weather' => 'open_meteo',
         ],

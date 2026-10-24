@@ -69,7 +69,12 @@ class BoxScoresCommand extends Command
         $served = false;
 
         foreach ($sports as $sport) {
-            $source = $sources->forRole($sport, 'results');
+            /*
+             * The team_stats role, not results. For the NFL those are two
+             * different sources: nflverse has the schedule and the final
+             * score, and nothing from inside the game.
+             */
+            $source = $sources->forRole($sport, 'team_stats');
 
             if ($source === null || ! $source->isAvailable()) {
                 continue;
