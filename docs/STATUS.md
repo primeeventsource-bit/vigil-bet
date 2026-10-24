@@ -1510,3 +1510,108 @@ application.
   tables its API did not expose. There is no API; they are local tables
   now, and Model Lab's calibration chart and the Learning Center's
   per-prediction view are ordinary queries away.
+
+### Deploying the merge: where it stands
+
+The merged code is on `main`. The deployment is prepared but **not
+switched over**, because the one step that switches it needs a permission
+this session does not have. Everything around that step is done.
+
+**Why the engine's deployment is the one that survives.** It holds both
+things that cannot be moved cheaply: the odds history, and the domain.
+
+| | engine deployment | product deployment |
+|---|---|---|
+| database | Neon, us-east-2, 5.7M odds snapshots, 21,834 events | Neon, us-east-1, 2 accounts, 8 reads |
+| domain | `parlayq.com` | none, vanity URL only |
+| odds API keys | set | not set |
+
+The two databases are in different clusters in different regions, so
+there is no cross-schema copy available, and Laravel Cloud's CLI cannot
+move an environment onto another cluster. Moving the product onto the
+engine's deployment is a repository change; the reverse would be a
+cross-region transfer of 5.7 million rows.
+
+**What was verified against the live database before touching anything.**
+Not inferred from the repository - asked of production directly:
+
+- 33 migrations recorded as applied, 47 tables present.
+- **No table collisions.** None of the product's 22 pending migrations
+  creates a table the engine already has. The `bankroll_settings` rename
+  is what bought that.
+- **One column collision**, now handled. The engine's own two-factor
+  migration had already added `two_factor_secret` and its three
+  siblings to `users`, from a file that is no longer in this repository.
+  The product's copy of that migration is now column-guarded, and was
+  tested in exactly the production configuration: columns present, its
+  `migrations` row deleted, `migrate` run - it reports DONE and changes
+  nothing.
+- Two tables on that database have append-only triggers and no migration
+  file any more: `login_activity` and `audit_events`, from the engine's
+  dropped authentication. They are retired history and are left alone.
+  The §12 hardening sweep reads migration files, so it does not see them.
+
+Neon does not support Laravel Cloud snapshots, so there is no snapshot to
+point at; Neon's own point-in-time restore is the recovery path. That is
+why the checks above were done against the live schema rather than
+trusting the local one.
+
+**Done already:**
+
+- The product's configuration is on the engine's environment: brand name,
+  short name, tagline, legal name, minimum age, log level, mailer, the
+  Anthropic credentials, and `ENGINE_ENABLED=true`.
+- `APP_URL` corrected to `https://parlayq.com`. It was pointing at the
+  Laravel Cloud vanity URL, which would have made every absolute link in
+  a signed URL or an email wrong.
+- `APP_KEY` deliberately **not** copied. The surviving database holds data
+  encrypted with the engine's key; nothing on the retired database needs
+  carrying, because password hashes are bcrypt rather than encrypted.
+- The old product deployment is neutralised: push-to-deploy off and its
+  deploy command replaced with `php artisan --version`. Without this,
+  pushing to `main` would have started a second scheduler pulling odds
+  against the wrong database and spending real API quota.
+- The deploy command on the surviving environment is also
+  `php artisan --version` for now, so the switch cannot migrate 5.7
+  million rows of production data unattended.
+- Everything the deploy itself does was run locally and passes:
+  `config:cache`, `route:cache` (87 routes, no duplicate names),
+  `view:cache` (every Blade compiles), `event:cache`, `composer validate`,
+  and a `--no-dev` install dry run.
+
+**The three steps left, in order:**
+
+1. Point the application at this repository:
+   `cloud application:update app-a307a4b6-8877-4ec1-a815-9080baced557
+   --repository="primeeventsource-bit/vigil-bet" --source-provider=github
+   --name="Vigil"`
+2. Set the deploy command back to `php artisan migrate --force`, or deploy
+   first and run `php artisan migrate --force` by hand and watch it. The
+   second is better: between the switch and the migration the product's
+   pages have no tables to read and will error, so it is worth being
+   present for.
+3. Recreate the two accounts, which do not exist on the surviving
+   database. `vigil:owner` prints each password once:
+   `php artisan vigil:owner primeeventsource@gmail.com --name="Prime"` and
+   `php artisan vigil:owner bettor@vigil.test --name="Bettor" --tier=pro
+   --no-admin`.
+
+**Two things to know about the result:**
+
+- `parlayq.com` will serve a product branded Vigil. The domain was the
+  engine's and the brand is the product's. A Vigil domain is a
+  `domain:create` and a DNS record away, and nothing in the code depends
+  on which it is.
+- The engine's database already has one account, `dior@parlayq.com`. After
+  the migration it becomes an ordinary Vigil user: not an admin, email
+  unverified. It is the engine's old single-user login and can be deleted.
+
+**Left undone, deliberately:** `VIGIL_INTERNAL_TOKEN` and
+`EDGE_DEMO_MODE` are still set on the surviving environment. Nothing reads
+either - the internal API is gone and `edge.demo_mode` has been removed
+from the config - so they are cosmetic. Deleting an environment variable
+needs a permission this session does not have.
+
+The old product deployment and its database are still there, untouched and
+no longer deploying. Worth keeping until the switch is known to be good,
+then deleting.
