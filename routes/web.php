@@ -293,6 +293,14 @@ Route::middleware('auth')->group(function (): void {
             Route::get('audit', [AdminController::class, 'audit'])->name('audit');
 
             /*
+             * The shadow record: what the engine would have bet without
+             * the verdict gate. Inside the admin group and nowhere else -
+             * these rows are an experiment, not results, and a customer
+             * must never be able to reach them.
+             */
+            Route::get('shadow', [AdminController::class, 'shadow'])->name('shadow');
+
+            /*
              * The AI Learning Center and sync health move here, which is
              * where §11 puts them - they were behind the login until now
              * because admin did not exist.

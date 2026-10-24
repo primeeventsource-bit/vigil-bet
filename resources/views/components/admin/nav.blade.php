@@ -7,6 +7,7 @@
         ['route' => 'admin.ai', 'label' => 'AI cost'],
         ['route' => 'admin.learning', 'label' => 'Learning'],
         ['route' => 'admin.sync-health', 'label' => 'Sync health'],
+        ['route' => 'admin.shadow', 'label' => 'Shadow record'],
         ['route' => 'admin.audit', 'label' => 'Audit log'],
     ];
 @endphp

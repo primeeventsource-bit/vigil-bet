@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * APPEND ONLY. One evaluated candidate: either a ranked pick or an explicit
@@ -73,6 +74,15 @@ class ValueBet extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    /**
+     * The shadow row, if this is one the gate declined and the
+     * experiment kept. Nothing a customer can reach reads it.
+     */
+    public function shadowPick(): HasOne
+    {
+        return $this->hasOne(ShadowPick::class);
     }
 
     public function bestBook(): BelongsTo

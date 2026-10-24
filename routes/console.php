@@ -106,6 +106,18 @@ Schedule::command('vigil:publish-picks')
     ->withoutOverlapping();
 
 /*
+ * The shadow record, just after the real publisher.
+ *
+ * Same cadence and the same clock, so a shadow row and a published row
+ * see the same board - the experiment is only worth anything if it is
+ * recording the selections the engine actually made at the time, rather
+ * than a later board that already knows more.
+ */
+Schedule::command('vigil:shadow')
+    ->hourlyAt(59)
+    ->name('shadow-record')
+    ->withoutOverlapping();
+/*
  * Alerts. Just after publishing, because the thing most worth being told
  * about is a pick that has only just gone on the record - and a
  * notification that arrives an hour after the price was available is

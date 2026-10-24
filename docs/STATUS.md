@@ -1942,3 +1942,73 @@ because of the one.
 
 `edge:verify:guards` passes - append-only updates and deletes rejected on
 `odds_snapshots`, and a prediction timestamped after kickoff rejected.
+
+---
+
+## The shadow record
+
+**24 October 2026.** Every market is unproven, so the board is entirely
+passes and the public record is empty. That is correct, and it is also a
+closed loop: a market becomes proven by accumulating graded predictions,
+and nothing in the product was accumulating evidence about whether the
+engine's own *selections* would have won — only whether its probabilities
+were better calibrated than the market's. Those are different questions
+and only the second was being asked.
+
+So the first one is now written down.
+
+### What it is
+
+Every selection the scanner would have bet, had the verdict gate not
+refused it. Recorded before kickoff at the price that was on the board,
+settled afterwards against the real result, with closing line value.
+
+It is **not a backtest** — every row is out of sample by construction,
+because the scan that produced it ran before the game. It is **not a
+track record** and must never be shown as one.
+
+### Three properties make it an experiment rather than a record
+
+- **Its own tables.** `shadow_picks` and `shadow_results`. Nothing that
+  builds the public record reads them. `PublishedPick` says of itself
+  that the record is the sum of its rows "and nothing else — no
+  backtests, no paper results, no what the model would have said", and
+  this is precisely the thing that sentence excludes.
+- **Admin only.** One route, inside the admin group. The middleware
+  answers 404, so a customer cannot learn the page exists. The page says
+  "not results" in its heading and explains itself twice more.
+- **Written before kickoff or not at all**, enforced by a database CHECK
+  on Postgres and a trigger on SQLite, with append-only triggers on both
+  tables. That guard matters more here than almost anywhere else in the
+  schema: a shadow record that could be written once the result was known
+  would answer nothing, and the application is the part somebody would
+  change on a bad day.
+
+### One scanner, two answers
+
+The verdict gate fires at step four of `decide()`, before the edge,
+threshold, probability and stake tests — so a row marked
+`market_unproven` has never been tested on its merits and could have a
+negative edge. Harvesting those rows would have measured nothing.
+
+So the merit tests moved into `decideOnMerits()` and run either way. The
+real recommendation is untouched: the gate still blocks, a customer still
+sees a pass. What is added is `shadow_recommendation`, the answer the gate
+was hiding, computed in the same pass on the same inputs.
+
+Computed there rather than in the recorder on purpose. Two places that
+both know what counts as a bet is how a shadow record ends up disagreeing
+with the board it is supposed to shadow.
+
+### What to watch
+
+Closing line value, not win rate. Whether these won is mostly noise at any
+sample this reaches soon; whether they beat the number the market closed
+at is the thing that would eventually justify a verdict. The page shows no
+rate at all until something has been graded, because an unmeasured figure
+and a zero look identical and are not.
+
+If the shadow CLV comes out positive over a real sample, that is evidence
+a market deserves another look at the gate. If it comes out negative —
+which is what every measurement so far predicts — that has been learned
+for nothing instead of with customers' money.

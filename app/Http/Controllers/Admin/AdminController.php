@@ -10,6 +10,8 @@ use App\Models\AlertDelivery;
 use App\Models\AuditEvent;
 use App\Models\BillingEvent;
 use App\Models\PublishedPick;
+use App\Models\ShadowPick;
+use App\Models\ShadowResult;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Models\UserBet;
@@ -212,6 +214,51 @@ class AdminController extends Controller
     }
 
     /** The audit log. Every administrative write, in order. */
+    /**
+     * The shadow record.
+     *
+     * Admin only, and the view says on every screen what it is. These
+     * rows were never published, never shown to a customer and never
+     * placeable - a selection the engine would have taken if the verdict
+     * gate had not refused it.
+     *
+     * The headline figure is closing line value rather than win rate.
+     * Whether a shadow pick won is mostly noise at any sample this will
+     * reach soon; whether it beat the number the market closed at is the
+     * thing that would eventually justify a verdict.
+     */
+    public function shadow(): View
+    {
+        $settled = ShadowResult::query()
+            ->join('shadow_picks', 'shadow_picks.id', '=', 'shadow_results.shadow_pick_id')
+            ->selectRaw('shadow_results.*, shadow_picks.sport as sport');
+
+        $graded = (clone $settled)->whereIn('shadow_results.status', ['won', 'lost']);
+
+        $gradedCount = (clone $graded)->count();
+        $clvCount = (clone $settled)->whereNotNull('shadow_results.clv')->count();
+
+        return view('admin.shadow', [
+            'recorded' => ShadowPick::count(),
+            'pending' => ShadowPick::query()->whereDoesntHave('result')->count(),
+            'gradedCount' => $gradedCount,
+            // No rate without a sample behind it. An unmeasured figure
+            // and a zero look identical on a page and are not.
+            'winRate' => $gradedCount > 0
+                ? (clone $graded)->where('shadow_results.status', 'won')->count() / $gradedCount
+                : null,
+            'units' => (clone $settled)->sum('shadow_results.units'),
+            'clvCount' => $clvCount,
+            'meanClv' => $clvCount > 0 ? (clone $settled)->whereNotNull('shadow_results.clv')->avg('shadow_results.clv') : null,
+            'bySport' => (clone $settled)
+                ->selectRaw('shadow_picks.sport as sport, count(*) as n, sum(shadow_results.units) as units, avg(shadow_results.clv) as clv')
+                ->groupBy('shadow_picks.sport')
+                ->orderByDesc('n')
+                ->get(),
+            'recent' => ShadowPick::query()->with('result')->orderByDesc('recorded_at')->limit(40)->get(),
+        ]);
+    }
+
     public function audit(Request $request): View
     {
         $action = (string) $request->query('action', '');

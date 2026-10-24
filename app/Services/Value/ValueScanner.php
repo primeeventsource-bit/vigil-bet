@@ -205,13 +205,17 @@ class ValueScanner
             'created_at' => now(),
         ];
 
-        [$recommendation, $passReason, $stake] = $this->decide(
+        [$recommendation, $passReason, $stake, $shadowRec, $shadowReason] = $this->decide(
             $shopped, $consensus, $verdict, $modelProb, $edgeAtPrice, $rules, $bankrollCents, $settings, $locked,
             $this->staleQuoteExists($shopped, $prediction, $rules),
         );
 
         $row['recommendation'] = $recommendation->value;
         $row['pass_reason'] = $passReason?->value;
+        // What it would have been without the gate. Never read by
+        // anything a customer can reach - see the shadow_picks table.
+        $row['shadow_recommendation'] = $shadowRec->value;
+        $row['shadow_pass_reason'] = $shadowReason?->value;
         $row['kelly_fraction'] = $stake?->kellyFraction ?? 0.0;
         $row['suggested_stake_cents'] = $stake?->isActionable ? $stake->stakeCents : 0;
         $row['suggested_stake_units'] = $stake?->isActionable ? $stake->units : 0.0;
@@ -250,7 +254,7 @@ class ValueScanner
      * the size of the edge.
      *
      * @param  array<string, mixed>  $rules
-     * @return array{0: Recommendation, 1: PassReason|null, 2: StakeDecision|null}
+     * @return array{0: Recommendation, 1: PassReason|null, 2: StakeDecision|null, 3: Recommendation, 4: PassReason|null}
      */
     private function decide(
         ShoppedLine $shopped,
@@ -264,7 +268,11 @@ class ValueScanner
         bool $locked,
         bool $staleQuoteExists,
     ): array {
-        $pass = fn (PassReason $reason) => [Recommendation::Pass, $reason, null];
+        /*
+         * An ungated refusal is its own shadow: the gate is not what
+         * stopped it, so there is no hidden answer to carry.
+         */
+        $pass = fn (PassReason $reason) => [Recommendation::Pass, $reason, null, Recommendation::Pass, $reason];
 
         if ($locked) {
             return $pass(PassReason::LockoutActive);
@@ -281,8 +289,27 @@ class ValueScanner
             return $pass(PassReason::TooFewBooks);
         }
 
+        /*
+         * The gate, and the question it hides.
+         *
+         * Everything below this point is a test of the bet on its own
+         * merits, and the gate sits above them - so a row declined here
+         * has never been edge-tested and says nothing about whether it
+         * was a good bet. That is the right order for the product and the
+         * wrong one for learning anything, so when the gate blocks, the
+         * merits are still evaluated and the answer is carried out
+         * alongside the refusal.
+         *
+         * The refusal itself is untouched. A gated row is still a pass,
+         * still reads market_unproven, and still reaches a customer as a
+         * decline.
+         */
         if ($rules['require_proven_market'] && ! $verdict->allowsRecommendation()) {
-            return $pass(PassReason::MarketUnproven);
+            [$shadowRec, $shadowReason] = $this->decideOnMerits(
+                $shopped, $modelProb, $edgeAtPrice, $rules, $bankrollCents, $settings
+            );
+
+            return [Recommendation::Pass, PassReason::MarketUnproven, null, $shadowRec, $shadowReason];
         }
 
         if ($edgeAtPrice === null || $edgeAtPrice <= 0.0) {
@@ -307,10 +334,52 @@ class ValueScanner
         $stake = $this->sizer->size($modelProb, (int) $shopped->pricingBookPriceAmerican, $bankrollCents, $settings);
 
         if (! $stake->isActionable) {
-            return [Recommendation::Pass, $stake->passReason, $stake];
+            return [Recommendation::Pass, $stake->passReason, $stake, Recommendation::Pass, $stake->passReason];
         }
 
-        return [Recommendation::Bet, null, $stake];
+        return [Recommendation::Bet, null, $stake, Recommendation::Bet, null];
+    }
+
+    /**
+     * The bet on its own merits, with the verdict gate taken out.
+     *
+     * The same tests decide() applies below the gate, in the same order,
+     * on the same inputs. It exists so the question "would this have been
+     * a bet" has exactly one answer, computed once, whether or not the
+     * gate let it through.
+     *
+     * @param  array<string, mixed>  $rules
+     * @return array{0: Recommendation, 1: PassReason|null}
+     */
+    private function decideOnMerits(
+        ShoppedLine $shopped,
+        float $modelProb,
+        ?float $edgeAtPrice,
+        array $rules,
+        int $bankrollCents,
+        ?BankrollSetting $settings,
+    ): array {
+        if ($edgeAtPrice === null || $edgeAtPrice <= 0.0) {
+            return [Recommendation::Pass, PassReason::NegativeEdge];
+        }
+
+        if ($edgeAtPrice < (float) $rules['edge_threshold']) {
+            return [Recommendation::Pass, $this->clearsAtMarketBest($shopped, $modelProb, (float) $rules['edge_threshold'])
+                ? PassReason::PriceTooShortHere
+                : PassReason::BelowThreshold];
+        }
+
+        if ($modelProb < (float) $rules['min_win_probability']) {
+            return [Recommendation::Pass, PassReason::BelowMinWinProbability];
+        }
+
+        $stake = $this->sizer->size($modelProb, (int) $shopped->pricingBookPriceAmerican, $bankrollCents, $settings);
+
+        if (! $stake->isActionable) {
+            return [Recommendation::Pass, $stake->passReason];
+        }
+
+        return [Recommendation::Bet, null];
     }
 
     /**
