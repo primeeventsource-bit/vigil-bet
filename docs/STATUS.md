@@ -1824,3 +1824,97 @@ scale, no numbers.
 
 It flattens below `lg`, where a tilted dashboard is unreadable long
 before it is decorative, and whenever motion is reduced.
+
+---
+
+## The engine, after the merge
+
+**24 October 2026.** `edge:doctor` run against production, three things
+fixed, and the models retrained on everything the engine has collected.
+
+### The closing-line fix worked
+
+`odds:close` had been failing every run and getting killed by the reaper
+at thirty minutes. After the window-function rewrite it runs in **14.6
+seconds** and writes up to 4,312 markers a pass. Markers went from 178,818
+to 268,236, across 3,476 events.
+
+That is what made the retraining worth doing: NBA now scores **2,606
+predictions** against the closing line where it scored 1,340 in the last
+measurement, and MLB 3,134. More games became scoreable because more games
+got a closing line to be scored against.
+
+### Retrained on the full history
+
+Every sport has a logistic model now, trained on everything accumulated
+and stored as a candidate so nothing live changed while the verdicts were
+read.
+
+| sport | predictions | log loss | verdict |
+|---|---|---|---|
+| MLB | 3,134 | 0.6877 | insufficient_data |
+| NBA | 2,606 | 0.6109 | negative |
+| NHL | 1,612 | 0.6810 | negative |
+| NFL | 530 | 0.6446 | negative |
+
+The answer has not changed and the larger samples did not change it. No
+market has cleared the gate, so the product sells nothing and the public
+record says so in those words.
+
+Worth noting what the active models were before this: every one of them
+was Elo, and NCAAB's was trained through **2025-11-25** - eleven months
+stale. The weekly retrain only covers sports with enough new graded games
+to be worth re-running, so a sport that goes quiet stops being retrained
+and nobody is told.
+
+### 459 unmatched team names, 83 of them fixed
+
+`edge:doctor` reported 459 names the feeds send that could not be matched
+to a team - 409 of them college basketball, carrying 14,058 hits. Every
+one is an odds row that could not be attached to a game.
+
+Most of it needed no code. `edge:teams:resolve` already derives
+truncations and abbreviations and had never been run against this data: it
+linked **70** on its own, including `GW` to George Washington and
+`Loyola (Chi)` to Loyola Chicago.
+
+**That is the second time this session the right move was to run the
+command that already existed rather than write one.** The first was the
+venue locator. Both times the code was already there and had simply never
+been run.
+
+Thirteen more went into `database/data/college_aliases.php`, each checked
+against the teams table rather than recalled, and four were deliberately
+left alone because the school genuinely is not in the table - an alias
+pointing at nothing is worse than an unmatched row, because the log stops
+showing the problem.
+
+### The tick was starving the thing it exists to feed
+
+The odds tick queued one job per sport per minute and let the job decide
+it was not due: 8,640 jobs a day, about ninety-eight per cent of them
+recording a skip. On one worker that left a standing backlog of about a
+hundred jobs, so everything ran a quarter of an hour late.
+
+The tightest cadence is **every two minutes inside the hour before
+kickoff** - precisely the window a closing line is taken from. A
+sixteen-minute lag there is not a tidy-queue problem; it is closing line
+value, the measure the whole product rests on, quietly getting worse.
+
+The cadence is now decided in the scheduler, which is two indexed reads
+and no network. The reason the work was queued - a slow source must not
+block the tick - was never a reason to queue the question of whether to
+do the work.
+
+### Still true, and still the constraint
+
+Odds coverage. 3,472 settled games have a closing line out of 20,852
+settled games in the schedule, because both historical backfills ran
+without `--from` and bought only the last twelve months. The window from
+2023-01-01 to 2025-10-01 is priced at **4,913 requests and 294,780
+credits**, 1.3% of the 22.3 million spendable this month:
+
+    php artisan edge:odds:backfill all --from=2023-01-01 --to=2025-10-01
+
+That is the single thing that would most change what can be said about
+the models, and it is not queued because it spends real money.
