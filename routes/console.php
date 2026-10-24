@@ -356,3 +356,23 @@ Schedule::command('vigil:reads --passes --limit=40')
     ->hourlyAt(12)
     ->name('vigil-reads')
     ->withoutOverlapping();
+
+/*
+ * The day's opinions, just before the picks publisher.
+ *
+ * Two published claims, two cadences on the same clock. This writes the
+ * weaker one - the model's probabilities have been measured to land
+ * close to the truth, so here is what it thinks - and vigil:publish-picks
+ * writes the public record, only ever from a proven market.
+ *
+ * Earlier than the picks run so that on the day a market does clear the
+ * gate, the pick is the newer row and the two cannot disagree about a
+ * price within the same minute.
+ *
+ * Safe to re-run: the database refuses a second opinion on the same
+ * selection, so an hourly pass republishes nothing.
+ */
+Schedule::command('vigil:publish-opinions')
+    ->hourlyAt(56)
+    ->name('publish-opinions')
+    ->withoutOverlapping();
