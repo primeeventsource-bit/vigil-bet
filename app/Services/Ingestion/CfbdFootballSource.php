@@ -103,12 +103,60 @@ class CfbdFootballSource implements ProvidesTeamGameStats, SportDataSource
             throw new RuntimeException('CFBD API key is not configured.');
         }
 
-        $query = array_filter([
+        /*
+         * CFBD will not serve a whole season of box scores at once:
+         * without a week, team or conference it answers 400. So a
+         * request for a season is a request for each of its weeks.
+         *
+         * Sixteen covers a regular season including championship week,
+         * and the postseason is its own season type with one week in it.
+         * Weeks that were never played return nothing rather than
+         * failing, so the range does not need to know when the season
+         * ended.
+         */
+        if ($week === null) {
+            foreach (range(1, 16) as $each) {
+                yield from $this->teamGameStats($season, $each);
+            }
+
+            yield from $this->postseasonTeamGameStats($season);
+
+            return;
+        }
+
+        yield from $this->boxScores([
             'year' => $season,
             'week' => $week,
             'seasonType' => 'regular',
-        ], static fn ($value) => $value !== null);
+        ]);
+    }
 
+    /**
+     * Bowls and the playoff, which are a separate season type.
+     *
+     * Excluded from the loop above rather than folded into it because
+     * CFBD numbers postseason weeks from one again, so week 1 means two
+     * different things depending on the type.
+     *
+     * @return Generator<int, TeamGameStatLine>
+     */
+    private function postseasonTeamGameStats(int $season): Generator
+    {
+        yield from $this->boxScores([
+            'year' => $season,
+            'week' => 1,
+            'seasonType' => 'postseason',
+        ]);
+    }
+
+    /**
+     * One request's worth of box scores.
+     *
+     * @param  array<string, mixed>  $query
+     * @return Generator<int, TeamGameStatLine>
+     */
+    private function boxScores(array $query): Generator
+    {
         // Same bearer header the schedule and results calls use. CFBD
         // answers 401 without it rather than an empty list.
         $rows = $this->getJson($this->url('/games/teams'), $query, [

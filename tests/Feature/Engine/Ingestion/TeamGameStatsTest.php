@@ -6,6 +6,7 @@ use App\Data\TeamGameStatLine;
 use App\Enums\Sport;
 use App\Models\Event;
 use App\Models\Team;
+use App\Services\Ingestion\CfbdFootballSource;
 use App\Services\Ingestion\TeamGameStatsWriter;
 use App\Services\Teams\TeamResolver;
 use Illuminate\Support\Facades\DB;
@@ -197,4 +198,56 @@ it('ignores a row with no score and no categories', function () {
     expect($counts['empty'])->toBe(1)
         ->and($counts['no_event'])->toBe(0)
         ->and(DB::table('team_game_stats')->count())->toBe(0);
+});
+
+it('asks for each week when no week is given', function () {
+    /*
+     * CFBD refuses a whole-season box score request: without a week,
+     * team or conference it answers 400. A request for a season has to
+     * become a request per week, and the first version of this did not,
+     * so all four seasons of the backfill failed at once.
+     */
+    config(['edge.sources.cfbd.key' => 'test-key']);
+
+    Http::fake([
+        'api.collegefootballdata.com/games/teams*' => Http::response([], 200),
+    ]);
+
+    $source = app(CfbdFootballSource::class);
+
+    iterator_to_array($source->teamGameStats(2025), false);
+
+    $weeks = [];
+    $types = [];
+
+    Http::recorded(function ($request) use (&$weeks, &$types) {
+        $query = [];
+        parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+        $weeks[] = (int) ($query['week'] ?? 0);
+        $types[] = $query['seasonType'] ?? '';
+
+        return true;
+    });
+
+    // Sixteen regular weeks covers championship week, plus the
+    // postseason, which numbers its weeks from one again.
+    expect($weeks)->toHaveCount(17)
+        ->and(array_slice($weeks, 0, 16))->toBe(range(1, 16))
+        ->and(array_count_values($types)['regular'])->toBe(16)
+        ->and(array_count_values($types)['postseason'])->toBe(1);
+});
+
+it('sends the bearer token, or CFBD answers 401', function () {
+    config(['edge.sources.cfbd.key' => 'test-key']);
+
+    Http::fake([
+        'api.collegefootballdata.com/games/teams*' => Http::response([], 200),
+    ]);
+
+    iterator_to_array(
+        app(CfbdFootballSource::class)->teamGameStats(2025, 8),
+        false,
+    );
+
+    Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer test-key'));
 });
