@@ -300,3 +300,39 @@ foreach (Sport::enabled() as $sport) {
         ->name("retrain-{$sport->value}")
         ->withoutOverlapping();
 }
+
+/*
+ * Box scores for games that have just finished.
+ *
+ * Kept deliberately modest: the per-game sources cost one request per
+ * game, and this runs to catch up with last night rather than to
+ * backfill history. A deep backfill is `ingest:box-scores <sport>
+ * --limit=` run by hand, which is the right shape for something that
+ * makes thousands of requests.
+ *
+ * Nightly rather than hourly because a box score is final once the game
+ * is, and asking again an hour later only costs requests. Late enough to
+ * be after the last whistle on the west coast, and the command asks only
+ * for games it has nothing for, so a run with nothing to do is one
+ * query.
+ */
+Schedule::command('ingest:box-scores all --limit=120')
+    ->dailyAt('09:30')
+    ->name('box-scores')
+    ->withoutOverlapping();
+
+/*
+ * ESPN ids for events ingested from another source.
+ *
+ * Only the NFL needs this today - its events come from nflverse and ESPN
+ * is the only source with its box scores - but a new fixture arrives
+ * without an ESPN id every week, and a box score cannot attach until the
+ * id does.
+ *
+ * Before the box scores, so a game linked this morning has its stats
+ * pulled in the same cycle rather than the next one.
+ */
+Schedule::command('ingest:link-espn nfl')
+    ->dailyAt('09:15')
+    ->name('link-espn-nfl')
+    ->withoutOverlapping();
