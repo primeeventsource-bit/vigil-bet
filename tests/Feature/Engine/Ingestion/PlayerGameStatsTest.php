@@ -296,3 +296,73 @@ it('refuses to guess points allowed from one side', function () {
 
     expect($box->teams)->toBe([]);
 });
+
+it('asks the same question once, however many lines a game has', function () {
+    /*
+     * The fix this tests is why a backfill of several hundred NFL games
+     * managed thirty-two and stopped. A football game yields about
+     * eighty player lines, and the writer resolved the event and the
+     * team for every one of them - roughly a hundred and sixty queries
+     * per game against a serverless database.
+     *
+     * Asserted as a count rather than a duration: a timing test on a
+     * network-backed database measures the network.
+     */
+    $event = nbaGame();
+    linkEspn($event, '401909851');
+
+    $lines = [];
+
+    for ($i = 1; $i <= 40; $i++) {
+        $lines[] = playerLine([
+            'playerExternalId' => (string) (100000 + $i),
+            'playerName' => 'Player '.$i,
+            'sourceTeamName' => 'Los Angeles Lakers',
+        ]);
+    }
+
+    $lookups = 0;
+
+    DB::listen(function ($query) use (&$lookups): void {
+        $sql = mb_strtolower($query->sql);
+
+        if (str_contains($sql, 'event_external_ids') || str_contains($sql, 'from "teams"')
+            || str_contains($sql, 'team_aliases')) {
+            $lookups++;
+        }
+    });
+
+    $counts = app(PlayerGameStatsWriter::class)->write($lines);
+
+    expect($counts['written'])->toBe(40);
+
+    /*
+     * One event and one team between them, so a handful of lookups -
+     * the resolver tries an alias table and then the teams table. Forty
+     * lines must not mean forty of each, and the bound is deliberately
+     * loose: the point is that it does not scale with the line count.
+     */
+    expect($lookups)->toBeLessThan(10);
+});
+
+it('does not re-ask for a game it has already failed to find', function () {
+    // A miss is cached as null. Without that, every line of a game we do
+    // not have costs a query to learn the same thing again.
+    $lines = array_map(
+        fn (int $i) => playerLine(['playerExternalId' => (string) (200000 + $i)]),
+        range(1, 30),
+    );
+
+    $queries = 0;
+
+    DB::listen(function ($query) use (&$queries): void {
+        if (str_contains(mb_strtolower($query->sql), 'event_external_ids')) {
+            $queries++;
+        }
+    });
+
+    $counts = app(PlayerGameStatsWriter::class)->write($lines);
+
+    expect($counts['no_event'])->toBe(30)
+        ->and($queries)->toBe(1);
+});

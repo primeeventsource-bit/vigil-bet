@@ -27,6 +27,25 @@ class PlayerGameStatsWriter
     /** Rows per upsert. A football game yields a few hundred lines. */
     private const CHUNK = 400;
 
+    /**
+     * Lookups already done, keyed by what was asked.
+     *
+     * A football game yields about eighty player lines, and resolving
+     * the event and the team for each one meant roughly a hundred and
+     * sixty queries per game. That is what turned a backfill of several
+     * hundred games into one that did thirty-two and stopped.
+     *
+     * Held for the life of the instance rather than the call: the
+     * command walks many games through one writer, and the same two
+     * teams appear on every line of each.
+     *
+     * @var array<string, int|null>
+     */
+    private array $events = [];
+
+    /** @var array<string, int|null> */
+    private array $resolved = [];
+
     public function __construct(private readonly TeamResolver $teams) {}
 
     /**
@@ -121,16 +140,35 @@ class PlayerGameStatsWriter
 
     private function eventId(PlayerGameStatLine $line): ?int
     {
+        $key = $line->source.'|'.$line->sourceEventId;
+
+        // array_key_exists, not isset: a miss is cached as null and
+        // isset would ask again for every line of a game we do not have.
+        if (array_key_exists($key, $this->events)) {
+            return $this->events[$key];
+        }
+
         $id = DB::table('event_external_ids')
             ->where('source', $line->source)
             ->where('external_id', $line->sourceEventId)
             ->value('event_id');
 
-        return $id === null ? null : (int) $id;
+        return $this->events[$key] = $id === null ? null : (int) $id;
     }
 
     private function teamId(PlayerGameStatLine $line): ?int
     {
+        $key = implode('|', [
+            $line->sport->value,
+            $line->source,
+            $line->sourceTeamId ?? '',
+            $line->sourceTeamName ?? '',
+        ]);
+
+        if (array_key_exists($key, $this->resolved)) {
+            return $this->resolved[$key];
+        }
+
         $team = $this->teams->matches(
             $line->sport,
             $line->sourceTeamName,
@@ -138,6 +176,6 @@ class PlayerGameStatsWriter
             $line->sourceTeamId,
         );
 
-        return $team?->id;
+        return $this->resolved[$key] = $team?->id;
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ingestion;
 
 use App\Data\TeamGameStatLine;
-use App\Models\Team;
 use App\Services\Teams\TeamResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -28,6 +27,24 @@ class TeamGameStatsWriter
 {
     /** Rows per upsert. Chosen to keep one statement well inside limits. */
     private const CHUNK = 200;
+
+    /**
+     * Lookups already done, keyed by what was asked.
+     *
+     * Three queries per line - the event, the team, and the event again
+     * for the opponent - across thousands of lines in a season backfill.
+     * Both sides of a game share the event, and a team appears on every
+     * game it played, so almost all of that was the same question twice.
+     *
+     * @var array<string, int|null>
+     */
+    private array $events = [];
+
+    /** @var array<string, int|null> */
+    private array $resolved = [];
+
+    /** @var array<int, array{home:int, away:int}|null> */
+    private array $sides = [];
 
     public function __construct(private readonly TeamResolver $teams) {}
 
@@ -82,9 +99,9 @@ class TeamGameStatsWriter
             return null;
         }
 
-        $team = $this->team($line);
+        $teamId = $this->teamId($line);
 
-        if ($team === null) {
+        if ($teamId === null) {
             $counts['no_team']++;
 
             Log::info('Team game stats: team not resolved', [
@@ -97,7 +114,7 @@ class TeamGameStatsWriter
             return null;
         }
 
-        $opponentId = $this->opponentId($eventId, $team->id);
+        $opponentId = $this->opponentId($eventId, $teamId);
 
         if ($opponentId === null) {
             /*
@@ -111,7 +128,7 @@ class TeamGameStatsWriter
 
             Log::warning('Team game stats: resolved team is not in the event', [
                 'event_id' => $eventId,
-                'team_id' => $team->id,
+                'team_id' => $teamId,
                 'name' => $line->sourceTeamName,
             ]);
 
@@ -120,7 +137,7 @@ class TeamGameStatsWriter
 
         return [
             'event_id' => $eventId,
-            'team_id' => $team->id,
+            'team_id' => $teamId,
             'opponent_team_id' => $opponentId,
             'is_home' => $line->isHome,
             'points' => $line->points,
@@ -168,23 +185,44 @@ class TeamGameStatsWriter
     /** Our event id for the source's game, or null if we do not have it. */
     private function eventId(TeamGameStatLine $line): ?int
     {
+        $key = $line->source.'|'.$line->sourceEventId;
+
+        // array_key_exists, not isset: a miss is cached as null, and
+        // isset would ask again for every line of a game we do not have.
+        if (array_key_exists($key, $this->events)) {
+            return $this->events[$key];
+        }
+
         $id = DB::table('event_external_ids')
             ->where('source', $line->source)
             ->where('external_id', $line->sourceEventId)
             ->value('event_id');
 
-        return $id === null ? null : (int) $id;
+        return $this->events[$key] = $id === null ? null : (int) $id;
     }
 
-    /** The team, by the source's id first and its name second. */
-    private function team(TeamGameStatLine $line): ?Team
+    /** The team id, by the source's id first and its name second. */
+    private function teamId(TeamGameStatLine $line): ?int
     {
-        return $this->teams->matches(
+        $key = implode('|', [
+            $line->sport->value,
+            $line->source,
+            $line->sourceTeamId ?? '',
+            $line->sourceTeamName,
+        ]);
+
+        if (array_key_exists($key, $this->resolved)) {
+            return $this->resolved[$key];
+        }
+
+        $team = $this->teams->matches(
             $line->sport,
             $line->sourceTeamName,
             $line->source,
             $line->sourceTeamId,
         );
+
+        return $this->resolved[$key] = $team?->id;
     }
 
     /**
@@ -197,18 +235,27 @@ class TeamGameStatsWriter
      */
     private function opponentId(int $eventId, int $teamId): ?int
     {
-        $event = DB::table('events')
-            ->select('home_team_id', 'away_team_id')
-            ->where('id', $eventId)
-            ->first();
+        if (! array_key_exists($eventId, $this->sides)) {
+            $event = DB::table('events')
+                ->select('home_team_id', 'away_team_id')
+                ->where('id', $eventId)
+                ->first();
 
-        if ($event === null) {
+            $this->sides[$eventId] = $event === null ? null : [
+                'home' => (int) $event->home_team_id,
+                'away' => (int) $event->away_team_id,
+            ];
+        }
+
+        $sides = $this->sides[$eventId];
+
+        if ($sides === null) {
             return null;
         }
 
         return match ($teamId) {
-            (int) $event->home_team_id => (int) $event->away_team_id,
-            (int) $event->away_team_id => (int) $event->home_team_id,
+            $sides['home'] => $sides['away'],
+            $sides['away'] => $sides['home'],
             default => null,
         };
     }
