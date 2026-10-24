@@ -173,20 +173,31 @@ it('reads ESPN parallel arrays by position, not by guesswork', function () {
      */
     Http::fake([
         'site.api.espn.com/*/summary*' => Http::response([
+            /*
+             * The score lives here, with the competitors, and nowhere
+             * in the team statistics - which is the shape of the real
+             * payload. Listed away-first while the box score lists
+             * home-first, so matching them by position would fail.
+             */
+            'header' => ['competitions' => [[
+                'competitors' => [
+                    ['homeAway' => 'away', 'score' => '104', 'team' => ['id' => '7']],
+                    ['homeAway' => 'home', 'score' => '118', 'team' => ['id' => '13']],
+                ],
+            ]]],
             'boxscore' => [
                 'teams' => [
                     [
                         'team' => ['id' => '13', 'displayName' => 'Los Angeles Lakers'],
                         'homeAway' => 'home',
                         'statistics' => [
-                            ['name' => 'points', 'displayValue' => '118'],
                             ['name' => 'fieldGoalsMade-fieldGoalsAttempted', 'displayValue' => '41-83', 'value' => 41],
                         ],
                     ],
                     [
                         'team' => ['id' => '7', 'displayName' => 'Denver Nuggets'],
                         'homeAway' => 'away',
-                        'statistics' => [['name' => 'points', 'displayValue' => '104']],
+                        'statistics' => [['name' => 'assists', 'displayValue' => '24']],
                     ],
                 ],
                 'players' => [
@@ -284,7 +295,7 @@ it('refuses to guess points allowed from one side', function () {
                 'teams' => [[
                     'team' => ['id' => '13', 'displayName' => 'Los Angeles Lakers'],
                     'homeAway' => 'home',
-                    'statistics' => [['name' => 'points', 'displayValue' => '118']],
+                    'statistics' => [['name' => 'assists', 'displayValue' => '24']],
                 ]],
                 'players' => [],
             ],
@@ -365,4 +376,60 @@ it('does not re-ask for a game it has already failed to find', function () {
 
     expect($counts['no_event'])->toBe(30)
         ->and($queries)->toBe(1);
+});
+
+it('takes the score from the header, matched by team id', function () {
+    /*
+     * The bug this replaces. The score was read out of
+     * `boxscore.teams[].statistics`, which carries no points entry in
+     * any sport ESPN serves, so every ESPN team line was written with a
+     * null score - 10,706 rows across NBA, NFL and NCAAB - and nothing
+     * noticed until a Vigil Read asked for recent form and got none.
+     *
+     * The old fixture hid it by inventing a points entry in the
+     * statistics block. This one has the shape the real payload has.
+     *
+     * The competitors are listed away-first while the box score lists
+     * home-first, so a version matching them by position puts both
+     * scores on the wrong side - a swap nothing downstream could catch,
+     * because the numbers are plausible and belong to the game.
+     */
+    Http::fake([
+        'site.api.espn.com/*/summary*' => Http::response([
+            'header' => ['competitions' => [[
+                'competitors' => [
+                    ['homeAway' => 'away', 'score' => '96', 'team' => ['id' => '7']],
+                    ['homeAway' => 'home', 'score' => '131', 'team' => ['id' => '13']],
+                ],
+            ]]],
+            'boxscore' => [
+                'teams' => [
+                    [
+                        'team' => ['id' => '13', 'displayName' => 'Los Angeles Lakers'],
+                        'homeAway' => 'home',
+                        'statistics' => [['name' => 'assists', 'displayValue' => '31']],
+                    ],
+                    [
+                        'team' => ['id' => '7', 'displayName' => 'Denver Nuggets'],
+                        'homeAway' => 'away',
+                        'statistics' => [['name' => 'assists', 'displayValue' => '22']],
+                    ],
+                ],
+                'players' => [],
+            ],
+        ], 200),
+    ]);
+
+    $box = app()->makeWith(EspnSource::class, ['sport' => Sport::Nba])
+        ->gameBoxScore('401909851');
+
+    expect($box->teams)->toHaveCount(2);
+
+    [$home, $away] = $box->teams;
+
+    expect($home->isHome)->toBeTrue()
+        ->and($home->points)->toBe(131)
+        ->and($home->pointsAllowed)->toBe(96)
+        ->and($away->points)->toBe(96)
+        ->and($away->pointsAllowed)->toBe(131);
 });

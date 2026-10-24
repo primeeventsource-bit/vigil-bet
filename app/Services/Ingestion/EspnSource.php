@@ -117,7 +117,7 @@ class EspnSource implements ProvidesGameBoxScore, SportDataSource
 
         return new GameBoxScore(
             sourceEventId: $sourceEventId,
-            teams: $this->teamLines($sourceEventId, $box),
+            teams: $this->teamLines($sourceEventId, $box, $this->finalScores($payload)),
             players: $this->playerLines($sourceEventId, $box),
         );
     }
@@ -125,10 +125,16 @@ class EspnSource implements ProvidesGameBoxScore, SportDataSource
     /**
      * One line per side, from `boxscore.teams`.
      *
+     * The score arrives separately, keyed by team id: ESPN files it with
+     * the competitors in the header and its team statistics have no
+     * points entry at all. Reading it out of the statistics block wrote
+     * a null score onto every ESPN row until something needed one.
+     *
      * @param  array<string, mixed>  $box
+     * @param  array<string, int>  $scores
      * @return array<int, TeamGameStatLine>
      */
-    private function teamLines(string $sourceEventId, array $box): array
+    private function teamLines(string $sourceEventId, array $box, array $scores = []): array
     {
         $sides = array_values(array_filter(
             $box['teams'] ?? [],
@@ -140,10 +146,20 @@ class EspnSource implements ProvidesGameBoxScore, SportDataSource
             return [];
         }
 
-        $scores = [];
+        /*
+         * Matched by team id rather than by position: the header and the
+         * box score are two different lists and nothing promises they
+         * are in the same order. Getting that wrong would swap both
+         * sides' scores, which no later check would catch.
+         */
+        $points = [];
 
         foreach ($sides as $index => $side) {
-            $scores[$index] = $this->statValue($side['statistics'] ?? [], 'points');
+            $id = isset($side['team']['id']) ? (string) $side['team']['id'] : null;
+
+            $points[$index] = $id !== null && array_key_exists($id, $scores)
+                ? $scores[$id]
+                : null;
         }
 
         $lines = [];
@@ -162,8 +178,8 @@ class EspnSource implements ProvidesGameBoxScore, SportDataSource
                 sourceTeamName: $name,
                 sourceTeamId: isset($team['id']) ? (string) $team['id'] : null,
                 isHome: ($side['homeAway'] ?? null) === 'home',
-                points: $scores[$index],
-                pointsAllowed: $scores[$index === 0 ? 1 : 0],
+                points: $points[$index],
+                pointsAllowed: $points[$index === 0 ? 1 : 0],
                 stats: $this->flatStats($side['statistics'] ?? []),
                 source: $this->key(),
             );
@@ -174,6 +190,36 @@ class EspnSource implements ProvidesGameBoxScore, SportDataSource
         }
 
         return $lines;
+    }
+
+    /**
+     * Final scores from the header, keyed by the source's team id.
+     *
+     * Keyed rather than ordered because the header's competitors and the
+     * box score's teams are two separate lists, and matching them by
+     * position would silently swap the scores whenever they disagree.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, int>
+     */
+    private function finalScores(array $payload): array
+    {
+        $scores = [];
+
+        foreach ($payload['header']['competitions'][0]['competitors'] ?? [] as $competitor) {
+            if (! is_array($competitor)) {
+                continue;
+            }
+
+            $id = $competitor['team']['id'] ?? null;
+            $score = $competitor['score'] ?? null;
+
+            if ($id !== null && is_numeric($score)) {
+                $scores[(string) $id] = (int) $score;
+            }
+        }
+
+        return $scores;
     }
 
     /**
@@ -206,26 +252,6 @@ class EspnSource implements ProvidesGameBoxScore, SportDataSource
         }
 
         return $stats;
-    }
-
-    /**
-     * One number out of ESPN's statistics list, or null.
-     *
-     * @param  array<int, mixed>  $statistics
-     */
-    private function statValue(array $statistics, string $name): ?int
-    {
-        foreach ($statistics as $stat) {
-            if (! is_array($stat) || ($stat['name'] ?? null) !== $name) {
-                continue;
-            }
-
-            $value = $stat['displayValue'] ?? $stat['value'] ?? null;
-
-            return is_numeric($value) ? (int) $value : null;
-        }
-
-        return null;
     }
 
     /**
