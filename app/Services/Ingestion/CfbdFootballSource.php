@@ -109,7 +109,13 @@ class CfbdFootballSource implements ProvidesTeamGameStats, SportDataSource
             'seasonType' => 'regular',
         ], static fn ($value) => $value !== null);
 
-        foreach ($this->getJson($this->url('/games/teams'), $query) as $game) {
+        // Same bearer header the schedule and results calls use. CFBD
+        // answers 401 without it rather than an empty list.
+        $rows = $this->getJson($this->url('/games/teams'), $query, [
+            'Authorization' => 'Bearer '.config('edge.sources.cfbd.key'),
+        ]);
+
+        foreach ($rows as $game) {
             $gameId = $this->idOf($game, 'id', 'id');
             $sides = $game['teams'] ?? null;
 
