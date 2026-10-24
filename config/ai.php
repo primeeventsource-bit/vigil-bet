@@ -47,8 +47,13 @@ return [
      * from storage. Bump this when the prompt changes and the next sync
      * regenerates; the old Read stays on disk, because what a customer was
      * actually shown is part of the record.
+     *
+     * 2: research - form, availability, rest, weather - started reaching
+     * the fact sheet. Without the bump every existing Read would stay as
+     * it was, written from prices alone, while claiming a prompt version
+     * that promises more.
      */
-    'prompt_version' => (int) env('VIGIL_AI_PROMPT_VERSION', 1),
+    'prompt_version' => (int) env('VIGIL_AI_PROMPT_VERSION', 2),
 
     /*
      * A Read is 60-120 words. max_tokens is a ceiling, not a target, and

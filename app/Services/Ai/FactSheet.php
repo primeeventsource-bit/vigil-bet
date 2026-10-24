@@ -28,6 +28,8 @@ use Illuminate\Support\Collection;
  */
 class FactSheet
 {
+    public function __construct(private readonly ResearchBrief $research) {}
+
     /** @return array<string, mixed> */
     public function forBoardEntry(VlBoardEntry $entry): array
     {
@@ -80,6 +82,22 @@ class FactSheet
          * that does not exist.
          */
         $sheet['injuries_modelled'] = false;
+
+        /*
+         * The research, which is the substance of a Read on an unproven
+         * market - and every market is unproven. Without it the Read had
+         * prices, line movement and a verdict, and was explaining a
+         * number nobody should act on while saying nothing a customer
+         * could use.
+         *
+         * Added after the flag above and carrying its own, because the
+         * honest shape of this is "here is what is known, and the number
+         * does not include it" rather than a sheet that reads as though
+         * the engine weighed any of it.
+         */
+        if ($entry->edge_lab_event_id !== null) {
+            $sheet += $this->research->forEvent((int) $entry->edge_lab_event_id);
+        }
 
         $sheet['observed_at'] = $entry->observed_at?->toIso8601String();
 

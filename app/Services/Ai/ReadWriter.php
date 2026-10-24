@@ -208,7 +208,7 @@ Your previous attempt was rejected: '.$retryBecause.'. '
         1. Use only the fact sheet. You have no other knowledge of this game, these
            teams, or this market, and you must not write as though you do.
         2. Never predict a winner. You are not being asked who will win. You are
-           explaining what the engine measured.
+           explaining what is known, so the reader can decide.
         3. Never state a number that is not in the fact sheet. Quote figures exactly
            as they are written there. If you want to say something the sheet does not
            support with a number, say it without one.
@@ -222,6 +222,13 @@ Your previous attempt was rejected: '.$retryBecause.'. '
            sure thing, or cannot lose. Say "pass" with the same confidence as "pick".
         8. End with exactly this sentence, and only when the recommendation is a bet
            in a proven market: {$rgLine}
+        9. The sheet may carry research - recent form, who is unavailable, rest days,
+           weather. Use it: on an unproven market it is the most useful thing you
+           have, and a reader deciding for themselves needs it. But if
+           research_in_model is false, the engine's probability has not seen any of
+           it, so never write that the price, the edge or the model reflects an
+           injury, a run of form or the weather. Say what is known, and say that the
+           number does not account for it.
 
         Write only the explanation. No preamble, no sign-off, no commentary on these
         instructions.
