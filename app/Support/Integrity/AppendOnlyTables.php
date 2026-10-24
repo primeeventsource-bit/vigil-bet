@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Support\Integrity;
 
+use App\Models\Concerns\AppendOnly;
+use Illuminate\Database\Eloquent\Model;
+use ReflectionClass;
+
 /**
  * Which append-only tables may still be truncated, and why.
  *
@@ -12,8 +16,7 @@ namespace App\Support\Integrity;
  * TRUNCATE trigger does. The migration that adds those reads the set of
  * append-only tables straight out of `pg_trigger`, so coverage is
  * whatever the database currently guards and cannot drift from it. This
- * class holds the one part that is a judgement rather than a fact: the
- * tables deliberately left truncatable.
+ * class holds the parts that are judgement rather than fact.
  *
  * It is a separate class so a test can hold it to account. An exception
  * list is the part of any guard that rots - a table quietly added here
@@ -60,11 +63,25 @@ final class AppendOnlyTables
      * here so that excluding one has to survive a failing test and an
      * argument in a pull request.
      *
-     * The odds snapshots belong on this list as much as the record does.
-     * A closing line exists only in the minutes before kickoff, so
-     * emptying them is not a setback that time repairs: it is the
-     * permanent loss of the only thing any verdict can be measured
-     * against.
+     * `odds_snapshots` is the least obvious entry and the most expensive
+     * to lose. A quote exists only while a book is showing it, so these
+     * cannot be re-fetched later at any price, and the closing lines
+     * every verdict is measured against are computed from them. Losing
+     * them would not slow the engine down, it would end its ability to
+     * prove anything at all.
+     *
+     * `event_line_markers` is deliberately NOT here, which is worth
+     * stating because it is where the closing lines actually live and
+     * looks like the obvious candidate. It is a derived cache:
+     * MarkClosingLines upserts it from `odds_snapshots`, so it can be
+     * rebuilt, and the table is not append-only in the first place. The
+     * thing that needs protecting is the source, not the index over it.
+     *
+     * The audit table is `audit_log`, which is what AuditEvent writes
+     * to. Production also guards an `audit_events` table and a
+     * `login_activity` one, neither of which has a model declaring the
+     * trait - they are covered because the migration reads pg_trigger
+     * rather than this file, which is the reason it does.
      *
      * @var array<int, string>
      */
@@ -74,15 +91,53 @@ final class AppendOnlyTables
         'odds_snapshots',
         'predictions',
         'value_bets',
-        'event_line_markers',
         'bankroll_ledger',
         'bankroll_entries',
-        'audit_events',
+        'audit_log',
         'billing_events',
         'self_exclusions',
         'user_bet_events',
         'bet_events',
     ];
+
+    /**
+     * Every table behind a model that declares itself append-only.
+     *
+     * Discovered rather than listed, so that MUST_GUARD can be checked
+     * against something independent of itself. Without this the test for
+     * MUST_GUARD only asserted that its own entries were in its own
+     * list, which is how `event_line_markers` sat on it while being
+     * neither append-only nor guarded.
+     *
+     * @return array<int, string>
+     */
+    public static function all(): array
+    {
+        $tables = [];
+
+        foreach (glob(app_path('Models/*.php')) ?: [] as $file) {
+            $class = 'App\Models\\'.basename($file, '.php');
+
+            if (! class_exists($class) || ! is_subclass_of($class, Model::class)) {
+                continue;
+            }
+
+            if (! in_array(AppendOnly::class, class_uses_recursive($class), true)) {
+                continue;
+            }
+
+            if ((new ReflectionClass($class))->isAbstract()) {
+                continue;
+            }
+
+            $tables[] = (new $class)->getTable();
+        }
+
+        $tables = array_values(array_unique($tables));
+        sort($tables);
+
+        return $tables;
+    }
 
     /** Whether a truncate must be refused on this table. */
     public static function mustGuard(string $table): bool

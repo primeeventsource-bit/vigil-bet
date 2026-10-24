@@ -16,29 +16,54 @@ use App\Support\Integrity\AppendOnlyTables;
 | cannot execute the guard, and saying otherwise would be worse than not
 | testing it.
 |
-| What they can do is hold the exception list to account, which is the
-| part that rots. Coverage itself cannot drift: the migration reads the
-| append-only tables out of pg_trigger, so it guards whatever the
-| database guards. The judgement is which ones to leave out.
+| What they can do is hold the two judgement lists to account, which is
+| the part that rots. Coverage itself cannot drift: the migration reads
+| the append-only tables out of pg_trigger, so it guards whatever the
+| database guards.
+|
+| The first version of this file could not fail. It asserted that each
+| entry in MUST_GUARD satisfied mustGuard(), which is a list checking
+| itself - and `event_line_markers` sat on that list, unguarded and not
+| append-only at all, with the suite green. Every test here now compares
+| a list against something outside it.
 |
 */
 
-it('never lets the public record be truncatable', function () {
+it('requires a guard only on tables that are actually append-only', function () {
     /*
-     * The test that matters. If a future change puts the record on that
-     * list, this fails and somebody has to argue for it out loud.
+     * The test that was missing. MUST_GUARD named event_line_markers -
+     * where the closing lines live, so it looked like the obvious thing
+     * to protect - but that table is a derived cache upserted from
+     * odds_snapshots and is not append-only, so the guard never applied
+     * to it and never could. Checked against discovery of the trait, not
+     * against MUST_GUARD itself.
      */
-    expect(AppendOnlyTables::isTruncatable('published_picks'))->toBeFalse()
-        ->and(AppendOnlyTables::isTruncatable('pick_results'))->toBeFalse();
+    $appendOnly = AppendOnlyTables::all();
+
+    expect($appendOnly)->not->toBeEmpty();
+
+    foreach (AppendOnlyTables::MUST_GUARD as $table) {
+        expect($appendOnly)->toContain($table);
+    }
 });
 
-it('requires a guard on everything whose loss could not be undone', function () {
-    foreach (AppendOnlyTables::MUST_GUARD as $table) {
-        expect(AppendOnlyTables::mustGuard($table))->toBeTrue()
-            // Belt and braces: the two lists must never overlap, or the
-            // guard would be required and excluded at the same time.
-            ->and(AppendOnlyTables::isTruncatable($table))->toBeFalse();
+it('leaves truncatable only tables that are actually append-only', function () {
+    // A stale entry here is worse than useless: it reads as a considered
+    // exception to a guard that has nothing to do with it.
+    $appendOnly = AppendOnlyTables::all();
+
+    foreach (array_keys(AppendOnlyTables::TRUNCATABLE) as $table) {
+        expect($appendOnly)->toContain($table);
     }
+});
+
+it('never lets the public record be truncatable', function () {
+    // If a future change puts the record on that list, this fails and
+    // somebody has to argue for it out loud.
+    expect(AppendOnlyTables::isTruncatable('published_picks'))->toBeFalse()
+        ->and(AppendOnlyTables::isTruncatable('pick_results'))->toBeFalse()
+        ->and(AppendOnlyTables::all())->toContain('published_picks')
+        ->and(AppendOnlyTables::all())->toContain('pick_results');
 });
 
 it('keeps the two lists disjoint', function () {
@@ -61,15 +86,19 @@ it('gives a reason for every table left truncatable', function () {
     }
 });
 
-it('names the closing lines among the tables that must be guarded', function () {
+it('protects the quotes rather than the index built over them', function () {
     /*
-     * Called out on its own because it is the least obvious entry and
-     * the most expensive to lose. A closing line exists only in the
-     * minutes before kickoff, so these cannot be re-fetched later at any
-     * price - and they are the benchmark every verdict is measured
-     * against, so losing them does not slow the engine down, it stops it
-     * being able to prove anything at all.
+     * odds_snapshots is the irreplaceable one: a quote exists only while
+     * a book is showing it, so it cannot be re-fetched later at any
+     * price, and the closing lines are computed from it.
+     *
+     * event_line_markers is where those closing lines are stored and is
+     * deliberately unprotected - it is rebuilt by MarkClosingLines and
+     * is not append-only. Asserted so that moving the concern back to
+     * the cache has to be deliberate.
      */
     expect(AppendOnlyTables::mustGuard('odds_snapshots'))->toBeTrue()
-        ->and(AppendOnlyTables::mustGuard('event_line_markers'))->toBeTrue();
+        ->and(AppendOnlyTables::all())->toContain('odds_snapshots')
+        ->and(AppendOnlyTables::mustGuard('event_line_markers'))->toBeFalse()
+        ->and(AppendOnlyTables::all())->not->toContain('event_line_markers');
 });
