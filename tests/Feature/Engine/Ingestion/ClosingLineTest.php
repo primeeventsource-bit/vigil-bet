@@ -11,6 +11,7 @@ use App\Models\Event;
 use App\Models\EventLineMarker;
 use App\Models\OddsSnapshot;
 use App\Models\Team;
+use Illuminate\Support\Facades\DB;
 
 function closingQuote(Event $event, Book $book, int $price, $pulledAt): void
 {
@@ -130,4 +131,86 @@ it('skips games that never had a single closingQuote', function () {
 
     // Only the event that actually has snapshots gets a marker.
     expect(EventLineMarker::distinct('event_id')->count('event_id'))->toBe(1);
+});
+
+/*
+|--------------------------------------------------------------------------
+| The tail of this table
+|--------------------------------------------------------------------------
+|
+| Snapshots average about sixteen hundred per event in production and the
+| worst single event holds forty-seven thousand. The job used to load every
+| core-market quote for an event into Eloquent to pick the first and last of
+| each group, so its cost was set by the largest event in the batch - and one
+| pathological game made a run take over four hours, be closed by the reaper
+| at thirty minutes, retried, and die the same way.
+|
+| These two tests are the guard. The first says the answer is still right
+| when a group has hundreds of quotes; the second says the work does not
+| grow with them, which is the part that actually regressed and the part a
+| correctness test cannot see.
+|
+*/
+
+it('picks the right ends out of hundreds of quotes on one group', function () {
+    $kickoff = $this->event->starts_at;
+
+    // Two hundred quotes before kickoff, drifting one point at a time, and
+    // fifty after it. Only the first and the two-hundredth may be chosen.
+    foreach (range(0, 199) as $i) {
+        closingQuote($this->event, $this->book, -100 - $i, $kickoff->copy()->subMinutes(400 - $i));
+    }
+
+    foreach (range(0, 49) as $i) {
+        closingQuote($this->event, $this->book, -900 - $i, $kickoff->copy()->addMinutes($i + 1));
+    }
+
+    dispatch_sync(new MarkClosingLines);
+
+    $marker = EventLineMarker::sole();
+
+    expect($marker->price_open_american)->toBe(-100)
+        ->and($marker->price_close_american)->toBe(-299)
+        // One row per book, market and side - not one per quote.
+        ->and(EventLineMarker::count())->toBe(1);
+});
+
+it('does not do more work because an event has more quotes', function () {
+    $kickoff = $this->event->starts_at;
+
+    $count = function (): int {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        dispatch_sync(new MarkClosingLines);
+
+        $queries = count(DB::getRawQueryLog());
+
+        DB::disableQueryLog();
+
+        return $queries;
+    };
+
+    foreach (range(0, 9) as $i) {
+        closingQuote($this->event, $this->book, -110 - $i, $kickoff->copy()->subMinutes(100 - $i));
+    }
+
+    $withTen = $count();
+
+    foreach (range(0, 489) as $i) {
+        closingQuote($this->event, $this->book, -200 - $i, $kickoff->copy()->subMinutes(600 + $i));
+    }
+
+    $withFiveHundred = $count();
+
+    /*
+     * Fifty times the quotes, the same number of statements. Asserted as
+     * equality rather than as a ceiling: a ceiling would still pass if the
+     * cost crept back to being per-quote and the ceiling were generous,
+     * and being per-quote is the whole defect.
+     */
+    expect($withFiveHundred)->toBe($withTen)
+        // And the answer still comes from the right rows: the later batch
+        // was stamped earlier, so it holds the new opening quote.
+        ->and(EventLineMarker::sole()->price_open_american)->toBe(-689);
 });
