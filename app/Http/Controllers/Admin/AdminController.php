@@ -20,6 +20,7 @@ use App\Services\EdgeLab\SyncHealth;
 use App\Services\Entitlements\Entitlements;
 use App\Services\Record\PublicRecord;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -250,7 +251,15 @@ class AdminController extends Controller
             'units' => (clone $settled)->sum('shadow_results.units'),
             'clvCount' => $clvCount,
             'meanClv' => $clvCount > 0 ? (clone $settled)->whereNotNull('shadow_results.clv')->avg('shadow_results.clv') : null,
-            'bySport' => (clone $settled)
+            /*
+             * Its own query, not a clone of $settled: that one selects
+             * `shadow_results.*`, and a grouped query carrying every
+             * column of the grouped table is a Postgres error. SQLite
+             * permits it, so this has to be built deliberately rather
+             * than inherited.
+             */
+            'bySport' => DB::table('shadow_results')
+                ->join('shadow_picks', 'shadow_picks.id', '=', 'shadow_results.shadow_pick_id')
                 ->selectRaw('shadow_picks.sport as sport, count(*) as n, sum(shadow_results.units) as units, avg(shadow_results.clv) as clv')
                 ->groupBy('shadow_picks.sport')
                 ->orderByDesc('n')

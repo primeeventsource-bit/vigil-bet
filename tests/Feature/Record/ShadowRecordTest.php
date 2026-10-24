@@ -249,3 +249,65 @@ it('shows no win rate until something has been graded', function () {
         ->assertOk()
         ->assertSee('nothing graded yet');
 });
+
+it('groups by sport without selecting ungrouped columns', function () {
+    /*
+     * This page threw in production while every test passed. The
+     * by-sport aggregate was built with `(clone $settled)`, which
+     * carries `shadow_results.*` into a grouped query - a plain error
+     * on Postgres, silently allowed by SQLite.
+     *
+     * So the assertion is on the SQL rather than the response: under
+     * SQLite the page renders happily with the bug present, and a
+     * 200 here would mean nothing. Any grouped query that also asks
+     * for whole-table columns fails, which catches the shape rather
+     * than this one instance of it.
+     */
+    $admin = betUser('pro');
+    $admin->forceFill(['is_admin' => true])->save();
+
+    shadowCandidate();
+    app(ShadowRecorder::class)->record();
+
+    $grouped = [];
+
+    DB::listen(function ($query) use (&$grouped) {
+        if (str_contains(mb_strtolower($query->sql), 'group by')) {
+            $grouped[] = $query->sql;
+        }
+    });
+
+    $this->actingAs($admin)->get(route('admin.shadow'))->assertOk();
+
+    // The page does group by something, or the assertion below is vacuous.
+    expect($grouped)->not->toBeEmpty();
+
+    foreach ($grouped as $sql) {
+        expect($sql)->not->toMatch('/select[^(]*\b[a-z_"]+\.\*/i');
+    }
+});
+
+it('shows a settled sport in the by-sport table', function () {
+    $admin = betUser('pro');
+    $admin->forceFill(['is_admin' => true])->save();
+
+    $bet = shadowCandidate(hoursToKickoff: 2);
+    app(ShadowRecorder::class)->record();
+
+    $this->travel(4)->hours();
+
+    Event::query()->whereKey($bet->event_id)->update([
+        'status' => 'final',
+        'final_home_score' => 27,
+        'final_away_score' => 20,
+    ]);
+
+    app(ShadowRecorder::class)->settle();
+
+    // The table only renders once something is settled, so the empty
+    // path was the only one any test had ever exercised.
+    $this->actingAs($admin)->get(route('admin.shadow'))
+        ->assertOk()
+        ->assertSee('By sport')
+        ->assertSee('n = 1');
+});
