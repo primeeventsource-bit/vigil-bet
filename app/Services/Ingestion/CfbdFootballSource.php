@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ingestion;
 
 use App\Data\ScheduleGame;
+use App\Data\TeamGameStatLine;
 use App\Enums\EventStatus;
 use App\Enums\SeasonType;
 use App\Enums\Sport;
@@ -20,7 +21,7 @@ use RuntimeException;
  * CFBD moved from snake_case to camelCase keys between major versions, so
  * every field is read through a helper that accepts either.
  */
-class CfbdFootballSource implements SportDataSource
+class CfbdFootballSource implements ProvidesTeamGameStats, SportDataSource
 {
     use MakesHttpRequests;
 
@@ -78,6 +79,112 @@ class CfbdFootballSource implements SportDataSource
      *
      * @return Generator<int, ScheduleGame>
      */
+    /**
+     * Box scores for a season, two rows per game.
+     *
+     * CFBD returns one object per game holding a `teams` array, each
+     * entry carrying that side's points and a flat list of
+     * {category, stat} pairs - `rushingYards`, `turnovers`,
+     * `thirdDownEff` and so on, around thirty of them. The categories
+     * are passed through under their own names rather than mapped to
+     * columns: a box score's contents differ by sport and change
+     * upstream, and the feature builder reads the few it understands.
+     *
+     * Points allowed is taken from the other side of the same game
+     * rather than from a second request. It is the one derived figure
+     * worth storing here, because a defensive rating needs it and
+     * recomputing it later means joining a table to itself.
+     *
+     * @return Generator<int, TeamGameStatLine>
+     */
+    public function teamGameStats(int $season, ?int $week = null): Generator
+    {
+        if (! $this->isAvailable()) {
+            throw new RuntimeException('CFBD API key is not configured.');
+        }
+
+        $query = array_filter([
+            'year' => $season,
+            'week' => $week,
+            'seasonType' => 'regular',
+        ], static fn ($value) => $value !== null);
+
+        foreach ($this->getJson($this->url('/games/teams'), $query) as $game) {
+            $gameId = $this->idOf($game, 'id', 'id');
+            $sides = $game['teams'] ?? null;
+
+            // Two sides or it is not a game, and points allowed would be
+            // a guess. Skipped rather than written half-formed.
+            if ($gameId === null || ! is_array($sides) || count($sides) !== 2) {
+                continue;
+            }
+
+            $points = [];
+
+            foreach ($sides as $index => $side) {
+                $points[$index] = is_numeric($side['points'] ?? null) ? (int) $side['points'] : null;
+            }
+
+            foreach ($sides as $index => $side) {
+                $name = $this->field($side, 'team', 'team');
+
+                if (! is_string($name) || $name === '') {
+                    continue;
+                }
+
+                $line = new TeamGameStatLine(
+                    sport: Sport::Ncaaf,
+                    sourceEventId: $gameId,
+                    sourceTeamName: $name,
+                    sourceTeamId: $this->idOf($side, 'team_id', 'teamId'),
+                    isHome: $this->field($side, 'home_away', 'homeAway') === 'home',
+                    points: $points[$index] ?? null,
+                    pointsAllowed: $points[$index === 0 ? 1 : 0] ?? null,
+                    stats: $this->categories($side),
+                    source: $this->key(),
+                );
+
+                if ($line->hasContent()) {
+                    yield $line;
+                }
+            }
+        }
+    }
+
+    /**
+     * The {category, stat} pairs, flattened to a map.
+     *
+     * Values stay as strings where CFBD sends strings: `thirdDownEff`
+     * arrives as "7-14" and `possessionTime` as "31:04", and casting
+     * those to numbers would turn 7-14 into 7. Converting them is the
+     * feature builder's problem, where the meaning of each category is
+     * known.
+     *
+     * @param  array<string, mixed>  $side
+     * @return array<string, string|int|float>
+     */
+    private function categories(array $side): array
+    {
+        $stats = [];
+
+        foreach ($side['stats'] ?? [] as $pair) {
+            $category = $pair['category'] ?? null;
+            $value = $pair['stat'] ?? null;
+
+            if (! is_string($category) || $category === '' || $value === null) {
+                continue;
+            }
+
+            $stats[$category] = is_scalar($value) ? $value : null;
+
+            if ($stats[$category] === null) {
+                unset($stats[$category]);
+            }
+        }
+
+        return $stats;
+    }
+
     private function streamGames(array $query, SeasonType $seasonType): Generator
     {
         if (! $this->isAvailable()) {
