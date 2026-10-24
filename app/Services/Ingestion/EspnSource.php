@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ingestion;
 
+use App\Data\GameBoxScore;
+use App\Data\PlayerGameStatLine;
 use App\Data\ScheduleGame;
+use App\Data\TeamGameStatLine;
 use App\Enums\EventStatus;
 use App\Enums\SeasonType;
 use App\Enums\Sport;
@@ -24,7 +27,7 @@ use RuntimeException;
  * Marked Unofficial on purpose: the Jobs screen shows that label so a silent
  * upstream change is visible rather than mistaken for a quiet week.
  */
-class EspnSource implements SportDataSource
+class EspnSource implements ProvidesGameBoxScore, SportDataSource
 {
     use MakesHttpRequests;
 
@@ -89,6 +92,262 @@ class EspnSource implements SportDataSource
                 }
             }
         }
+    }
+
+    /**
+     * Team and player lines for one game, from ESPN's summary endpoint.
+     *
+     * One request returns both, which is why this is a box score rather
+     * than two methods: at one request per game, fetching the same
+     * payload twice is the difference between a backfill that finishes
+     * and one that does not.
+     *
+     * A game ESPN has nothing for comes back empty rather than throwing.
+     * Postponed and abandoned fixtures are normal and a backfill should
+     * walk past them.
+     */
+    public function gameBoxScore(string $sourceEventId): GameBoxScore
+    {
+        $payload = $this->getJson($this->summaryUrl(), ['event' => $sourceEventId]);
+        $box = $payload['boxscore'] ?? null;
+
+        if (! is_array($box)) {
+            return new GameBoxScore($sourceEventId);
+        }
+
+        return new GameBoxScore(
+            sourceEventId: $sourceEventId,
+            teams: $this->teamLines($sourceEventId, $box),
+            players: $this->playerLines($sourceEventId, $box),
+        );
+    }
+
+    /**
+     * One line per side, from `boxscore.teams`.
+     *
+     * @param  array<string, mixed>  $box
+     * @return array<int, TeamGameStatLine>
+     */
+    private function teamLines(string $sourceEventId, array $box): array
+    {
+        $sides = array_values(array_filter(
+            $box['teams'] ?? [],
+            static fn ($side) => is_array($side) && isset($side['team'])
+        ));
+
+        // Two sides, or points allowed would be a guess.
+        if (count($sides) !== 2) {
+            return [];
+        }
+
+        $scores = [];
+
+        foreach ($sides as $index => $side) {
+            $scores[$index] = $this->statValue($side['statistics'] ?? [], 'points');
+        }
+
+        $lines = [];
+
+        foreach ($sides as $index => $side) {
+            $team = $side['team'] ?? [];
+            $name = $team['displayName'] ?? $team['name'] ?? null;
+
+            if (! is_string($name) || $name === '') {
+                continue;
+            }
+
+            $line = new TeamGameStatLine(
+                sport: $this->sport,
+                sourceEventId: $sourceEventId,
+                sourceTeamName: $name,
+                sourceTeamId: isset($team['id']) ? (string) $team['id'] : null,
+                isHome: ($side['homeAway'] ?? null) === 'home',
+                points: $scores[$index],
+                pointsAllowed: $scores[$index === 0 ? 1 : 0],
+                stats: $this->flatStats($side['statistics'] ?? []),
+                source: $this->key(),
+            );
+
+            if ($line->hasContent()) {
+                $lines[] = $line;
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * ESPN's team statistics, as {name: displayValue}.
+     *
+     * displayValue rather than value: field goals arrive as "41-83",
+     * which is two numbers, and ESPN's `value` for those is the made
+     * count alone - so reading it silently discards the attempts.
+     * Splitting them is the feature builder's job, where the meaning of
+     * each label is known.
+     *
+     * @param  array<int, mixed>  $statistics
+     * @return array<string, string|int|float>
+     */
+    private function flatStats(array $statistics): array
+    {
+        $stats = [];
+
+        foreach ($statistics as $stat) {
+            if (! is_array($stat)) {
+                continue;
+            }
+
+            $name = $stat['name'] ?? null;
+            $value = $stat['displayValue'] ?? $stat['value'] ?? null;
+
+            if (is_string($name) && $name !== '' && is_scalar($value)) {
+                $stats[$name] = $value;
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
+     * One number out of ESPN's statistics list, or null.
+     *
+     * @param  array<int, mixed>  $statistics
+     */
+    private function statValue(array $statistics, string $name): ?int
+    {
+        foreach ($statistics as $stat) {
+            if (! is_array($stat) || ($stat['name'] ?? null) !== $name) {
+                continue;
+            }
+
+            $value = $stat['displayValue'] ?? $stat['value'] ?? null;
+
+            return is_numeric($value) ? (int) $value : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Player lines, from `boxscore.players`.
+     *
+     * ESPN gives parallel arrays: `keys` naming the columns and each
+     * athlete's `stats` holding the values in the same order. Football
+     * files one group per discipline, so the same quarterback appears
+     * under passing and rushing in one game - which is why the group
+     * travels with the row and forms part of its identity.
+     *
+     * @param  array<string, mixed>  $box
+     * @return array<int, PlayerGameStatLine>
+     */
+    private function playerLines(string $sourceEventId, array $box): array
+    {
+        $lines = [];
+
+        foreach ($box['players'] ?? [] as $side) {
+            if (! is_array($side)) {
+                continue;
+            }
+
+            $team = $side['team'] ?? [];
+            $teamName = $team['displayName'] ?? $team['name'] ?? null;
+            $teamId = isset($team['id']) ? (string) $team['id'] : null;
+
+            foreach ($side['statistics'] ?? [] as $group) {
+                if (! is_array($group)) {
+                    continue;
+                }
+
+                $labels = array_values(array_filter(
+                    $group['keys'] ?? $group['labels'] ?? [],
+                    static fn ($label) => is_string($label) && $label !== ''
+                ));
+
+                $groupName = is_string($group['name'] ?? null) && $group['name'] !== ''
+                    ? $group['name']
+                    : 'all';
+
+                foreach ($group['athletes'] ?? [] as $entry) {
+                    $line = $this->playerLine(
+                        $sourceEventId,
+                        $entry,
+                        $labels,
+                        $groupName,
+                        is_string($teamName) ? $teamName : null,
+                        $teamId,
+                    );
+
+                    if ($line !== null) {
+                        $lines[] = $line;
+                    }
+                }
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @param  array<int, string>  $labels
+     */
+    private function playerLine(
+        string $sourceEventId,
+        mixed $entry,
+        array $labels,
+        string $groupName,
+        ?string $teamName,
+        ?string $teamId,
+    ): ?PlayerGameStatLine {
+        if (! is_array($entry)) {
+            return null;
+        }
+
+        $athlete = $entry['athlete'] ?? [];
+        $id = is_array($athlete) ? ($athlete['id'] ?? null) : null;
+        $name = is_array($athlete) ? ($athlete['displayName'] ?? $athlete['shortName'] ?? null) : null;
+
+        /*
+         * No id means nothing downstream could ever join this row to the
+         * same player in another game, which is the only reason to keep
+         * a player line at all.
+         */
+        if ($id === null || ! is_string($name) || $name === '') {
+            return null;
+        }
+
+        $values = array_values(array_filter(
+            $entry['stats'] ?? [],
+            static fn ($value) => is_scalar($value)
+        ));
+
+        $stats = [];
+
+        foreach ($labels as $index => $label) {
+            if (array_key_exists($index, $values)) {
+                $stats[$label] = $values[$index];
+            }
+        }
+
+        $line = new PlayerGameStatLine(
+            sport: $this->sport,
+            sourceEventId: $sourceEventId,
+            playerExternalId: (string) $id,
+            playerName: $name,
+            sourceTeamName: $teamName,
+            sourceTeamId: $teamId,
+            position: $athlete['position']['abbreviation'] ?? null,
+            played: (bool) ($entry['active'] ?? true),
+            statGroup: $groupName,
+            stats: $stats,
+            source: $this->key(),
+        );
+
+        return $line->hasContent() ? $line : null;
+    }
+
+    private function summaryUrl(): string
+    {
+        return self::BASE.'/'.trim((string) $this->sport->config('espn_path'), '/').'/summary';
     }
 
     private function toScheduleGame(array $event, SeasonType $fallbackType): ?ScheduleGame
