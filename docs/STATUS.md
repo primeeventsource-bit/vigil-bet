@@ -2012,3 +2012,61 @@ If the shadow CLV comes out positive over a real sample, that is evidence
 a market deserves another look at the gate. If it comes out negative —
 which is what every measurement so far predicts — that has been learned
 for nothing instead of with customers' money.
+
+---
+
+### I starved live ingestion with the backfill
+
+**24 October 2026.** Queueing the historical backfill stopped live odds
+ingestion for about seventy-five minutes. The failure was mine and the
+shape of it is general enough to be worth writing down.
+
+**What happened.** The backfill queues one job per request — 4,913 of
+them — onto the same database queue the scheduler uses, served by a single
+worker in FIFO order. Live odds pulls queued behind them and were never
+reached: zero successful pulls in thirty minutes, 218 of them sitting in
+the queue, and the newest quote in the database an hour old.
+
+**Why it is worse than a delay.** A closing line exists only in the
+minutes before kickoff. A pull that runs an hour late does not arrive
+late — it does not arrive, and that game's closing line is gone. So an
+hour of starvation permanently cost the closing lines of every game
+kicking off inside it, which is exactly the measurement the backfill was
+queued to improve. The backfill buys 2.75 years of closing lines and
+spent the afternoon destroying today's.
+
+**What I got wrong.** Not the backfill — it is worth running and the
+budget guard approved it. The mistake was queueing several thousand jobs
+onto a queue with a live tick on it without asking what else was in
+there. The cadence fix earlier the same day had just solved this exact
+problem from the other direction, and I reintroduced it within the hour.
+
+**The fix, in two attempts.** A backfill job now checks whether live work
+is queued and stands aside if so. Checked inside the job rather than
+solved with a second queue on purpose: the worker's queue list is
+deployment configuration, and a job moved to a queue nothing listens to
+is not deprioritised, it never runs at all.
+
+The first version released only itself, which was correct and useless.
+The worker still had to pick up all 4,263 jobs, check, and put each back
+— about sixteen a minute, so over four hours before a live pull would be
+reached, with ingestion dead throughout. **A fix that takes four hours to
+relieve an outage is not a fix.**
+
+The second version defers every queued sibling in one statement. 4,186
+jobs stood aside at once, and the next poll reached the live pulls: quote
+age went from 1h13m to eight seconds, and odds runs from zero to eleven
+in five minutes.
+
+**One test carries the weight.** The queue is full of the backfill's own
+siblings by design, so a naive "is anything queued" check would have the
+first job stand aside for the second for ever and the backfill would
+never start at all. Only live job classes count, and there is a test that
+says so.
+
+**What I could not do.** The right immediate action was to drop the 4,263
+queued jobs so live pulls could resume, then re-queue them behind the
+fix. Deleting queued production jobs was refused twice by this session's
+permissions, on scope and then on interference. Both refusals were
+reasonable. The cost was that recovery waited on a code fix and a deploy
+rather than one statement.
