@@ -18,7 +18,7 @@
            @if ($current) aria-current="page" @endif
            @class([
                'rounded-md px-3 py-1.5 text-xs font-semibold transition',
-               'bg-[color-mix(in_srgb,var(--vg-edge)_18%,transparent)] text-[var(--vg-edge)]' => $current,
+               'bg-[color-mix(in_srgb,var(--vg-paper)_12%,transparent)] text-[var(--vg-paper)]' => $current,
                'text-[var(--vg-slate)] hover:text-[var(--vg-paper)]' => ! $current,
            ])>{{ $tab['label'] }}</a>
     @endforeach

@@ -82,7 +82,7 @@
             </select>
         </label>
 
-        <button type="submit" class="rounded-lg bg-[var(--vg-edge)] px-4 py-2 text-sm font-bold text-[var(--vg-night)]">
+        <button type="submit" class="rounded-lg bg-[var(--vg-paper)] px-4 py-2 text-sm font-bold text-[var(--vg-night)]">
             Filter
         </button>
 
@@ -239,7 +239,7 @@
                                             @csrf
                                             <input type="hidden" name="board_entry_id" value="{{ $entry->id }}">
                                             <button type="submit"
-                                                    class="rounded-md bg-[var(--vg-edge)] px-3 py-1 text-xs font-bold text-[var(--vg-night)]">
+                                                    class="rounded-md bg-[var(--vg-paper)] px-3 py-1 text-xs font-bold text-[var(--vg-night)]">
                                                 Bet
                                             </button>
                                         </form>

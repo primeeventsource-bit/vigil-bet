@@ -35,6 +35,12 @@
     --color-loss: var(--vg-loss);
     --color-warning: var(--vg-warning);
     --color-signal: var(--vg-blue);
+
+    /* Series are white and silver; the grid is the same rule colour. */
+    --color-chart-line: var(--vg-chart-line);
+    --color-chart-fill: var(--vg-chart-fill);
+    --color-chart-grid: var(--vg-chart-grid);
+    --color-decor: var(--vg-decor);
 }
 
 @layer base {
@@ -43,17 +49,6 @@
         background-color: var(--vg-night);
     }
 
-    html[data-theme='light'] {
-        color-scheme: light;
-        background-color: var(--vg-light-bg);
-
-        --vg-night: var(--vg-light-bg);
-        --vg-navy: #ffffff;
-        --vg-slate-dark: #ffffff;
-        --vg-line: #d9d6cd;
-        --vg-paper: var(--vg-light-text);
-        --vg-slate: #5b6675;
-    }
 
     body {
         background-color: var(--vg-night);
@@ -95,6 +90,86 @@
             transition-duration: 0.01ms !important;
             scroll-behavior: auto !important;
         }
+    }
+}
+
+
+/*
+|----------------------------------------------------------------------
+| The theme, deliberately outside every layer
+|----------------------------------------------------------------------
+|
+| This block must not move into @layer base, however much it looks like
+| it belongs there.
+|
+| The palette itself is written as a :root block in an inline <style> in
+| the head, so that config/brand.php stays the only place colour crosses
+| from PHP into CSS. That block is unlayered, and in the cascade an
+| unlayered declaration beats a layered one whatever the specificity -
+| so :root wins over html[data-theme='light'] for as long as the latter
+| sits in a layer, and light mode silently does nothing.
+|
+| It did do nothing, for the whole of the product's life until a switch
+| existed to reveal it. Keeping these rules unlayered is what makes the
+| switch work.
+|
+*/
+/*
+ * Light mode, three ways, and the duplication is deliberate.
+ *
+ * A visitor who has never touched the switch should get the mode their
+ * system asks for, and a visitor who has touched it should get what
+ * they chose on every page afterwards - which needs both a media query
+ * and an attribute, and an explicit dark attribute that wins over a
+ * system set to light. CSS has no way to share one declaration block
+ * between a media query and a selector, so the overrides are written
+ * twice rather than cleverly once.
+ *
+ * Every value is a token. The previous version hardcoded four hexes
+ * here, which quietly broke the rule stated at the top of this file -
+ * that config/brand.php is the only place colour crosses into CSS -
+ * and meant a light-mode colour could not be changed where every other
+ * colour is changed.
+ */
+html[data-theme='light'] {
+    color-scheme: light;
+    background-color: var(--vg-light-bg);
+
+    --vg-night: var(--vg-light-bg);
+    --vg-navy: var(--vg-light-panel);
+    --vg-slate-dark: var(--vg-light-panel);
+    --vg-line: var(--vg-light-line);
+    --vg-paper: var(--vg-light-text);
+    --vg-slate: var(--vg-light-muted);
+    --vg-edge: var(--vg-light-edge);
+    --vg-loss: var(--vg-light-loss);
+    --vg-warning: var(--vg-light-warning);
+    --vg-blue: var(--vg-light-blue);
+    --vg-decor: var(--vg-light-decor);
+    --vg-chart-line: var(--vg-light-chart-line);
+    --vg-chart-fill: var(--vg-light-chart-fill);
+    --vg-chart-grid: var(--vg-light-chart-grid);
+}
+
+@media (prefers-color-scheme: light) {
+    html:not([data-theme='dark']) {
+        color-scheme: light;
+        background-color: var(--vg-light-bg);
+
+        --vg-night: var(--vg-light-bg);
+        --vg-navy: var(--vg-light-panel);
+        --vg-slate-dark: var(--vg-light-panel);
+        --vg-line: var(--vg-light-line);
+        --vg-paper: var(--vg-light-text);
+        --vg-slate: var(--vg-light-muted);
+        --vg-edge: var(--vg-light-edge);
+        --vg-loss: var(--vg-light-loss);
+        --vg-warning: var(--vg-light-warning);
+        --vg-blue: var(--vg-light-blue);
+        --vg-decor: var(--vg-light-decor);
+        --vg-chart-line: var(--vg-light-chart-line);
+        --vg-chart-fill: var(--vg-light-chart-fill);
+        --vg-chart-grid: var(--vg-light-chart-grid);
     }
 }
 
@@ -169,7 +244,7 @@
         flex: none;
         border: 1px solid var(--vg-line);
         background-color: var(--vg-night);
-        accent-color: var(--vg-edge);
+        accent-color: var(--vg-paper);
         cursor: pointer;
     }
 
@@ -179,13 +254,13 @@
 
     input[type='checkbox']:checked,
     input[type='radio']:checked {
-        background-color: var(--vg-edge);
-        border-color: var(--vg-edge);
+        background-color: var(--vg-paper);
+        border-color: var(--vg-paper);
     }
 
     /* The tick, drawn rather than relying on a font glyph. */
     input[type='checkbox']:checked {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2307131B' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-6'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23101113' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-6'/%3E%3C/svg%3E");
         background-size: 100%;
         background-repeat: no-repeat;
     }
@@ -247,8 +322,8 @@
         pointer-events: none;
     }
 
-    .fx-glow-edge { background: var(--vg-edge); }
-    .fx-glow-signal { background: var(--vg-blue); }
+        .fx-glow-edge { background: var(--vg-decor); }
+    .fx-glow-signal { background: var(--vg-decor); }
 
     /* Engineering grid. Fades out as it rises, so it reads as depth. */
     .fx-grid {
@@ -256,8 +331,8 @@
         inset: 0;
         pointer-events: none;
         background-image:
-            linear-gradient(to right, color-mix(in srgb, var(--vg-edge) 11%, transparent) 1px, transparent 1px),
-            linear-gradient(to bottom, color-mix(in srgb, var(--vg-edge) 11%, transparent) 1px, transparent 1px);
+            linear-gradient(to right, color-mix(in srgb, var(--vg-decor) 11%, transparent) 1px, transparent 1px),
+            linear-gradient(to bottom, color-mix(in srgb, var(--vg-decor) 11%, transparent) 1px, transparent 1px);
         background-size: 48px 48px;
         mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
     }
@@ -270,7 +345,7 @@
         height: 1px;
         background: linear-gradient(to right,
             transparent,
-            color-mix(in srgb, var(--vg-edge) 45%, transparent),
+            color-mix(in srgb, var(--vg-decor) 45%, transparent),
             transparent);
     }
 
@@ -285,7 +360,7 @@
         background:
             linear-gradient(var(--vg-navy), var(--vg-navy)) padding-box,
             linear-gradient(160deg,
-                color-mix(in srgb, var(--vg-edge) 38%, transparent),
+                color-mix(in srgb, var(--vg-decor) 38%, transparent),
                 var(--vg-line) 42%,
                 var(--vg-line)) border-box;
         border: 1px solid transparent;
@@ -294,9 +369,46 @@
 
     .fx-panel-lift:hover {
         transform: translateY(-2px);
-        box-shadow: 0 16px 40px -20px color-mix(in srgb, var(--vg-edge) 55%, transparent);
+        box-shadow: 0 16px 40px -20px color-mix(in srgb, var(--vg-decor) 55%, transparent);
     }
 
+    /*
+     * The product on an angle behind the hero.
+     *
+     * A single rotation on the frame, and the floating cards lifted
+     * toward the viewer on the same axis so they read as being in front
+     * of the glass rather than painted on it. translateZ is what does
+     * that; without it the cards sit in the same plane and the whole
+     * thing flattens into a sticker.
+     *
+     * Flattened entirely below `lg` - a tilted dashboard on a phone is
+     * unreadable long before it is decorative - and whenever motion is
+     * reduced, where a false sense of depth is exactly what to drop.
+     */
+    .fx-console {
+        transform-style: preserve-3d;
+    }
+
+    .fx-console-card {
+        transform: translateZ(60px);
+    }
+
+    @media (min-width: 1024px) {
+        .fx-console-stage {
+            transform: rotateY(-15deg) rotateX(7deg) rotate(1deg);
+            transform-style: preserve-3d;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .fx-console-stage {
+            transform: none;
+        }
+
+        .fx-console-card {
+            transform: none;
+        }
+    }
     /* Frosted surface for anything sitting over a glow. */
     .fx-glass {
         background: color-mix(in srgb, var(--vg-navy) 72%, transparent);
@@ -306,7 +418,7 @@
 
     /* Text that picks up the accent without losing contrast. */
     .fx-gradient-text {
-        background: linear-gradient(100deg, var(--vg-edge), #7CFFC4 55%, var(--vg-edge));
+        background: linear-gradient(100deg, var(--vg-paper), var(--vg-decor) 55%, var(--vg-paper));
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;

@@ -11,7 +11,7 @@
 
     <div class="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--vg-line)]">
         @if ($pct !== null)
-            <div class="h-full rounded-full bg-[var(--vg-edge)]" style="width: {{ round($pct * 100, 1) }}%"></div>
+            <div class="h-full rounded-full bg-[var(--vg-chart-fill)]" style="width: {{ round($pct * 100, 1) }}%"></div>
         @endif
     </div>
 

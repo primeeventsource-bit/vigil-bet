@@ -6,7 +6,7 @@
         <div>
             <h1 class="font-[family-name:var(--font-display)] text-3xl font-bold leading-tight">
                 Smarter Bets.<br>
-                <span class="text-[var(--vg-edge)]">Sharper Edges.</span>
+                <span class="text-[var(--vg-slate)]">Sharper Edges.</span>
             </h1>
             <p class="mt-3 max-w-md text-sm text-[var(--vg-slate)]">
                 AI-driven insights. Real-time odds.<br>
@@ -63,14 +63,14 @@
 
                 <a href="{{ route('today') }}" @class([
                     'rounded-md px-2.5 py-1 text-xs font-semibold transition',
-                    'bg-[color-mix(in_srgb,var(--vg-edge)_18%,transparent)] text-[var(--vg-edge)]' => ! $active,
+                    'bg-[color-mix(in_srgb,var(--vg-paper)_12%,transparent)] text-[var(--vg-paper)]' => ! $active,
                     'text-[var(--vg-slate)] hover:text-[var(--vg-paper)]' => (bool) $active,
                 ])>All</a>
 
                 @foreach ($availableSports as $code)
                     <a href="{{ route('today', ['sport' => $code]) }}" @class([
                         'rounded-md px-2.5 py-1 text-xs font-semibold uppercase transition',
-                        'bg-[color-mix(in_srgb,var(--vg-edge)_18%,transparent)] text-[var(--vg-edge)]' => $active === $code,
+                        'bg-[color-mix(in_srgb,var(--vg-paper)_12%,transparent)] text-[var(--vg-paper)]' => $active === $code,
                         'text-[var(--vg-slate)] hover:text-[var(--vg-paper)]' => $active !== $code,
                     ])>{{ $code }}</a>
                 @endforeach

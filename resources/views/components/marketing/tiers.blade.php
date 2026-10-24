@@ -26,7 +26,7 @@
                     'ring-1 ring-[color-mix(in_srgb,var(--vg-edge)_45%,transparent)]' => $tier['highlight'] ?? false,
                 ])>
                     @if ($tier['highlight'] ?? false)
-                        <span class="absolute -top-2.5 left-6 rounded-full bg-[var(--vg-edge)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--vg-night)]">
+                        <span class="absolute -top-2.5 left-6 rounded-full bg-[var(--vg-paper)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--vg-night)]">
                             Most popular
                         </span>
                     @endif

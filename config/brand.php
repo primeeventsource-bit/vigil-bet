@@ -53,26 +53,93 @@ return [
     | tell --vg-green from --vg-loss, and because a screenshot in greyscale
     | should still be readable.
     */
+    /*
+    |--------------------------------------------------------------------------
+    | The palette
+    |--------------------------------------------------------------------------
+    |
+    | A trading terminal, not a casino. The field is matte black, the
+    | panels are charcoal, and type is white over silver; colour appears
+    | only where it carries meaning. Every pair below was measured rather
+    | than chosen by eye - the lowest ink-on-surface contrast in either
+    | mode is 4.67:1, above the 4.5 bar for body text.
+    |
+    | The surfaces sit close together on purpose: 1.12:1 between the page
+    | and a panel. A panel should read as raised by a hair, not as a slab
+    | dropped on the page, and the border is what actually separates them.
+    |
+    | These names are historical - `night`, `navy`, `slate_dark` - and are
+    | left alone because they are the contract with every template and the
+    | CSS token map. What each one means is below.
+    |
+    */
     'colors' => [
-        'night' => '#07131B',
-        'navy' => '#0B1320',
-        'slate_dark' => '#1E293B',
-        'line' => '#24364A',
+        // The page itself. Matte black, warmed a shade off pure #000 so a
+        // panel above it has somewhere to be.
+        'night' => '#101113',
+        // Panels. Charcoal. This is what the .panel class paints with.
+        'navy' => '#1B1D20',
+        // One step down: the recessed surface behind a toolbar or a well.
+        'slate_dark' => '#15171A',
+        // Borders, rules and the seams between panels.
+        'line' => '#2A2D33',
 
-        'green' => '#00E676',
-        'blue' => '#3882F6',
+        'green' => '#5FD39A',
+        'blue' => '#6AA8E0',
 
-        'paper' => '#F8FAFC',
-        'slate' => '#94A3B8',
+        // Type. White for headings and primary text, silver beneath it.
+        'paper' => '#FFFFFF',
+        'slate' => '#A5A9B0',
 
-        // Semantic. Green is reserved for a real edge; it never decorates.
-        'edge' => '#00E676',
-        'loss' => '#F2726F',
-        'warning' => '#F5B83D',
+        /*
+         * Charts are drawn in white and silver, which is both the look and
+         * a correction: they used to be drawn in `edge`, the green below,
+         * so every bankroll line and every gauge was painted in the colour
+         * this file reserves for a proven edge. Series now have their own
+         * tokens and the semantic green went back to meaning one thing.
+         */
+        /*
+         * Decoration: the hero glow, the engineering grid, the rising
+         * trace behind the marketing hero. Silver, because none of it
+         * means anything and the one colour that does must not also be
+         * the wallpaper.
+         */
+        'decor' => '#A5A9B0',
 
-        // Light mode, which is supported and is not the default.
-        'light_bg' => '#F7F6F2',
-        'light_text' => '#0B1320',
+        'chart_line' => '#FFFFFF',
+        'chart_fill' => '#A5A9B0',
+        'chart_grid' => '#2A2D33',
+
+        /*
+         * Semantic, and restrained to suit the field around them. Green is
+         * reserved for a real edge; it never decorates. Every one of these
+         * is paired with a word in the markup, so the product still reads
+         * in greyscale and to the roughly one man in twelve who cannot
+         * separate the green from the red.
+         */
+        'edge' => '#5FD39A',
+        'loss' => '#E8736F',
+        'warning' => '#D9A441',
+
+        /*
+         * Light mode, which is supported and is not the default. The same
+         * terminal inverted: near-white page, white panels, the matte
+         * black above as ink. The semantic hues are darkened, because a
+         * colour legible on black is not legible on white.
+         */
+        'light_bg' => '#F7F7F8',
+        'light_panel' => '#FFFFFF',
+        'light_line' => '#E2E3E6',
+        'light_text' => '#101113',
+        'light_muted' => '#5E6269',
+        'light_edge' => '#1A7F4B',
+        'light_loss' => '#B4403C',
+        'light_warning' => '#8A6212',
+        'light_blue' => '#1F6FB8',
+        'light_decor' => '#5E6269',
+        'light_chart_line' => '#101113',
+        'light_chart_fill' => '#5E6269',
+        'light_chart_grid' => '#E2E3E6',
     ],
 
     /*

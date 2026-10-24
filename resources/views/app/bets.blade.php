@@ -158,7 +158,7 @@
 
             <div class="sm:col-span-2 lg:col-span-4">
                 <button type="submit" @disabled((bool) $blocked)
-                        class="rounded-lg bg-[var(--vg-edge)] px-4 py-2.5 font-bold text-[var(--vg-night)] disabled:opacity-40">
+                        class="rounded-lg bg-[var(--vg-paper)] px-4 py-2.5 font-bold text-[var(--vg-night)] disabled:opacity-40">
                     Log it
                 </button>
             </div>

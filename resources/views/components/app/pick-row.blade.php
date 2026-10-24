@@ -15,7 +15,7 @@
             </span>
             <span class="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--vg-line)]">
                 @if ($pick->model_prob !== null)
-                    <span class="block h-full rounded-full bg-[var(--vg-edge)]"
+                    <span class="block h-full rounded-full bg-[var(--vg-chart-fill)]"
                           style="width: {{ round($pick->model_prob * 100, 1) }}%"></span>
                 @endif
             </span>
@@ -48,7 +48,7 @@
             @csrf
             <input type="hidden" name="board_entry_id" value="{{ $pick->id }}">
             <button type="submit"
-                    class="rounded-md bg-[var(--vg-edge)] px-3 py-1 text-xs font-bold text-[var(--vg-night)]">
+                    class="rounded-md bg-[var(--vg-paper)] px-3 py-1 text-xs font-bold text-[var(--vg-night)]">
                 Bet
                 <span class="sr-only">— log {{ $pick->selection }} to My Bets</span>
             </button>

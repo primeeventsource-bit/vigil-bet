@@ -75,7 +75,7 @@
                     @csrf
                     <x-field name="code" label="Code from your app" inputmode="numeric" autocomplete="one-time-code" />
 
-                    <button type="submit" class="rounded-md bg-[var(--vg-edge)] px-4 py-2 text-sm font-semibold text-[var(--vg-night)]">
+                    <button type="submit" class="rounded-md bg-[var(--vg-paper)] px-4 py-2 text-sm font-semibold text-[var(--vg-night)]">
                         Finish setup
                     </button>
                 </form>
@@ -88,7 +88,7 @@
 
                 <form method="POST" action="{{ route('two-factor.store') }}" class="mt-5">
                     @csrf
-                    <button type="submit" class="rounded-md bg-[var(--vg-edge)] px-4 py-2 text-sm font-semibold text-[var(--vg-night)]">
+                    <button type="submit" class="rounded-md bg-[var(--vg-paper)] px-4 py-2 text-sm font-semibold text-[var(--vg-night)]">
                         Set up two-factor authentication
                     </button>
                 </form>

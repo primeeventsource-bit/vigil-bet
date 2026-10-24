@@ -52,7 +52,7 @@
 
             <form method="POST" action="{{ route('billing.resume') }}" class="mt-4">
                 @csrf
-                <button type="submit" class="rounded-lg bg-[var(--vg-edge)] px-4 py-2 text-sm font-bold text-[var(--vg-night)]">
+                <button type="submit" class="rounded-lg bg-[var(--vg-paper)] px-4 py-2 text-sm font-bold text-[var(--vg-night)]">
                     Keep my subscription
                 </button>
             </form>
@@ -92,8 +92,8 @@
 
                 <div class="grid gap-3 sm:grid-cols-2">
                     @foreach ($sellableTiers as $key => $tier)
-                        <label class="flex cursor-pointer gap-3 rounded-xl border border-[var(--vg-line)] p-4 has-checked:border-[var(--vg-edge)]">
-                            <input type="radio" name="tier" value="{{ $key }}" class="mt-1 accent-[var(--vg-edge)]"
+                        <label class="flex cursor-pointer gap-3 rounded-xl border border-[var(--vg-line)] p-4 has-checked:border-[var(--vg-paper)]">
+                            <input type="radio" name="tier" value="{{ $key }}" class="mt-1 accent-[var(--vg-paper)]"
                                    @checked($subscription?->tier === $key)>
                             <span>
                                 <span class="block font-semibold">{{ $brand($tier['name']) }}</span>
@@ -113,7 +113,7 @@
                         @foreach (['monthly' => 'Monthly', 'yearly' => 'Yearly'] as $value => $label)
                             <label class="flex items-center gap-2">
                                 <input type="radio" name="interval" value="{{ $value }}"
-                                       class="accent-[var(--vg-edge)]"
+                                       class="accent-[var(--vg-paper)]"
                                        @checked(($subscription?->interval ?? 'monthly') === $value)>
                                 {{ $label }}
                             </label>
@@ -138,7 +138,7 @@
                     </div>
                 @endunless
 
-                <button type="submit" class="rounded-lg bg-[var(--vg-edge)] px-4 py-2.5 font-bold text-[var(--vg-night)]">
+                <button type="submit" class="rounded-lg bg-[var(--vg-paper)] px-4 py-2.5 font-bold text-[var(--vg-night)]">
                     {{ $subscription?->gateway_subscription_id ? 'Change plan' : 'Subscribe' }}
                 </button>
             </form>

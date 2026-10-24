@@ -46,4 +46,26 @@
     }
 </style>
 
+{{--
+    The theme, applied before the first paint.
+
+    This has to be inline and it has to be here, above the stylesheet. The
+    alternative - setting the attribute from app.js - leaves a visible
+    flash of the wrong theme on every page load, because the browser has
+    already painted a black page by the time a deferred module runs. It is
+    the one place a script belongs in the head.
+
+    Wrapped in try/catch because localStorage throws rather than returning
+    null in a private window with site data blocked, and a theme
+    preference is not worth a blank page.
+--}}
+<script>
+    try {
+        var t = localStorage.getItem('vigil.theme');
+        if (t === 'light' || t === 'dark') {
+            document.documentElement.setAttribute('data-theme', t);
+        }
+    } catch (e) {}
+</script>
+
 @vite(['resources/css/app.css', 'resources/js/app.js'])

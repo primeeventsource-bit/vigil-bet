@@ -19,14 +19,14 @@
         <div class="mt-5 flex flex-wrap gap-1.5">
             <a href="{{ route('props') }}" @class([
                 'rounded-md px-2.5 py-1 text-xs font-semibold transition',
-                'bg-[color-mix(in_srgb,var(--vg-edge)_18%,transparent)] text-[var(--vg-edge)]' => ! $sport,
+                'bg-[color-mix(in_srgb,var(--vg-paper)_12%,transparent)] text-[var(--vg-paper)]' => ! $sport,
                 'text-[var(--vg-slate)] hover:text-[var(--vg-paper)]' => (bool) $sport,
             ])>All</a>
 
             @foreach ($sports as $code)
                 <a href="{{ route('props', ['sport' => $code]) }}" @class([
                     'rounded-md px-2.5 py-1 text-xs font-semibold uppercase transition',
-                    'bg-[color-mix(in_srgb,var(--vg-edge)_18%,transparent)] text-[var(--vg-edge)]' => $sport === $code,
+                    'bg-[color-mix(in_srgb,var(--vg-paper)_12%,transparent)] text-[var(--vg-paper)]' => $sport === $code,
                     'text-[var(--vg-slate)] hover:text-[var(--vg-paper)]' => $sport !== $code,
                 ])>{{ $code }}</a>
             @endforeach

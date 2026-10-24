@@ -12,14 +12,14 @@
      aria-hidden="true" focusable="false">
     <defs>
         <linearGradient id="fx-trace" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0%" stop-color="var(--vg-edge)" stop-opacity="0" />
-            <stop offset="45%" stop-color="var(--vg-edge)" stop-opacity="0.55" />
-            <stop offset="100%" stop-color="var(--vg-edge)" stop-opacity="0.95" />
+            <stop offset="0%" stop-color="var(--vg-decor)" stop-opacity="0" />
+            <stop offset="45%" stop-color="var(--vg-decor)" stop-opacity="0.55" />
+            <stop offset="100%" stop-color="var(--vg-decor)" stop-opacity="0.95" />
         </linearGradient>
 
         <linearGradient id="fx-trace-soft" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0%" stop-color="var(--vg-blue)" stop-opacity="0" />
-            <stop offset="100%" stop-color="var(--vg-blue)" stop-opacity="0.4" />
+            <stop offset="0%" stop-color="var(--vg-decor)" stop-opacity="0" />
+            <stop offset="100%" stop-color="var(--vg-decor)" stop-opacity="0.4" />
         </linearGradient>
 
         <filter id="fx-bloom" x="-20%" y="-20%" width="140%" height="140%">
@@ -41,6 +41,6 @@
 
     {{-- Nodes along the trace. Decorative; they mark nothing. --}}
     @foreach ([[350, 430], [580, 360], [820, 285], [1060, 200]] as [$cx, $cy])
-        <circle cx="{{ $cx }}" cy="{{ $cy }}" r="3.5" fill="var(--vg-edge)" filter="url(#fx-bloom)" opacity="0.9" />
+        <circle cx="{{ $cx }}" cy="{{ $cy }}" r="3.5" fill="var(--vg-decor)" filter="url(#fx-bloom)" opacity="0.9" />
     @endforeach
 </svg>

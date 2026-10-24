@@ -12,7 +12,7 @@
         </label>
 
         <button type="submit"
-                class="w-full rounded-md bg-[var(--vg-edge)] px-4 py-2.5 font-semibold text-[var(--vg-night)]">
+                class="w-full rounded-md bg-[var(--vg-paper)] px-4 py-2.5 font-semibold text-[var(--vg-night)]">
             Sign in
         </button>
     </form>

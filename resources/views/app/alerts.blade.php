@@ -20,7 +20,7 @@
             <h2 class="font-[family-name:var(--font-display)] font-semibold">How to tell you</h2>
 
             <label class="mt-4 flex items-start gap-3 text-sm">
-                <input type="checkbox" name="email_enabled" value="1" class="mt-0.5 accent-[var(--vg-edge)]"
+                <input type="checkbox" name="email_enabled" value="1" class="mt-0.5 accent-[var(--vg-paper)]"
                        @checked($preference->email_enabled)>
                 <span>
                     <span class="font-medium">Email</span>
@@ -31,7 +31,7 @@
             </label>
 
             <label class="mt-4 flex items-start gap-3 text-sm">
-                <input type="checkbox" name="push_enabled" value="1" class="mt-0.5 accent-[var(--vg-edge)]"
+                <input type="checkbox" name="push_enabled" value="1" class="mt-0.5 accent-[var(--vg-paper)]"
                        @checked($preference->push_enabled) @disabled(! $pushConfigured)>
                 <span>
                     <span class="font-medium">Web push</span>
@@ -65,7 +65,7 @@
             <h2 class="font-[family-name:var(--font-display)] font-semibold">What to tell you about</h2>
 
             <label class="mt-4 flex items-start gap-3 text-sm">
-                <input type="checkbox" name="on_new_pick" value="1" class="mt-0.5 accent-[var(--vg-edge)]"
+                <input type="checkbox" name="on_new_pick" value="1" class="mt-0.5 accent-[var(--vg-paper)]"
                        @checked($preference->on_new_pick)>
                 <span>
                     <span class="font-medium">A pick is published</span>
@@ -76,7 +76,7 @@
             </label>
 
             <label class="mt-4 flex items-start gap-3 text-sm">
-                <input type="checkbox" name="on_line_move" value="1" class="mt-0.5 accent-[var(--vg-edge)]"
+                <input type="checkbox" name="on_line_move" value="1" class="mt-0.5 accent-[var(--vg-paper)]"
                        @checked($preference->on_line_move)>
                 <span>
                     <span class="font-medium">A line moves on a game you watch</span>
@@ -144,7 +144,7 @@
             </div>
         </section>
 
-        <button type="submit" class="rounded-lg bg-[var(--vg-edge)] px-4 py-2.5 font-bold text-[var(--vg-night)]">
+        <button type="submit" class="rounded-lg bg-[var(--vg-paper)] px-4 py-2.5 font-bold text-[var(--vg-night)]">
             Save
         </button>
     </form>

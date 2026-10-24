@@ -16,11 +16,11 @@
     <div class="relative" style="width: {{ $size }}px; height: {{ $size }}px;">
         <svg viewBox="0 0 120 120" class="h-full w-full -rotate-90" role="img"
              aria-label="{{ $label }}: {{ $pct === null ? 'no data' : round($pct * 100).' percent' }}">
-            <circle cx="60" cy="60" r="{{ $r }}" fill="none" stroke="var(--vg-line)" stroke-width="10" />
+            <circle cx="60" cy="60" r="{{ $r }}" fill="none" stroke="var(--vg-chart-grid)" stroke-width="10" />
 
             @if ($pct !== null)
                 <circle cx="60" cy="60" r="{{ $r }}" fill="none"
-                        stroke="var(--vg-edge)" stroke-width="10" stroke-linecap="round"
+                        stroke="var(--vg-chart-line)" stroke-width="10" stroke-linecap="round"
                         stroke-dasharray="{{ round($dash, 2) }} {{ round($circumference - $dash, 2) }}" />
             @endif
         </svg>

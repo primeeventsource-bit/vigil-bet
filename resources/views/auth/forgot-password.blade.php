@@ -7,7 +7,7 @@
         <x-field name="email" label="Email" type="email" autocomplete="email" autofocus />
 
         <button type="submit"
-                class="w-full rounded-md bg-[var(--vg-edge)] px-4 py-2.5 font-semibold text-[var(--vg-night)]">
+                class="w-full rounded-md bg-[var(--vg-paper)] px-4 py-2.5 font-semibold text-[var(--vg-night)]">
             Email a reset link
         </button>
     </form>

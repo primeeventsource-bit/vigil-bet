@@ -31,6 +31,8 @@
             {{ $stale ? 'Delayed' : 'Live' }}
         </span>
 
+        <x-theme-toggle />
+
         <a href="{{ route('alerts') }}" class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" aria-label="Alerts">
             <x-app.icon name="bell" class="h-5 w-5" />
         </a>

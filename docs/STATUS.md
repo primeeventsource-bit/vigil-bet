@@ -1715,3 +1715,112 @@ in the code depends on which: `APP_URL` is the only place it is stated,
 and a different domain is a `domain:create` plus a DNS record. Flagged
 rather than decided, because it is a naming choice rather than a technical
 one.
+
+---
+
+## The black-and-white terminal
+
+**24 October 2026.** The palette moved from navy and neon green to a
+matte-black trading terminal, a dark/light switch was built, and light
+mode turned out never to have worked.
+
+### The palette
+
+Every colour still crosses from PHP into CSS in exactly one place, so
+this was a change to `config/brand.php` and almost nothing else. The
+values were measured rather than chosen by eye: the lowest ink-on-surface
+contrast in either mode is 4.67:1, above the 4.5 bar for body text, and
+the surfaces sit 1.12:1 apart so a panel reads as raised by a hair rather
+than as a slab, with the border doing the separating.
+
+| | dark | light |
+|---|---|---|
+| page | `#101113` | `#F7F7F8` |
+| panel | `#1B1D20` | `#FFFFFF` |
+| primary ink | `#FFFFFF` | `#101113` |
+| secondary ink | `#A5A9B0` | `#5E6269` |
+
+### The accent was doing four jobs
+
+The green was not only the verdict colour. It filled every primary
+button, stroked every chart series, drew the confidence meters, painted
+the hero glow, the engineering grid, the rising trace, the section rules,
+the lit panel edges, the step numbers, the active tab, the checkbox tick
+and the logo itself.
+
+Which meant the one colour this product reserves for *the model has a
+proven edge here* was also the wallpaper - on a front page whose entire
+argument is that nothing is proven yet.
+
+So the jobs were separated:
+
+- **Buttons** are white with black type. 18.9:1.
+- **Chart series** got their own tokens and are drawn in white and silver.
+- **Decoration** got a `decor` token and is silver.
+- **Chrome** - active tabs, nav items, form ticks, step numbers - is white.
+- **The verdict green stayed green**, and now appears only where it means
+  something: a positive number, a proven market, an improving trend, a won
+  bet, a live feed, a bar that beat the close. Two uses survived on the
+  whole marketing page, both of them judgements.
+
+That is the "subtle indicators for performance" in the brief, and it is
+also the rule this codebase already claimed to follow.
+
+### Light mode had never worked
+
+The stylesheet has carried an `html[data-theme='light']` block for the
+whole life of the product. It never did anything, and could not have.
+
+The palette is written as a `:root` block in an inline `<style>` in the
+head - that is what keeps `config/brand.php` the only place colour
+crosses into CSS. That block is unlayered. Everything in `app.css` sits
+inside `@layer`, and **an unlayered declaration beats a layered one
+whatever the specificity**, so `:root` outranked the override every time.
+
+Nothing revealed it because nothing ever set the attribute: there was no
+switch. The first time one existed, the mode it was supposed to switch to
+turned out to be dead code.
+
+The fix is to keep those rules outside every layer, which looks like an
+oversight and is load-bearing. `ThemeTest` walks the stylesheet counting
+layer depth at the selector's position and fails if it is greater than
+zero. That detector was checked against a synthetic stylesheet with the
+bug reintroduced, including the nastier case of the rule nested inside a
+media query inside a layer, because a regression test that does not fail
+on the regression is decoration.
+
+### The switch
+
+Three states, not two. **System** is the default and is a real choice:
+somebody who flips their machine to light at dusk gets a light app
+without coming back. Choosing light or dark pins it.
+
+An inline script in the head applies the stored choice before the first
+paint. It has to be inline and it has to be above the stylesheet - the
+alternative is a visible flash of the wrong theme on every page load,
+because a deferred module runs after the browser has already painted. The
+button renders `hidden` and the script reveals it, so it is never a dead
+control for somebody with scripting off.
+
+### The hero console
+
+A mockup of the product on an angle, with cards floating in front of the
+glass, built from the reference provided.
+
+**It carries no numbers, deliberately.** A hero mockup of a betting
+dashboard wants to be covered in figures - a win rate, units won, an
+average confidence - and §0.7 allows a win rate on a marketing page only
+when it is computed live from the public track record and shown with its
+sample size. The record is currently empty, because nothing has been
+proven. Invented figures would be the page contradicting the four
+promises printed directly beneath it, one of which is *never invents a
+number*.
+
+So the figures are redacted into bars. What is real is the shape: the
+navigation is the actual navigation, the columns are the actual columns,
+every row says **Pass** because on the day it was built every row did,
+and the trace is the same abstract one used elsewhere - no axis, no
+scale, no numbers.
+
+It flattens below `lg`, where a tilted dashboard is unreadable long
+before it is decorative, and whenever motion is reduced.

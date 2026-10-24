@@ -52,24 +52,24 @@
              preserveAspectRatio="none">
             <defs>
                 <linearGradient id="{{ $gradientId }}" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="var(--vg-edge)" stop-opacity="0.28" />
-                    <stop offset="100%" stop-color="var(--vg-edge)" stop-opacity="0" />
+                    <stop offset="0%" stop-color="var(--vg-chart-fill)" stop-opacity="0.28" />
+                    <stop offset="100%" stop-color="var(--vg-chart-fill)" stop-opacity="0" />
                 </linearGradient>
             </defs>
 
             {{-- Recessive grid: present enough to read against, never competing with the mark. --}}
             @foreach ([0.25, 0.5, 0.75] as $frac)
                 <line x1="0" y1="{{ round($h * $frac, 1) }}" x2="{{ $w }}" y2="{{ round($h * $frac, 1) }}"
-                      stroke="var(--vg-line)" stroke-width="1" opacity="0.5" />
+                      stroke="var(--vg-chart-grid)" stroke-width="1" opacity="0.5" />
             @endforeach
 
             <path d="{{ $fill }}" fill="url(#{{ $gradientId }})" />
-            <path d="{{ $line }}" fill="none" stroke="var(--vg-edge)" stroke-width="2"
+            <path d="{{ $line }}" fill="none" stroke="var(--vg-chart-line)" stroke-width="2"
                   stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
 
             {{-- The last point only. A dot on every point is noise. --}}
             <circle cx="{{ round($x($n - 1), 2) }}" cy="{{ round($y(end($values)), 2) }}" r="4"
-                    fill="var(--vg-edge)" stroke="var(--vg-navy)" stroke-width="2" />
+                    fill="var(--vg-chart-line)" stroke="var(--vg-navy)" stroke-width="2" />
         </svg>
 
         @if ($labels)
