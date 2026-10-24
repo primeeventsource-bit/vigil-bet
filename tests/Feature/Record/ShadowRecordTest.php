@@ -409,3 +409,47 @@ it('settles a duplicated selection once, not once per duplicate', function () {
         ->and(ShadowResult::count())->toBe(1)
         ->and(ShadowResult::sole()->shadow_pick_id)->toBe($first->id);
 });
+
+it('records one row when several scans of a selection arrive in the same batch', function () {
+    /*
+     * This is what broke in production the moment the table was empty.
+     *
+     * record() excludes selections already recorded, and that query is
+     * evaluated once, before anything is written. So three scans' rows
+     * for the same selection all passed it together, the second insert
+     * was refused by the database guard, and the exception aborted the
+     * whole run - nothing at all was recorded.
+     *
+     * With rows already in the table the pre-check caught them and this
+     * was invisible, which is why the earlier dedupe test could not see
+     * it: that one calls record() twice, with a write in between.
+     */
+    $bet = shadowCandidate();
+
+    // Two more scans of the same game, side and line, as the hourly
+    // rescan produces them.
+    foreach ([-105, -115] as $price) {
+        engineBoardEntry(null, $bet->event, [
+            'recommendation' => 'pass',
+            'pass_reason' => 'market_unproven',
+            'market_verdict' => 'negative',
+            'shadow_recommendation' => 'bet',
+            'shadow_pass_reason' => null,
+            'market' => $bet->market->value,
+            'side' => $bet->side->value,
+            'model_prob' => 0.62,
+            'best_price_american' => $price,
+            'edge_at_price' => 0.09,
+            'kelly_fraction' => 0.04,
+        ]);
+    }
+
+    expect(ValueBet::query()->where('shadow_recommendation', 'bet')->count())->toBe(3);
+
+    // One batch, three candidates for one selection.
+    $outcome = app(ShadowRecorder::class)->record();
+
+    expect($outcome['recorded'])->toBe(1)
+        ->and($outcome['skipped']['already_recorded'])->toBe(2)
+        ->and(ShadowPick::count())->toBe(1);
+});

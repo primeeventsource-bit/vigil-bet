@@ -11,6 +11,7 @@ use App\Models\ShadowResult;
 use App\Models\UserBet;
 use App\Models\ValueBet;
 use App\Services\Bets\BetSettler;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -89,9 +90,40 @@ class ShadowRecorder
             ->get();
 
         $recorded = 0;
-        $skipped = ['no_event' => 0, 'too_late' => 0];
+        $skipped = ['no_event' => 0, 'too_late' => 0, 'already_recorded' => 0];
+
+        /*
+         * Seen inside this batch as well as in the table.
+         *
+         * The query above excludes selections already recorded, and it
+         * is evaluated once, before anything is written. So several
+         * scans' rows for the same selection all pass it together and
+         * the second write is a duplicate - which the database refuses,
+         * and which aborted the whole run the first time this happened
+         * on an empty table.
+         *
+         * The batch is ordered newest first, so the row kept is the most
+         * recent price for that selection, which is the price that was on
+         * the board when it was recorded.
+         */
+        $seen = [];
 
         foreach ($candidates as $bet) {
+            $key = implode('|', [
+                $bet->event_id,
+                $bet->market?->value,
+                $bet->side?->value,
+                $bet->line ?? 'null',
+            ]);
+
+            if (isset($seen[$key])) {
+                $skipped['already_recorded']++;
+
+                continue;
+            }
+
+            $seen[$key] = true;
+
             $outcome = $this->write($bet);
 
             if ($outcome === null) {
@@ -131,6 +163,30 @@ class ShadowRecorder
             return 'too_late';
         }
 
+        try {
+            $this->insert($bet, $event);
+        } catch (QueryException $e) {
+            /*
+             * The database guard had the last word. With the in-batch
+             * check above this should not be reachable, which is exactly
+             * why it is caught rather than left to abort an hourly job:
+             * if some other route to a duplicate exists, the cost should
+             * be one unrecorded selection, not a whole batch.
+             */
+            Log::warning('Shadow pick refused by the database', [
+                'value_bet_id' => $bet->id,
+                'event_id' => $event->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 'already_recorded';
+        }
+
+        return null;
+    }
+
+    private function insert(ValueBet $bet, Event $event): void
+    {
         ShadowPick::create([
             'value_bet_id' => $bet->id,
             'event_id' => $event->id,
@@ -154,8 +210,6 @@ class ShadowRecorder
             'recorded_at' => now(),
             'created_at' => now(),
         ]);
-
-        return null;
     }
 
     /** @return array{settled:int, unresolved:int} */
