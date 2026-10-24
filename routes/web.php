@@ -18,6 +18,7 @@ use App\Http\Controllers\BoardController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LearningCenterController;
 use App\Http\Controllers\ModelLabController;
+use App\Http\Controllers\OpinionRecordController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ParlayController;
 use App\Http\Controllers\PropsController;
@@ -47,6 +48,19 @@ Route::get('/how-it-works', [PageController::class, 'howItWorks'])->name('how-it
  */
 Route::get('/record', [RecordController::class, 'index'])->name('record');
 Route::get('/record/{pick}', [RecordController::class, 'show'])->name('record.pick');
+
+/*
+ * How the published opinions have done.
+ *
+ * Its own page, and never merged into /record. They are different
+ * claims: a pick says this market has beaten the closing line, an
+ * opinion says only that the stated probability was close to true.
+ * Summing them would destroy the stronger one.
+ *
+ * Public, for the same reason /record is. An opinion published without
+ * its outcome shown is a claim nobody can check.
+ */
+Route::get('/opinions', OpinionRecordController::class)->name('opinions');
 
 Route::get('/legal/{page}', [PageController::class, 'legal'])
     ->whereIn('page', ['terms', 'privacy', 'responsible-gambling', 'disclaimer'])

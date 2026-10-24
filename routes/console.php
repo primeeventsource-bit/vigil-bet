@@ -376,3 +376,20 @@ Schedule::command('vigil:publish-opinions')
     ->hourlyAt(56)
     ->name('publish-opinions')
     ->withoutOverlapping();
+
+/*
+ * Grade yesterday's opinions.
+ *
+ * Hourly rather than daily because games finish all day, and an opinion
+ * that stays ungraded while its game is over makes the accuracy figure
+ * quietly stale - the published count moves and the graded count does
+ * not.
+ *
+ * After the results pull, so the final score it needs has usually
+ * landed. An opinion with no score yet is left alone rather than
+ * guessed at, so running early costs nothing but a pass.
+ */
+Schedule::command('vigil:settle-opinions')
+    ->hourlyAt(20)
+    ->name('settle-opinions')
+    ->withoutOverlapping();
