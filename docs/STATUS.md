@@ -1653,3 +1653,65 @@ written down and the first place it stopped being true.
 plus `.duplicate` copies of both that look accidental. Design scratch for
 a UI that no longer exists; it stays in the `edge-lab` repository rather
 than being deleted or carried.
+
+### It is deployed
+
+**24 October 2026.** `parlayq.com`, `www.parlayq.com` and the vanity URL
+all serve the merged application. Deployment `depl-a30eb349`, 53 seconds,
+and the 22 product migrations ran as part of it.
+
+The two-factor guard behaved exactly as designed, which is the one thing
+that could not be proved before the deploy: it reported DONE in 188ms and
+changed nothing, because the engine's own copy of that migration had
+already added those four columns to `users` from a file no longer in this
+repository.
+
+One thing the plan missed. Repointing the application at a different
+repository leaves the environment's branch reference stale, and the first
+deploy was refused with "The environment's branch is no longer available."
+Re-setting the branch to `main` on the environment fixed it. Worth knowing
+for any future repository move: the application's repository and the
+environment's branch are two separate settings and both have to be set.
+
+**Verified after the switch**
+
+- `/`, `/record`, `/legal/terms`, `/register`, `/login` all 200, and the
+  page title is "Vigil — AI-Driven Edge" rather than the engine's old
+  branding.
+- **The projection works against local tables.** `vigil:sync` queued its
+  three feeds and `vl_board_entries` began filling from the engine's
+  16,112 `value_bets` with no network in between. That is the merge
+  proved end to end on real data: the same `Mirror` and the same `Present`
+  shapes, with the HTTP client replaced underneath them.
+- The engine's own scheduler is unaffected: 58 `job_runs` in the twenty
+  minutes after the deploy.
+- No errors in the application log since the deploy.
+- Both accounts recreated with `vigil:owner`, since neither existed on
+  this database.
+
+**The first catch-up is slow, and that is expected.** `Mirror::write`
+costs a select and an insert per row and the projector pages 200 at a
+time with a 25-page ceiling per run, so a cold mirror of 16,112 board rows
+takes several hourly ticks to fill. After that each run only carries the
+delta, which is what the digest and the cursor are for. Worth watching
+rather than fixing: if a cold start ever needs to be fast, the fix is a
+bulk insert of the rows whose digest changed, not a bigger page.
+
+**Left standing on purpose**
+
+The old product deployment and its database still exist, untouched, with
+push-to-deploy off and a no-op deploy command. It holds nothing that was
+not recreated here - two accounts and eight Reads - and is worth keeping
+until this deployment has a few days behind it, then deleting.
+
+`VIGIL_INTERNAL_TOKEN` and `EDGE_DEMO_MODE` are still set on the
+environment and are read by nothing.
+
+### Which domain, and the brand
+
+`parlayq.com` was the engine's domain and the product is branded Vigil, so
+the site now serves Vigil from an address named after the engine. Nothing
+in the code depends on which: `APP_URL` is the only place it is stated,
+and a different domain is a `domain:create` plus a DNS record. Flagged
+rather than decided, because it is a naming choice rather than a technical
+one.

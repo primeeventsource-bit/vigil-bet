@@ -22,3 +22,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Claude Code personal settings (may allow production operations - never commit)
+.claude/settings.local.json
