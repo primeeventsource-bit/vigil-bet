@@ -143,13 +143,7 @@ class ResearchBrief
              * noise is how a Read ends up describing the wrong thing.
              */
             ->whereIn('i.status', ['out', 'doubtful'])
-            ->whereNotExists(
-                fn ($later) => $later->selectRaw('1')
-                    ->from('injury_reports as l')
-                    ->whereColumn('l.team_id', 'i.team_id')
-                    ->whereColumn('l.player_name', 'i.player_name')
-                    ->whereColumn('l.reported_at', '>', 'i.reported_at')
-            )
+            ->whereNotExists($this->supersededBy())
             ->orderBy('i.player_name')
             ->limit(8)
             ->get(['i.player_name', 'i.position', 'i.status']);
@@ -181,16 +175,39 @@ class ResearchBrief
             ->where('i.sport', $sport)
             ->where('i.reported_at', '>=', now()->subDays(self::INJURY_DAYS))
             ->where('i.status', 'questionable')
-            ->whereNotExists(
-                fn ($later) => $later->selectRaw('1')
-                    ->from('injury_reports as l')
-                    ->whereColumn('l.team_id', 'i.team_id')
-                    ->whereColumn('l.player_name', 'i.player_name')
-                    ->whereColumn('l.reported_at', '>', 'i.reported_at')
-            )
+            ->whereNotExists($this->supersededBy())
             ->count();
 
         return $count > 0 ? $count : null;
+    }
+
+    /**
+     * True for any report that a later one replaces.
+     *
+     * The tie-break on id is the whole point. The feed writes several
+     * rows for the same player with an identical `reported_at`, so
+     * "exists a row with a greater reported_at" is false for all of
+     * them and every copy survives - which is how a Read came to list
+     * "Jordyn Tyson (WR, out)" three times and call it eight players
+     * unavailable.
+     *
+     * Comparing ids as well makes exactly one row the survivor whatever
+     * the timestamps do, and on an append-only table a larger id is a
+     * later write.
+     */
+    private function supersededBy(): callable
+    {
+        return static fn ($later) => $later->selectRaw('1')
+            ->from('injury_reports as l')
+            ->whereColumn('l.team_id', 'i.team_id')
+            ->whereColumn('l.player_name', 'i.player_name')
+            ->where(fn ($q) => $q
+                ->whereColumn('l.reported_at', '>', 'i.reported_at')
+                ->orWhere(fn ($tie) => $tie
+                    ->whereColumn('l.reported_at', '=', 'i.reported_at')
+                    ->whereColumn('l.id', '>', 'i.id')
+                )
+            );
     }
 
     /**

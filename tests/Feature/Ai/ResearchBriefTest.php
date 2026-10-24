@@ -251,3 +251,51 @@ it('always declares that the engine has not seen any of it', function () {
         ->and($brief['research_in_model'])->toBeFalse()
         ->and($brief['research_note'])->toContain('has not seen');
 });
+
+it('names a player once when every report shares a timestamp', function () {
+    /*
+     * The case the earlier test missed. It used distinct days, so
+     * "exists a later report" settled it - but the feed writes several
+     * rows for one player at an identical reported_at, and then no row
+     * is later than any other and every copy survives.
+     *
+     * Production showed it immediately: "Jordyn Tyson (WR, out), Jordyn
+     * Tyson (WR, out), Jordyn Tyson (WR, out)" counted as eight players
+     * unavailable.
+     */
+    $event = engineGame('Buffalo Bills', 'Miami Dolphins', ['sport' => 'nfl']);
+    $sameMoment = now()->subHours(2);
+
+    foreach (range(1, 3) as $ignored) {
+        DB::table('injury_reports')->insert([
+            'sport' => 'nfl',
+            'team_id' => $event->home_team_id,
+            'player_name' => 'Jordyn Tyson',
+            'position' => 'WR',
+            'status' => 'out',
+            'source' => 'espn',
+            'reported_at' => $sameMoment,
+            'created_at' => now(),
+        ]);
+    }
+
+    // And the same for a questionable player, which is counted not named.
+    foreach (range(1, 4) as $ignored) {
+        DB::table('injury_reports')->insert([
+            'sport' => 'nfl',
+            'team_id' => $event->home_team_id,
+            'player_name' => 'Someone Else',
+            'position' => 'TE',
+            'status' => 'questionable',
+            'source' => 'espn',
+            'reported_at' => $sameMoment,
+            'created_at' => now(),
+        ]);
+    }
+
+    $brief = app(ResearchBrief::class)->forEvent($event->id);
+
+    expect($brief['home_unavailable_count'])->toBe(1)
+        ->and($brief['home_unavailable'])->toBe('Jordyn Tyson (WR, out)')
+        ->and($brief['home_questionable_count'])->toBe(1);
+});
