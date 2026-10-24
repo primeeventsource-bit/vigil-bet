@@ -16,6 +16,7 @@ use App\Services\Odds\TheOddsApiClient;
 use App\Services\Ops\JobRunRecorder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 
 /**
@@ -106,6 +107,7 @@ class PullPropsForSport implements ShouldQueue
                 $withProps = 0;
                 $pulled = 0;
                 $mismatched = 0;
+                $expired = 0;
                 $stoppedEarly = false;
 
                 foreach ($events as $event) {
@@ -126,12 +128,41 @@ class PullPropsForSport implements ShouldQueue
                         break;
                     }
 
-                    $props = $client->propsForEvent(
-                        $this->sport,
-                        (string) $event->odds_api_event_id,
-                        $markets,
-                        $run->id,
-                    );
+                    /*
+                     * A dead event id is about this game and nothing else.
+                     *
+                     * The provider drops an event from its index around the
+                     * time it starts and answers 422 for the id afterwards,
+                     * and our own schedule can still have the game as
+                     * upcoming for a few minutes either side. That threw out
+                     * of the loop and failed the whole run, so one game that
+                     * had just kicked off cost every other game on the slate
+                     * its props - four runs in six minutes on the night this
+                     * was found, each losing a full NFL card.
+                     *
+                     * Only 404 and 422 are caught, and only here. A 401 is
+                     * the key, a 429 is the allowance and a 5xx is the
+                     * provider: none of those is about one fixture, and all
+                     * of them should still fail the run loudly.
+                     */
+                    try {
+                        $props = $client->propsForEvent(
+                            $this->sport,
+                            (string) $event->odds_api_event_id,
+                            $markets,
+                            $run->id,
+                        );
+                    } catch (RequestException $e) {
+                        $status = $e->response->status();
+
+                        if ($status !== 404 && $status !== 422) {
+                            throw $e;
+                        }
+
+                        $expired++;
+
+                        continue;
+                    }
 
                     $written = $writer->write($props);
                     $pulled++;
@@ -152,6 +183,9 @@ class PullPropsForSport implements ShouldQueue
                     // for and those prices were dropped rather than filed
                     // under the wrong fixture.
                     'wrong_event_returned' => $mismatched,
+                    // Games the provider no longer holds an id for, which
+                    // is ordinary near kickoff and worth seeing if it is not.
+                    'event_id_expired' => $expired,
                 ];
             },
             $this->sport,

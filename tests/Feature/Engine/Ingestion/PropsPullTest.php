@@ -11,6 +11,7 @@ use App\Models\Event;
 use App\Models\JobRun;
 use App\Models\OddsSnapshot;
 use App\Models\Team;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
 function seedNbaGame(string $oddsApiEventId = 'evt-1', int $hoursAway = 3): Event
@@ -234,4 +235,66 @@ it('stops part way through a slate when the budget reserve is reached, and says 
         ->and($run->records_in)->toBe(1)
         ->and($run->records_out)->toBe(3)
         ->and($run->context['stopped_on_budget'])->toBeTrue();
+});
+
+/*
+|--------------------------------------------------------------------------
+| A dead event id
+|--------------------------------------------------------------------------
+|
+| The provider drops an event from its index around the time it starts and
+| answers 422 for the id afterwards, while our own schedule can still have
+| the game as upcoming for a few minutes either side. That threw out of the
+| pull loop and failed the whole run, so one game that had just kicked off
+| cost every other game on the slate its props - four runs in six minutes
+| on the night it was found, each losing a full NFL card.
+|
+*/
+
+it('loses only the dead game when an event id has expired', function () {
+    // Earlier kickoff, so this is the one the loop reaches first.
+    seedNbaGame('evt-dead', hoursAway: 1);
+    seedNbaGame('evt-live', hoursAway: 3);
+
+    Http::fake([
+        '*events/evt-dead/odds*' => Http::response([
+            'message' => 'Invalid event_id parameter',
+            'error_code' => 'INVALID_EVENT_ID',
+        ], 422),
+        'api.the-odds-api.com/*' => Http::response(propsPayload('evt-live')),
+    ]);
+
+    dispatch_sync(new PullPropsForSport(Sport::Nba, force: true));
+
+    $run = JobRun::where('job_key', 'odds:props:nba')->first();
+
+    expect($run->status)->toBe(JobStatus::Success)
+        // The live game was still asked for and still written.
+        ->and($run->records_in)->toBe(1)
+        ->and($run->records_out)->toBe(3)
+        // And the dead one is counted rather than silently dropped: a
+        // slate that quietly shrinks is the failure this is guarding.
+        ->and($run->context['event_id_expired'])->toBe(1);
+});
+
+it('still fails loudly when the provider refuses the key', function () {
+    /*
+     * The counterpart to the test above, and the reason it catches two
+     * status codes rather than everything. A 401 is the key, a 429 is the
+     * allowance, a 5xx is the provider - none is about one fixture, and
+     * swallowing them per game would turn an outage into a slate that
+     * looks merely quiet.
+     */
+    seedNbaGame('evt-1');
+
+    Http::fake(['api.the-odds-api.com/*' => Http::response(['message' => 'unauthorized'], 401)]);
+
+    // It throws rather than returning, which is the job failing loudly:
+    // the queue marks it failed and retries it, where a swallowed 401
+    // would leave a slate that merely looked quiet.
+    expect(fn () => dispatch_sync(new PullPropsForSport(Sport::Nba, force: true)))
+        ->toThrow(RequestException::class);
+
+    expect(JobRun::where('job_key', 'odds:props:nba')->first()->status)
+        ->toBe(JobStatus::Failed);
 });
