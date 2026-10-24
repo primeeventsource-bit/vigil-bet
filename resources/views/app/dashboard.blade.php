@@ -139,7 +139,10 @@
                     </p>
                 @endif
             @else
-                <x-app.no-proven-picks :near-misses="$nearMisses" />
+                <x-app.no-proven-picks
+                    :near-misses="$nearMisses"
+                    :reads="$nearMissReads"
+                    :research="$nearMissResearch" />
             @endif
         </div>
 

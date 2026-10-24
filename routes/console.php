@@ -336,3 +336,23 @@ Schedule::command('ingest:link-espn nfl')
     ->dailyAt('09:15')
     ->name('link-espn-nfl')
     ->withoutOverlapping();
+
+/*
+ * Vigil Reads, including for the passes.
+ *
+ * --passes is the whole point of running this at all right now. No
+ * market is proven, so there are no sellable picks to explain, and
+ * without it this command has nothing to do while the only thing a
+ * customer can be shown is the analysis on a near-miss.
+ *
+ * After the scan and the research pulls, so a Read is written against
+ * the board and the availability that exist now rather than an hour ago.
+ *
+ * Reads are stored per (entry, prompt version) and the command skips
+ * entries that have one, so a run with nothing new is cheap. The limit
+ * is a cost ceiling rather than a target: each Read is an AI call.
+ */
+Schedule::command('vigil:reads --passes --limit=40')
+    ->hourlyAt(12)
+    ->name('vigil-reads')
+    ->withoutOverlapping();

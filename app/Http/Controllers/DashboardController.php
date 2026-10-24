@@ -11,6 +11,7 @@ use App\Models\VlEvent;
 use App\Models\VlModel;
 use App\Models\VlOddsDisplay;
 use App\Services\Ai\ReadQuota;
+use App\Services\Ai\ResearchBrief;
 use App\Services\EdgeLab\SyncHealth;
 use App\Services\Entitlements\Entitlements;
 use Illuminate\Http\Request;
@@ -40,6 +41,7 @@ class DashboardController extends Controller
         SyncHealth $health,
         Entitlements $entitlements,
         ReadQuota $quota,
+        ResearchBrief $research,
     ): View {
         $sport = $request->query('sport');
         $user = $request->user();
@@ -62,6 +64,14 @@ class DashboardController extends Controller
             ->limit($fullCard ? 10 : self::FREE_PICKS)
             ->get();
 
+        /*
+         * Why the engine declined a game is the daily card's promise, so
+         * it is not shown to somebody who has not got it.
+         */
+        $nearMisses = $picks->isEmpty() && $fullCard
+            ? VlBoardEntry::query()->current()->nearMisses()->limit(5)->get()
+            : collect();
+
         return view('app.dashboard', [
             'picks' => $picks,
             // Only sports the engine has actually judged. A tab with
@@ -71,11 +81,16 @@ class DashboardController extends Controller
             // Withheld, not missing. A customer told "no picks today"
             // when there were seven would be being lied to.
             'picksWithheld' => max(0, $available - $picks->count()),
-            // Why the engine declined a game is the daily card's
-            // promise, so it is not shown to somebody who has not got it.
-            'nearMisses' => $picks->isEmpty() && $fullCard
-                ? VlBoardEntry::query()->current()->nearMisses()->limit(5)->get()
-                : collect(),
+            'nearMisses' => $nearMisses,
+            /*
+             * The research behind each near-miss, and the Read that
+             * explains it. Without these the card showed a selection, a
+             * price and an engine pass reason - machinery, not an
+             * educated guess - while form, availability and rest sat in
+             * the database unread.
+             */
+            'nearMissReads' => $this->readsFor($user, $nearMisses, $quota),
+            'nearMissResearch' => $this->researchFor($nearMisses, $research),
             'activePicks' => $picks->count(),
             // The mockup calls this confidence. It is the model
             // probability Edge Lab stored, under the design's label -
@@ -108,6 +123,42 @@ class DashboardController extends Controller
      * @param  Collection<int, VlBoardEntry>  $picks
      * @return Collection<int, VigilRead> keyed by board entry id
      */
+    /**
+     * The research behind each entry, keyed by entry id.
+     *
+     * One brief per game rather than per entry, because two selections
+     * on the same game share it and building it twice would double the
+     * queries for an identical answer.
+     *
+     * @param  Collection<int, VlBoardEntry>  $entries
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function researchFor(Collection $entries, ResearchBrief $research): Collection
+    {
+        if ($entries->isEmpty()) {
+            return collect();
+        }
+
+        $briefs = [];
+        $byEntry = collect();
+
+        foreach ($entries as $entry) {
+            $eventId = $entry->edge_lab_event_id;
+
+            if ($eventId === null) {
+                continue;
+            }
+
+            $briefs[$eventId] ??= $research->forEvent((int) $eventId);
+
+            if ($briefs[$eventId] !== []) {
+                $byEntry->put($entry->id, $briefs[$eventId]);
+            }
+        }
+
+        return $byEntry;
+    }
+
     private function readsFor(?User $user, Collection $picks, ReadQuota $quota): Collection
     {
         if ($picks->isEmpty() || $user === null) {
