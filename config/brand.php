@@ -74,22 +74,31 @@ return [
     |
     */
     'colors' => [
-        // The page itself. Matte black, warmed a shade off pure #000 so a
-        // panel above it has somewhere to be.
-        'night' => '#101113',
-        // Panels. Charcoal. This is what the .panel class paints with.
-        'navy' => '#1B1D20',
-        // One step down: the recessed surface behind a toolbar or a well.
-        'slate_dark' => '#15171A',
+        // The page itself. Stealth Black's canvas.
+        'night' => '#0A0A0A',
+        // Panels. The surface the .panel class paints with.
+        'navy' => '#111315',
+        /*
+         * The elevated surface, for a card sitting on a panel.
+         *
+         * Lighter than the panel rather than darker, which is the one
+         * place this palette differs from the old one in direction and
+         * not just in value: Stealth Black separates depth by lifting
+         * a surface toward the light, so a tile on a panel reads as
+         * nearer rather than as a hole cut into it.
+         */
+        'slate_dark' => '#1E1F22',
         // Borders, rules and the seams between panels.
-        'line' => '#2A2D33',
+        'line' => '#2D2F32',
 
         'green' => '#5FD39A',
         'blue' => '#6AA8E0',
 
-        // Type. White for headings and primary text, silver beneath it.
+        // Type. White for headings and primary text, silver beneath
+        // it, and a third step for captions and table rules.
         'paper' => '#FFFFFF',
-        'slate' => '#A5A9B0',
+        'slate' => '#A7A7AB',
+        'muted' => '#74777C',
 
         /*
          * Charts are drawn in white and silver, which is both the look and
@@ -104,11 +113,11 @@ return [
          * means anything and the one colour that does must not also be
          * the wallpaper.
          */
-        'decor' => '#A5A9B0',
+        'decor' => '#A7A7AB',
 
         'chart_line' => '#FFFFFF',
-        'chart_fill' => '#A5A9B0',
-        'chart_grid' => '#2A2D33',
+        'chart_fill' => '#A7A7AB',
+        'chart_grid' => '#2D2F32',
 
         /*
          * Semantic, and restrained to suit the field around them. Green is
