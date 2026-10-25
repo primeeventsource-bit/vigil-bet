@@ -1,7 +1,7 @@
 <x-layouts.marketing :title="$pick->selection.' — published pick'">
     <section class="mx-auto max-w-2xl px-6 py-16">
         <p class="font-[family-name:var(--font-mono)] text-xs uppercase tracking-wide text-[var(--vg-slate)]">
-            Published pick &middot; {{ $pick->published_at->format('j F Y, H:i T') }}
+            Published pick &middot; <x-local-time :at="$pick->published_at" format="j F Y, H:i T" />
         </p>
 
         <h1 class="mt-3 font-[family-name:var(--font-display)] text-3xl font-bold leading-tight">

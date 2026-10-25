@@ -8,6 +8,7 @@ use App\Models\VigilRead;
 use App\Models\VlBoardEntry;
 use App\Models\VlEvent;
 use App\Models\VlModel;
+use App\Support\Clock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -99,11 +100,14 @@ class BoardController extends Controller
                  * The *game* date, not the date the engine looked. A
                  * customer choosing Sunday means Sunday's fixtures, and
                  * the engine may well have judged them on Friday.
+                 *
+                 * Sunday on the display clock, too. Bounded in UTC the
+                 * day ends at seven in the evening Eastern, which drops
+                 * every Sunday night game off the Sunday it belongs to
+                 * and files it under Monday.
                  */
-                $day = Carbon::createFromFormat('Y-m-d', $date);
-
                 return $q->whereIn('edge_lab_event_id', VlEvent::query()->current()
-                    ->whereBetween('starts_at', [$day->copy()->startOfDay(), $day->copy()->endOfDay()])
+                    ->whereBetween('starts_at', Clock::dayBounds($date))
                     ->select('edge_lab_id'));
             })
             ->when($filters['show'] === 'picks', fn (Builder $q) => $q->sellablePicks())
@@ -137,7 +141,7 @@ class BoardController extends Controller
                 ->whereNotNull('starts_at')
                 ->orderBy('starts_at')
                 ->pluck('starts_at')
-                ->map(fn ($at) => Carbon::parse($at)->toDateString())
+                ->map(fn ($at) => Clock::dayOf(Carbon::parse($at)))
                 ->unique()
                 ->values(),
         ];

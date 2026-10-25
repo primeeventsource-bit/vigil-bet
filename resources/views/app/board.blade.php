@@ -183,7 +183,7 @@
                                     <span class="block text-xs uppercase text-[var(--vg-slate)]">
                                         {{ $entry->sport }} &middot; {{ $entry->market }}
                                         @if ($event?->starts_at)
-                                            &middot; {{ $event->starts_at->format('D j M, H:i') }}
+                                            &middot; <x-local-time :at="$event->starts_at" format="D j M, H:i" />
                                         @endif
                                     </span>
                                 </td>

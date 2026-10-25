@@ -193,7 +193,7 @@
                             class="mt-1 max-w-xs rounded-lg border border-[var(--vg-line)] bg-[var(--vg-night)] px-3 py-2">
                         @foreach ($watchable as $event)
                             <option value="{{ $event->edge_lab_id }}">
-                                {{ $event->matchup() }} — {{ $event->starts_at?->format('j M H:i') }}
+                                {{ $event->matchup() }} — <x-local-time :at="$event->starts_at" format="j M H:i" />
                             </option>
                         @endforeach
                     </select>

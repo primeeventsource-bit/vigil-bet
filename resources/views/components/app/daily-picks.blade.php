@@ -131,7 +131,7 @@
                             </td>
 
                             <td class="px-5 py-3.5 text-right text-xs text-[var(--vg-slate)]" data-numeric>
-                                {{ $opinion->kickoff_at?->format('H:i') }}
+                                <x-local-time :at="$opinion->kickoff_at" format="H:i" />
                             </td>
                         </tr>
                     @endforeach

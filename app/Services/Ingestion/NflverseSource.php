@@ -30,6 +30,23 @@ class NflverseSource implements ProvidesHistoricalLines, SportDataSource
 
     private const CACHE_MINUTES = 180;
 
+    /*
+     * Results are read on a much shorter leash than the rest of the file.
+     *
+     * Every other column here is settled long before anybody asks for it -
+     * a 2019 kickoff time, a roof, a closing spread - so holding the
+     * download for three hours costs nothing. The two score columns are
+     * the exception: blank all week, filled in within an hour of a game
+     * ending, and the thing grading waits on. Behind a three-hour cache a
+     * finished game stayed blank here for up to three hours after
+     * nflverse had published the score, and every opinion on it sat
+     * `pending` on a public page with the result a click away elsewhere.
+     *
+     * The shorter window costs one two-megabyte download an hour, because
+     * the hourly results sync is the only caller that asks for it.
+     */
+    private const RESULTS_CACHE_MINUTES = 10;
+
     public function key(): string
     {
         return 'nflverse';
@@ -72,7 +89,7 @@ class NflverseSource implements ProvidesHistoricalLines, SportDataSource
 
     public function games(CarbonImmutable $from, CarbonImmutable $to): iterable
     {
-        foreach ($this->rows() as $row) {
+        foreach ($this->rows(self::RESULTS_CACHE_MINUTES) as $row) {
             if ($row['gameday'] === '') {
                 continue;
             }
@@ -175,11 +192,15 @@ class NflverseSource implements ProvidesHistoricalLines, SportDataSource
      * Streams the CSV as associative rows. Cached on local disk so a backfill
      * over many seasons does not re-download it for every season.
      *
+     * The caller says how stale a copy it can live with, because the
+     * answer differs by column rather than by file: see
+     * `RESULTS_CACHE_MINUTES`.
+     *
      * @return Generator<int, array<string, string>>
      */
-    private function rows(): Generator
+    private function rows(int $freshForMinutes = self::CACHE_MINUTES): Generator
     {
-        $path = $this->cachedCsvPath();
+        $path = $this->cachedCsvPath($freshForMinutes);
         $handle = fopen($path, 'rb');
 
         if ($handle === false) {
@@ -212,7 +233,7 @@ class NflverseSource implements ProvidesHistoricalLines, SportDataSource
         }
     }
 
-    private function cachedCsvPath(): string
+    private function cachedCsvPath(int $freshForMinutes): string
     {
         $path = storage_path('app/nflverse/games.csv');
 
@@ -221,7 +242,7 @@ class NflverseSource implements ProvidesHistoricalLines, SportDataSource
         }
 
         $fresh = file_exists($path)
-            && filemtime($path) > now()->subMinutes(self::CACHE_MINUTES)->getTimestamp();
+            && filemtime($path) > now()->subMinutes($freshForMinutes)->getTimestamp();
 
         if (! $fresh) {
             file_put_contents($path, $this->getBody(self::CSV_URL));

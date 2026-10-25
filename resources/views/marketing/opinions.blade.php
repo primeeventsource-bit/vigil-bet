@@ -178,7 +178,7 @@
                         @foreach ($opinions as $opinion)
                             <tr class="border-b border-[var(--vg-line)] last:border-0">
                                 <td class="px-4 py-3 text-[var(--vg-slate)]" data-numeric>
-                                    {{ $opinion->kickoff_at?->format('d M H:i') }}
+                                    <x-local-time :at="$opinion->kickoff_at" format="d M H:i" />
                                 </td>
                                 <td class="px-4 py-3">
                                     <span class="font-semibold">{{ $opinion->selection }}</span>

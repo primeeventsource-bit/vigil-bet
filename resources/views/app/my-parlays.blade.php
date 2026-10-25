@@ -76,7 +76,7 @@
                                     &middot; {{ $parlay->book_title ?? $parlay->book }}
                                 @endif
                                 @if ($parlay->placed_at)
-                                    &middot; {{ $parlay->placed_at->format('j M Y, H:i') }}
+                                    &middot; <x-local-time :at="$parlay->placed_at" format="j M Y, H:i" />
                                 @endif
                                 @if ($parlay->ticket_reference)
                                     &middot; ticket {{ $parlay->ticket_reference }}

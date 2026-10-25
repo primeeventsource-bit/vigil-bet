@@ -2070,3 +2070,80 @@ fix. Deleting queued production jobs was refused twice by this session's
 permissions, on scope and then on interference. Both refusals were
 reasonable. The cost was that recovery waited on a code fix and a deploy
 rather than one statement.
+
+---
+
+### A clock nobody set, and a score three hours late
+
+**25 October 2026.** Both of these came out of one screenshot: four NFL
+games showing a 17:00 kickoff and a `pending` result, read an hour after
+they had finished. Two unrelated faults that happened to make each other
+look worse.
+
+#### The clock
+
+Every instant is stored in UTC, which is right and is not the bug. The
+bug is that nothing ever converted on the way out, so a one o'clock
+Sunday kickoff printed as 17:00 on a public page. Twelve templates
+formatted a timestamp column directly and every one of them was wrong by
+the same four or five hours.
+
+It is worth being clear about why this is more than cosmetic. A reader
+who sees 17:00 beside `pending` concludes the game has not started. The
+page is then not merely mis-typeset, it is telling them something false
+about the product's state, and the true row underneath — an ungraded
+opinion on a finished game — is the one thing it was built to show.
+
+`App\Support\Clock` and `<x-local-time>` now hold the conversion, and the
+zone comes from `app.display_timezone`, which `LimitGuard` had already
+reached for with a default and nobody had defined. One zone rather than
+the viewer's own: the alternative is a public record where two people
+reading the same row disagree about which day it happened on.
+
+The same error had a second form that nothing had noticed. The board's
+date filter cut its days in UTC, so Sunday ended at eight in the evening
+Eastern and every Sunday night game was filed under Monday. That one does
+not read as a wrong number, it reads as a missing fixture.
+
+`ShowsLocalTimeTest` scans the templates rather than trusting the twelve
+to stay fixed, because this failure is silent: a template that formats
+the column itself renders a perfectly laid out wrong time, and no test of
+that page fails unless it asserts the digits. The scan forbids formatting
+a column — anything named `*_at` — and allows formatting a date that was
+never an instant, like a month heading or a grouping key.
+
+#### The score
+
+nflverse had the final scores of all four games before they were looked
+at. We were serving a copy of the file downloaded before kickoff.
+
+`games.csv` is cached on disk for three hours, which is correct for
+almost everything in it: a 2019 kickoff time, a roof, a closing spread.
+The two score columns are the exception. They are blank all week, fill in
+within an hour of a game ending, and are the thing grading waits on.
+Behind a three-hour cache a finished game reads as unplayed for up to
+three hours after the score is public — and the result is not a delay a
+customer can see the shape of, it is a public page asserting that a game
+which has been over since the afternoon has not been decided.
+
+So the caller now says how stale a copy it can live with. `games()`,
+which is the results path, asks for ten minutes; `schedule()` and
+`historicalLines()` keep the three hours, because a backfill over many
+seasons re-reading the file is a cost with nothing bought by it. The
+short window costs one two-megabyte download an hour.
+
+What this does not fix is the rest of the lag. Results sync hourly and
+`vigil:settle-opinions` runs at twenty past, so a game finishing at ten
+past the hour is still graded about seventy minutes later. That is a
+cadence question and a defensible answer; three hours of serving a stale
+file was not.
+
+#### And the suite stopped finishing
+
+Unrelated, found while starting work. The suite peaks around 140M and PHP
+ships with a 128M default, so `php artisan test` — the command the readme
+gives — died partway through. It died as a fatal error naming no test,
+which reads as a broken suite rather than a missing ini setting, and
+`-d memory_limit=` does not help because the runner starts a child
+process. Declared in `phpunit.xml`, where it applies to the run that
+actually executes the tests.

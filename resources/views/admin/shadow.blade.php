@@ -117,7 +117,7 @@
                     @foreach ($recent as $pick)
                         <tr class="border-b border-[var(--vg-line)] last:border-0">
                             <td class="px-4 py-3 text-[var(--vg-slate)]" data-numeric>
-                                {{ $pick->recorded_at?->format('d M H:i') }}
+                                <x-local-time :at="$pick->recorded_at" format="d M H:i" />
                             </td>
                             <td class="px-4 py-3">
                                 <span class="font-semibold">{{ $pick->selection }}</span>

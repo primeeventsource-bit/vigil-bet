@@ -64,7 +64,7 @@
                         <p class="text-xs uppercase tracking-wide text-[var(--vg-slate)]">
                             {{ $game['sport'] }} &middot;
                             <time datetime="{{ $game['starts_at']->toIso8601String() }}">
-                                {{ $game['starts_at']->format('D j M, H:i') }}
+                                <x-local-time :at="$game['starts_at']" format="D j M, H:i" />
                             </time>
                         </p>
                     </header>

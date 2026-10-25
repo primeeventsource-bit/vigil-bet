@@ -299,7 +299,7 @@
                 <div class="border-b border-[var(--vg-line)] px-5 py-3 last:border-b-0">
                     <p class="text-xs uppercase tracking-wide text-[var(--vg-slate)]">
                         {{ $game['away'] }} at {{ $game['home'] }}
-                        &middot; {{ $game['starts_at']->format('D H:i') }}
+                        &middot; <x-local-time :at="$game['starts_at']" format="D H:i" />
                     </p>
 
                     <div class="mt-2 flex flex-wrap gap-2">

@@ -9,6 +9,7 @@ use App\Enums\LimitPeriod;
 use App\Models\BankrollSetting;
 use App\Models\Bet;
 use App\Models\LossLimitPeriod;
+use App\Support\Clock;
 use App\Support\Money;
 use Illuminate\Support\Carbon;
 
@@ -41,7 +42,7 @@ class LimitGuard
     public function window(LimitPeriod $type, ?Carbon $now = null): array
     {
         $local = ($now ?? now())->copy()
-            ->timezone(config('app.display_timezone', 'America/New_York'));
+            ->timezone(Clock::zone());
 
         return $type === LimitPeriod::Daily
             ? [$local->copy()->startOfDay(), $local->copy()->endOfDay()]

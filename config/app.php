@@ -69,6 +69,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Display Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Everything is stored in UTC and nothing about that changes. This is
+    | the clock the product is read on: a kickoff belongs to the sport's
+    | own day, and a Sunday night game that starts at 20:20 Eastern is a
+    | Sunday game to every customer whatever UTC calls it by then.
+    |
+    | One zone rather than the viewer's own, because the alternative is a
+    | public record page where two people reading the same row disagree
+    | about which day it happened on.
+    |
+    */
+
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'America/New_York'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

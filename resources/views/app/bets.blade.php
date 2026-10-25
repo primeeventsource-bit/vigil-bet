@@ -239,7 +239,7 @@
                         @foreach ($bets as $bet)
                             <tr class="border-b border-[var(--vg-line)] last:border-0">
                                 <td class="px-5 py-3 text-xs text-[var(--vg-slate)]">
-                                    {{ $bet->placed_at?->format('j M') }}
+                                    <x-local-time :at="$bet->placed_at" format="j M" />
                                 </td>
                                 <td class="px-3 py-3">
                                     <span class="font-medium">{{ $bet->selection }}</span>
