@@ -24,6 +24,19 @@ use Throwable;
  * nothing here creates an event - a second source naming a fixture
  * differently would otherwise duplicate it, and a duplicate event is
  * worse than a missing box score because every rating sees both.
+ *
+ * A season here means ESPN's season, which is not every league's.
+ * Measured on 25 October 2026, ESPN's MLB `season=2026` returned 2,739
+ * games running 1 August 2026 to 13 July 2027, while MLB's own API calls
+ * March to November 2026 the 2026 season. Asked for one ESPN season, the
+ * linker therefore matched only the overlap - 786 of 2,439 games - and
+ * reported the rest as having no event, which reads like a matching bug
+ * and is a calendar disagreement.
+ *
+ * So covering one league season can take two ESPN seasons, and the fix
+ * for a large `no matching event` count is usually to run the
+ * neighbouring season rather than to go looking at the matcher. Both
+ * runs are cheap because the second one skips what the first linked.
  */
 class LinkEspnIdsCommand extends Command
 {
