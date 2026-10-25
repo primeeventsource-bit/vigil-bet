@@ -5,9 +5,8 @@
         your record — kept apart from VIGIL's picks, so neither can be mistaken for the other.
     </p>
 
-    @if (session('status'))
-        <p class="mt-4 rounded-lg border border-[var(--vg-line)] px-4 py-3 text-sm">{{ session('status') }}</p>
-    @endif
+    {{-- The layout already flashes session('status'); a second copy here
+         printed the same sentence twice, which reads as a bug. --}}
 
     {{--
         Every rate carries its sample or is not shown at all, which is
