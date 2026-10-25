@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Bets\BetSettler;
+use App\Services\Parlay\ParlaySettler;
 use Illuminate\Console\Command;
 
 /**
@@ -25,15 +26,29 @@ class SettleBetsCommand extends Command
 
     protected $description = 'Grade pending bets from mirrored final scores and record closing line value';
 
-    public function handle(BetSettler $settler): int
+    public function handle(BetSettler $settler, ParlaySettler $parlays): int
     {
         $result = $settler->run();
 
-        $this->components->twoColumnDetail('Settled', (string) $result['settled']);
+        $this->components->twoColumnDetail('Straight bets settled', (string) $result['settled']);
         $this->components->twoColumnDetail('Closing prices recorded', (string) $result['clv']);
         $this->components->twoColumnDetail(
             'Still pending',
             $result['skipped'] === 0 ? '0' : '<fg=yellow>'.$result['skipped'].'</> awaiting a final score',
+        );
+
+        /*
+         * Parlays in the same pass, because their legs are graded from
+         * the same final scores. Settling them an hour apart would leave
+         * a parlay pending beside the straight bet on the same game,
+         * which reads as a bug whether or not it is one.
+         */
+        $parlayResult = $parlays->run();
+
+        $this->components->twoColumnDetail('Parlays settled', (string) $parlayResult['settled']);
+        $this->components->twoColumnDetail(
+            'Parlays still pending',
+            $parlayResult['pending'] === 0 ? '0' : '<fg=yellow>'.$parlayResult['pending'].'</> with a leg to come',
         );
 
         return self::SUCCESS;

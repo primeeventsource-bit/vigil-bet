@@ -75,6 +75,91 @@
                         </p>
                     @endif
                 </div>
+                {{--
+                    Saving is deliberately not the same button as grading.
+                    Grading asks whether the slip is worth taking; saving
+                    says what you did about it, and a page that did both
+                    at once would record bets nobody placed.
+                --}}
+                <details class="border-t border-[var(--vg-line)]">
+                    <summary class="cursor-pointer px-5 py-4 text-sm font-semibold">
+                        Save &amp; track this parlay
+                    </summary>
+
+                    <form method="POST" action="{{ route('parlays.save') }}" class="space-y-4 px-5 pb-5">
+                        @csrf
+
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <label class="block">
+                                <span class="text-xs uppercase tracking-wide text-[var(--vg-slate)]">Stake</span>
+                                <input type="number" name="stake" step="0.01" min="0.01" required
+                                       value="{{ old('stake') }}"
+                                       class="mt-1 w-full rounded-lg border border-[var(--vg-line)] bg-[var(--vg-navy)] px-3 py-2"
+                                       data-numeric>
+                            </label>
+
+                            <label class="block">
+                                <span class="text-xs uppercase tracking-wide text-[var(--vg-slate)]">Sportsbook</span>
+                                <input type="text" name="book" maxlength="64" value="{{ old('book') }}"
+                                       class="mt-1 w-full rounded-lg border border-[var(--vg-line)] bg-[var(--vg-navy)] px-3 py-2">
+                            </label>
+
+                            <label class="block">
+                                <span class="text-xs uppercase tracking-wide text-[var(--vg-slate)]">
+                                    Odds the book accepted
+                                </span>
+                                <input type="number" name="accepted_price" step="1" value="{{ old('accepted_price') }}"
+                                       placeholder="e.g. 260"
+                                       class="mt-1 w-full rounded-lg border border-[var(--vg-line)] bg-[var(--vg-navy)] px-3 py-2"
+                                       data-numeric>
+                                {{--
+                                    The payout is worked out from this, not
+                                    from the product of the legs. The two
+                                    differ by the book's margin, and using
+                                    ours would invent money.
+                                --}}
+                                <span class="mt-1 block text-xs text-[var(--vg-slate)]">
+                                    Leave blank and we use the combined price above.
+                                </span>
+                            </label>
+
+                            <label class="block">
+                                <span class="text-xs uppercase tracking-wide text-[var(--vg-slate)]">Ticket reference</span>
+                                <input type="text" name="ticket_reference" maxlength="64"
+                                       value="{{ old('ticket_reference') }}"
+                                       class="mt-1 w-full rounded-lg border border-[var(--vg-line)] bg-[var(--vg-navy)] px-3 py-2">
+                            </label>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="flex items-start gap-2.5 text-sm">
+                                <input type="checkbox" name="placed" value="1" class="mt-0.5" @checked(old('placed'))>
+                                <span>
+                                    I placed this bet.
+                                    <span class="block text-xs text-[var(--vg-slate)]">
+                                        Until this is ticked it is saved as a draft and counts as nothing.
+                                        Ticking it takes the stake off your bankroll.
+                                    </span>
+                                </span>
+                            </label>
+
+                            <label class="flex items-start gap-2.5 text-sm">
+                                <input type="checkbox" name="is_paper" value="1" class="mt-0.5" @checked(old('is_paper'))>
+                                <span>
+                                    Paper bet.
+                                    <span class="block text-xs text-[var(--vg-slate)]">
+                                        Tracked and graded, kept out of your bankroll entirely.
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <button type="submit" @disabled($legs->count() < 2)
+                                class="rounded-lg border border-[var(--vg-line)] px-4 py-2.5 text-sm font-semibold disabled:opacity-40">
+                            Save to my parlays
+                        </button>
+                    </form>
+                </details>
             @endif
         </section>
 

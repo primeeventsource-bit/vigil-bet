@@ -236,7 +236,15 @@ Schedule::job(new MarkClosingLines)
 // misses one pass is picked up by the next, since neither job uses a window.
 Schedule::job(new SettleBets)
     ->hourlyAt(20)
-    ->name('settle-bets')
+    /*
+     * Named for the engine's own bets, not shared with the customer bet
+     * grader at :05. Both were called `settle-bets`, which is two
+     * different jobs under one name in `schedule:list` - and a mutex
+     * collision waiting for one of them to be rewritten as the other
+     * kind, since a callback event keys its overlap lock on exactly this
+     * string.
+     */
+    ->name('settle-engine-bets')
     ->withoutOverlapping();
 
 // Sweep the board. Runs after the odds pull and the prediction pass, since

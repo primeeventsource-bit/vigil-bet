@@ -261,6 +261,7 @@ class Bankroll
             'kind' => $kind,
             'amount_cents' => $amountCents,
             'user_bet_id' => $attributes['user_bet_id'] ?? null,
+            'user_parlay_id' => $attributes['user_parlay_id'] ?? null,
             'reason' => $attributes['reason'] ?? null,
             'occurred_at' => $attributes['occurred_at'] ?? now(),
             'created_at' => now(),

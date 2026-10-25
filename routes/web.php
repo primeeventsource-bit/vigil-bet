@@ -231,6 +231,14 @@ Route::middleware('auth')->group(function (): void {
             Route::delete('parlays', [ParlayController::class, 'clear'])->name('parlays.clear');
             Route::post('parlays/grade', [ParlayController::class, 'grade'])
                 ->middleware('throttle:30,1')->name('parlays.grade');
+
+            /*
+             * Saving and tracking. Throttled like grading, because each
+             * save writes a parlay, its legs and an audit row.
+             */
+            Route::post('parlays/save', [ParlayController::class, 'save'])
+                ->middleware('throttle:30,1')->name('parlays.save');
+            Route::get('my-parlays', [ParlayController::class, 'mine'])->name('my-parlays');
         });
 
         Route::view('analytics', 'app.placeholder', [

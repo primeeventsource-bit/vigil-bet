@@ -50,6 +50,31 @@ function provenEntry(array $overrides = []): VlBoardEntry
 }
 
 /**
+ * Board picks for a slip, in the order they should come back.
+ *
+ * Shared for the reason given above: a helper that only exists when its
+ * own test file loads breaks a single-file run for a reason unrelated to
+ * the code under test, and both the builder tests and the saving tests
+ * need a slip.
+ *
+ * @return array<int, int> board entry ids
+ */
+function slipOf(int $legs): array
+{
+    $ids = [];
+
+    foreach (range(1, $legs) as $i) {
+        $ids[] = provenEntry([
+            'id' => $i,
+            'event_id' => 100 + $i,
+            'edge_lab_event_id' => 100 + $i,
+            'selection' => 'Leg '.$i,
+        ])->id;
+    }
+
+    return $ids;
+}
+/**
  * A proven board pick with a mirrored game, far enough from kickoff to
  * be publishable.
  *

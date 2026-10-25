@@ -61,24 +61,6 @@ function judgeUnavailable(string $reason = 'The parlay judge could not price thi
     });
 }
 
-function slipOf(int $legs): array
-{
-    $ids = [];
-
-    foreach (range(1, $legs) as $i) {
-        $entry = provenEntry([
-            'id' => $i,
-            'event_id' => 100 + $i,
-            'edge_lab_event_id' => 100 + $i,
-            'selection' => 'Leg '.$i,
-        ]);
-
-        $ids[] = $entry->id;
-    }
-
-    return $ids;
-}
-
 it('builds a slip from board picks and keeps the order they were added', function () {
     $ids = slipOf(3);
     $user = betUser();
