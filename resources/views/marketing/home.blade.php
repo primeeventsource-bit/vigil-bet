@@ -13,28 +13,60 @@
                     <span class="fx-pulse absolute inset-0 rounded-full"></span>
                     <span class="relative inline-block h-1.5 w-1.5 rounded-full bg-current"></span>
                 </span>
-                {{ config('brand.tagline') }}
+                AI-driven sports intelligence
             </p>
 
-            <h1 class="mt-7 max-w-3xl font-[family-name:var(--font-display)] text-5xl font-bold leading-[1.05] sm:text-7xl">
-                Smarter bets.<br>
-                <span class="fx-gradient-text">Sharper edges.</span>
+            {{--
+                The brand is uppercased in CSS rather than written in
+                capitals, so renaming the product still renames it here.
+                A hardcoded "VIGIL" would quietly keep saying the old
+                name, which a test already watches for.
+            --}}
+            <h1 class="mt-7 max-w-4xl font-[family-name:var(--font-display)] text-5xl font-bold leading-[1.03] sm:text-6xl lg:text-[4.2rem]">
+                The data speaks.<br>
+                <span class="fx-gradient-text">
+                    <span class="uppercase">{{ config('brand.name') }}</span> makes the call.
+                </span>
             </h1>
 
+            {{--
+                The product's own claim, in its own words. Worth noticing
+                what it does not say: it identifies opportunities and
+                measures itself against what happened, and it promises
+                nobody a win. The copy stays on the right side of §0.7
+                without having to be edited into doing so.
+            --}}
             <p class="mt-6 max-w-xl text-lg leading-relaxed text-[var(--vg-slate)]">
-                {{ config('brand.description') }}
+                {{ config('brand.name') }} doesn't chase picks. It creates its own. A proprietary
+                prediction engine reads real-time odds, historical results, team and player
+                performance and statistical trends to identify potential betting opportunities.
+            </p>
+
+            <p class="mt-4 max-w-xl text-sm leading-relaxed text-[var(--vg-slate)]">
+                Every prediction is backed by data, measured against actual results, and evaluated
+                to improve the models behind tomorrow's picks.
+            </p>
+
+            <p class="mt-6 font-[family-name:var(--font-display)] text-sm font-semibold uppercase tracking-[0.14em] text-[var(--vg-paper)]">
+                Our engine. Our analysis. Our picks.
             </p>
 
             <div class="mt-9 flex flex-wrap items-center gap-3">
-                <a href="{{ route('register') }}"
+                {{--
+                    Straight to the picks rather than to a sign-up form.
+                    The page argues that this product shows its work, and
+                    a primary button asking for a card before showing
+                    anything would be arguing the opposite.
+                --}}
+                <a href="#todays-picks"
                    class="group relative inline-flex items-center gap-2 rounded-lg bg-[var(--vg-paper)] px-6 py-3 font-bold text-[var(--vg-night)] shadow-[0_0_32px_-8px_color-mix(in_srgb,var(--vg-paper)_55%,transparent)] transition hover:shadow-[0_0_44px_-6px_color-mix(in_srgb,var(--vg-paper)_65%,transparent)]">
-                    Start free
+                    View today's picks
                     <span aria-hidden="true" class="transition group-hover:translate-x-0.5">&rarr;</span>
                 </a>
 
                 <a href="{{ route('how-it-works') }}"
                    class="rounded-lg border border-[var(--vg-line)] px-6 py-3 font-semibold text-[var(--vg-paper)] transition hover:border-[color-mix(in_srgb,var(--vg-decor)_45%,transparent)]">
-                    How it works
+                    Explore {{ config('brand.name') }} AI
                 </a>
             </div>
 
@@ -87,6 +119,124 @@
         <span aria-hidden="true"
               class="pointer-events-none absolute inset-y-0 right-0 w-24 bg-[linear-gradient(270deg,var(--vg-night),transparent)]"></span>
     </section>
+    {{--
+        The day's picks, which the hero's primary button lands on.
+
+        Shown to everybody, signed in or not. A picks site that will not
+        say what it picked until you pay is asking to be taken on faith,
+        which is the opposite of what the rest of this page argues.
+
+        Every figure here is live. The asset notes say not to present
+        placeholder statistics as real results, and the way to honour
+        that is not to label invented numbers carefully - it is for there
+        to be no invented numbers anywhere near this page.
+    --}}
+    <section id="todays-picks" class="relative scroll-mt-24 border-b border-[var(--vg-line)]">
+        <div class="mx-auto max-w-6xl px-6 py-20">
+            <div class="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.2em] text-[var(--vg-slate)]">
+                        Today's {{ config('brand.name') }} picks
+                    </p>
+
+                    <h2 class="mt-3 font-[family-name:var(--font-display)] text-3xl font-bold sm:text-4xl">
+                        What the engine likes today.
+                    </h2>
+                </div>
+
+                <a href="{{ route('opinions') }}"
+                   class="text-sm text-[var(--vg-slate)] underline transition hover:text-[var(--vg-paper)]">
+                    How they have done &rarr;
+                </a>
+            </div>
+
+            <p class="mt-4 max-w-2xl text-sm leading-relaxed text-[var(--vg-slate)]">
+                Published before kickoff, with the confidence the engine actually holds, from the
+                markets whose probabilities have been measured against real results. They are
+                <strong class="text-[var(--vg-paper)]">{{ config('brand.name') }}'s opinion, not a
+                proven edge</strong> &mdash; and every one is graded in public, including the losers.
+            </p>
+
+            @if ($opinions->isEmpty())
+                {{--
+                    A real answer, not a gap. §4 and the asset notes both
+                    say the product must be able to publish no pick rather
+                    than manufacture one to fill a page.
+                --}}
+                <div class="panel mt-8 px-6 py-12 text-center">
+                    <p class="font-[family-name:var(--font-display)] text-lg font-semibold">
+                        No picks right now.
+                    </p>
+                    <p class="mx-auto mt-2 max-w-md text-sm text-[var(--vg-slate)]">
+                        Nothing on today's board met the engine's requirements, or everything that
+                        did has already started. We would rather show you none than invent one.
+                    </p>
+                </div>
+            @else
+                <ul class="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    @foreach ($opinions as $opinion)
+                        <li class="panel p-5">
+                            <p class="text-[11px] uppercase tracking-wide text-[var(--vg-slate)]">
+                                {{ strtoupper((string) $opinion->sport) }}
+                            </p>
+
+                            <p class="mt-2 font-[family-name:var(--font-display)] text-lg font-semibold">
+                                {{ $opinion->selection }}
+                            </p>
+
+                            <p class="mt-0.5 truncate text-xs text-[var(--vg-slate)]">{{ $opinion->matchup }}</p>
+
+                            <div class="mt-4 flex items-end justify-between gap-3">
+                                <div>
+                                    <p class="text-[11px] uppercase tracking-wide text-[var(--vg-slate)]">
+                                        Confidence
+                                    </p>
+                                    <p class="font-[family-name:var(--font-mono)] text-2xl font-bold" data-numeric>
+                                        {{ $opinion->confidencePercent() }}%
+                                    </p>
+                                </div>
+
+                                <p class="font-[family-name:var(--font-mono)] text-sm text-[var(--vg-slate)]" data-numeric>
+                                    {{ $opinion->price_american > 0 ? '+' : '' }}{{ $opinion->price_american }}
+                                </p>
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+
+            {{--
+                The record, under the picks and on the same page. A picks
+                list with no record beside it is the shape of every tout
+                site there has ever been - and the rates read as a dash
+                until something is graded, because an unmeasured figure
+                and a measured zero are different claims.
+            --}}
+            <dl class="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[var(--vg-line)] bg-[var(--vg-line)] sm:grid-cols-4">
+                @foreach ([
+                    ['Published', number_format($opinionRecord['published']), 'all time'],
+                    ['Graded', number_format($opinionRecord['graded']), 'games finished'],
+                    [
+                        'Win rate',
+                        $opinionRecord['win_rate'] === null ? '—' : number_format($opinionRecord['win_rate'] * 100, 1).'%',
+                        $opinionRecord['graded'] > 0 ? 'n = '.number_format($opinionRecord['graded']) : 'nothing graded yet',
+                    ],
+                    [
+                        'Units',
+                        $opinionRecord['units'] === null ? '—' : ($opinionRecord['units'] > 0 ? '+' : '').number_format($opinionRecord['units'], 2),
+                        $opinionRecord['graded'] > 0 ? 'at one unit a pick' : 'nothing graded yet',
+                    ],
+                ] as [$label, $value, $sample])
+                    <div class="bg-[var(--vg-navy)] px-5 py-4">
+                        <dt class="text-[11px] uppercase tracking-wide text-[var(--vg-slate)]">{{ $label }}</dt>
+                        <dd class="mt-1 font-[family-name:var(--font-mono)] text-xl font-bold" data-numeric>{{ $value }}</dd>
+                        <dd class="mt-0.5 text-[11px] text-[var(--vg-muted)]">{{ $sample }}</dd>
+                    </div>
+                @endforeach
+            </dl>
+        </div>
+    </section>
+
     {{-- The honest counter-pitch, which is the product's actual edge. --}}
     <section class="relative border-b border-[var(--vg-line)] bg-[var(--vg-navy)]">
         <div class="mx-auto max-w-6xl px-6 py-16">

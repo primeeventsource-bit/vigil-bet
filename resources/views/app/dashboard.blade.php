@@ -42,6 +42,17 @@
         </div>
     </section>
 
+    {{--
+        The day's picks, first on the page.
+
+        This is what the product is for while no market is proven,
+        and it was previously buried below a panel that is empty on
+        every day of the year so far. The panel underneath keeps its
+        job: it shows picks from a proven market, and says so, on the
+        day there are any.
+    --}}
+    <x-app.daily-picks class="mt-5" :opinions="$opinions" :record="$opinionRecord" />
+
     <section class="mt-5 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         {{-- Top picks --}}
         <div class="panel min-w-0 overflow-hidden">
