@@ -30,6 +30,10 @@ namespace App\Services\Players;
  *   made  - a compound the feed writes as "5-12". Casting that gives 5
  *           by accident and 12 never; the first part is the one that
  *           happened, so it is taken deliberately.
+ *   innings - baseball's own notation, where "5.2" is five and two
+ *           thirds rather than five point two. Read as a decimal it
+ *           still sorts correctly and is still wrong, so it is
+ *           converted instead.
  *
  * `better` exists because earned run average and goals against are better
  * when lower, and a leaderboard taking the highest would put a team's
@@ -108,13 +112,24 @@ final class RatingSchema
             // rewarded it.
             ['group' => 'batting', 'key' => 'strikeouts', 'label' => 'strikeouts', 'kind' => 'total', 'weight' => 0.05, 'better' => 'low'],
 
-            ['group' => 'pitching', 'key' => 'ERA', 'label' => 'earned run average', 'kind' => 'rate', 'weight' => 0.30, 'better' => 'low'],
-            ['group' => 'pitching', 'key' => 'strikeouts', 'label' => 'strikeouts', 'kind' => 'total', 'weight' => 0.25, 'better' => 'high'],
+            ['group' => 'pitching', 'key' => 'ERA', 'label' => 'earned run average', 'kind' => 'rate', 'weight' => 0.25, 'better' => 'low'],
+            ['group' => 'pitching', 'key' => 'strikeouts', 'label' => 'strikeouts', 'kind' => 'total', 'weight' => 0.20, 'better' => 'high'],
+            /*
+             * Innings carried, which is the sample as well as the
+             * contribution.
+             *
+             * Without it the leaderboard put Miguel Ullola on top at ten
+             * appearances and 15 innings, ahead of Mason Miller at 130
+             * and 136. A pitching appearance is anything from a third of
+             * an inning to seven, so games played says very little about
+             * how much a pitcher actually did.
+             */
+            ['group' => 'pitching', 'key' => 'fullInnings.partInnings', 'label' => 'innings', 'kind' => 'innings', 'weight' => 0.20, 'better' => 'high'],
             // Allowed, every one of them.
-            ['group' => 'pitching', 'key' => 'hits', 'label' => 'hits allowed', 'kind' => 'total', 'weight' => 0.15, 'better' => 'low'],
-            ['group' => 'pitching', 'key' => 'earnedRuns', 'label' => 'runs allowed', 'kind' => 'total', 'weight' => 0.12, 'better' => 'low'],
-            ['group' => 'pitching', 'key' => 'homeRuns', 'label' => 'home runs allowed', 'kind' => 'total', 'weight' => 0.10, 'better' => 'low'],
-            ['group' => 'pitching', 'key' => 'walks', 'label' => 'walks allowed', 'kind' => 'total', 'weight' => 0.08, 'better' => 'low'],
+            ['group' => 'pitching', 'key' => 'hits', 'label' => 'hits allowed', 'kind' => 'total', 'weight' => 0.12, 'better' => 'low'],
+            ['group' => 'pitching', 'key' => 'earnedRuns', 'label' => 'runs allowed', 'kind' => 'total', 'weight' => 0.10, 'better' => 'low'],
+            ['group' => 'pitching', 'key' => 'homeRuns', 'label' => 'home runs allowed', 'kind' => 'total', 'weight' => 0.08, 'better' => 'low'],
+            ['group' => 'pitching', 'key' => 'walks', 'label' => 'walks allowed', 'kind' => 'total', 'weight' => 0.05, 'better' => 'low'],
         ],
 
         /*

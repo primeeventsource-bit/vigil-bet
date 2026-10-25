@@ -481,3 +481,48 @@ it('rates a line that is neither in neither', function () {
     expect(collect(app(PlayerRatingCalculator::class)->forSport('mlb'))
         ->firstWhere('player_external_id', 'runner'))->toBeNull();
 });
+
+it('reads baseball innings as thirds, not as a decimal', function () {
+    /*
+     * "5.2" is five innings and two thirds. Read as five point two it
+     * still sorts correctly, which is how a wrong number survives - the
+     * ranking looks right while the arithmetic is not, and anything that
+     * later sums it inherits the error.
+     *
+     * Two pitchers, one at 5.2 (5.667) and one at 5.3 (which is not
+     * valid notation and is taken at face value).
+     */
+    $read = new ReflectionMethod(PlayerRatingCalculator::class, 'innings');
+    $calculator = app(PlayerRatingCalculator::class);
+
+    expect(round($read->invoke($calculator, '5.2'), 3))->toBe(5.667)
+        ->and(round($read->invoke($calculator, '5.1'), 3))->toBe(5.333)
+        ->and($read->invoke($calculator, '6.0'))->toBe(6.0)
+        // Not valid innings notation, so taken as written rather than
+        // silently turned into something else.
+        ->and($read->invoke($calculator, '5.7'))->toBe(5.7)
+        ->and($read->invoke($calculator, 'not a number'))->toBeNull();
+});
+
+it('does not let ten good appearances outrank a season of work', function () {
+    /*
+     * The leaderboard put Miguel Ullola top at ten appearances and 15
+     * innings, ahead of Mason Miller at 130 and 136. A pitching
+     * appearance is anything from a third of an inning to seven, so
+     * games played says very little about how much a pitcher did.
+     */
+    ratedConsistent('mlb', 'all', 'cup-of-coffee', [
+        'ERA' => '1.80', 'hits' => '1', 'homeRuns' => '0', 'earnedRuns' => '0',
+        'walks' => '0', 'strikeouts' => '2', 'fullInnings.partInnings' => '1.0',
+    ], 11);
+
+    ratedConsistent('mlb', 'all', 'workhorse', [
+        'ERA' => '2.40', 'hits' => '5', 'homeRuns' => '0', 'earnedRuns' => '2',
+        'walks' => '1', 'strikeouts' => '7', 'fullInnings.partInnings' => '6.0',
+    ], 30, 1400);
+
+    $rated = collect(app(PlayerRatingCalculator::class)->forSport('mlb'))->keyBy('player_external_id');
+
+    expect($rated['workhorse']['components']['innings'])
+        ->toBeGreaterThan($rated['cup-of-coffee']['components']['innings']);
+});

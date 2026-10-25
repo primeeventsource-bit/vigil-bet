@@ -387,7 +387,42 @@ class PlayerRatingCalculator
             return $this->madePart($value);
         }
 
+        if ($kind === 'innings') {
+            return $this->innings($value);
+        }
+
         return $this->numeric($value);
+    }
+
+    /**
+     * Baseball's innings notation as a real number.
+     *
+     * "5.2" is five innings and two thirds, not five point two. Read as
+     * a decimal it happens to sort correctly, which is how a wrong
+     * number survives: the ranking looks right while the arithmetic is
+     * not, and anything that later sums or averages it inherits the
+     * error. Converted here instead.
+     */
+    private function innings(mixed $value): ?float
+    {
+        $raw = $this->numeric($value);
+
+        if ($raw === null) {
+            return null;
+        }
+
+        $full = floor(abs($raw));
+        $thirds = (int) round((abs($raw) - $full) * 10);
+
+        // Only .0, .1 and .2 are meaningful; anything else is a feed
+        // writing a plain decimal, and is taken at face value.
+        if ($thirds > 2) {
+            return $raw;
+        }
+
+        $innings = $full + ($thirds / 3);
+
+        return $raw < 0 ? -$innings : $innings;
     }
 
     /** The first half of a "made-attempted" compound. */
