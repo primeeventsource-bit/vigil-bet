@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Models\Event;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -34,6 +35,46 @@ class ResearchBrief
     /** Games of form to look back over. Five is a fortnight in most sports. */
     private const FORM_GAMES = 5;
 
+    /**
+     * The stat that names a contributor, per sport.
+     *
+     * Keyed by the stat group the feed files the line under, then the key
+     * inside it and the label the brief prints. Taken from what is
+     * actually stored rather than from the feeds' documentation: measured
+     * on 25 October 2026 across 543,000 rows, college football files
+     * passing yardage as `YDS` within `passing`, the NFL files it as
+     * `passingYards`, and both basketballs and baseball file everything
+     * under `all`.
+     *
+     * Baseball is absent on purpose. A per-game average of a batting
+     * figure over five games says nothing anybody should read, and a
+     * pitcher who appeared once would top the list of a rotation. A
+     * sport with nothing honest to say here says nothing.
+     *
+     * @var array<string, array<string, array{0: string, 1: string}>>
+     */
+    private const LEADER_STATS = [
+        'nfl' => [
+            'passing' => ['passingYards', 'pass yds'],
+            'rushing' => ['rushingYards', 'rush yds'],
+            'receiving' => ['receivingYards', 'rec yds'],
+        ],
+        'ncaaf' => [
+            'passing' => ['YDS', 'pass yds'],
+            'rushing' => ['YDS', 'rush yds'],
+            'receiving' => ['YDS', 'rec yds'],
+        ],
+        'nba' => [
+            'all' => ['points', 'pts'],
+        ],
+        'ncaab' => [
+            'all' => ['points', 'pts'],
+        ],
+        'nhl' => [
+            'forwards' => ['goals', 'goals'],
+        ],
+    ];
+
     /** How stale an injury report may be before it is not news. */
     private const INJURY_DAYS = 7;
 
@@ -59,6 +100,7 @@ class ResearchBrief
 
             $brief += $this->form($side, (int) $teamId, $event);
             $brief += $this->injuries($side, (int) $teamId, (string) $event->sport->value);
+            $brief += $this->leaders($side, (int) $teamId, $event);
             $brief += $this->rest($side, (int) $teamId, $event);
         }
 
@@ -76,6 +118,150 @@ class ResearchBrief
         }
 
         return array_filter($brief, static fn ($value) => $value !== null && $value !== []);
+    }
+
+    /**
+     * Who actually produces for this side, over the same window as the
+     * form figures.
+     *
+     * Each sport names its own keys because the feeds do: NFL player
+     * lines come from ESPN and say `passingYards`, college lines come
+     * from CFBD and say `YDS` inside a `passing` group. Flattening those
+     * into one vocabulary would mean choosing a winner between two
+     * feeds' conventions and losing whatever the loser knew, which is
+     * why PlayerGameStatLine keeps the source's own labels.
+     *
+     * One leader per role rather than a roster. A Read explaining a game
+     * can use "their leading rusher averages 110 a game"; it cannot use
+     * eighty defensive lines, and a brief that carried them would push
+     * the useful facts out of sight.
+     *
+     * @return array<string, mixed>
+     */
+    private function leaders(string $side, int $teamId, Event $event): array
+    {
+        $roles = self::LEADER_STATS[$event->sport->value] ?? [];
+
+        if ($roles === []) {
+            return [];
+        }
+
+        $eventIds = $this->recentEventIds($teamId, $event);
+
+        if ($eventIds === []) {
+            return [];
+        }
+
+        $rows = DB::table('player_game_stats')
+            ->where('team_id', $teamId)
+            ->whereIn('event_id', $eventIds)
+            ->whereIn('stat_group', array_keys($roles))
+            ->get(['player_name', 'stat_group', 'stats']);
+
+        $leaders = [];
+
+        foreach ($roles as $group => [$key, $label]) {
+            $leader = $this->leadingPlayer($rows, (string) $group, $key);
+
+            if ($leader !== null) {
+                $leaders[] = ['role' => $label] + $leader;
+            }
+        }
+
+        return $leaders === [] ? [] : [$side.'_leaders' => $leaders];
+    }
+
+    /**
+     * The best per-game average in one stat, among players who recorded
+     * it.
+     *
+     * Averaged over the games a player appeared in rather than the width
+     * of the window: dividing one big game by five would describe a
+     * player with one game of form as a bad one, which is a different
+     * thing and a worse answer than saying how many games it is over.
+     *
+     * @param  Collection<int, object>  $rows
+     * @return array{player: string, per_game: float, games: int}|null
+     */
+    private function leadingPlayer($rows, string $group, string $key): ?array
+    {
+        $totals = [];
+
+        foreach ($rows as $row) {
+            if ($row->stat_group !== $group) {
+                continue;
+            }
+
+            $stats = json_decode((string) $row->stats, true);
+
+            if (! is_array($stats)) {
+                continue;
+            }
+
+            $value = $this->numeric($stats[$key] ?? null);
+
+            if ($value === null) {
+                continue;
+            }
+
+            $name = (string) $row->player_name;
+
+            $totals[$name] ??= ['total' => 0.0, 'games' => 0];
+            $totals[$name]['total'] += $value;
+            $totals[$name]['games']++;
+        }
+
+        if ($totals === []) {
+            return null;
+        }
+
+        $best = null;
+
+        foreach ($totals as $name => $tally) {
+            $perGame = round($tally['total'] / $tally['games'], 1);
+
+            if ($best === null || $perGame > $best['per_game']) {
+                $best = ['player' => $name, 'per_game' => $perGame, 'games' => $tally['games']];
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * A stat as a number, or nothing.
+     *
+     * The feeds print a completion line as "27/44" and a kicking line as
+     * "2-3" in the same field shape as a yardage. Casting those gives 27
+     * and 2, which are not wrong so much as about a different thing, so
+     * anything that is not wholly a number is declined.
+     */
+    private function numeric(mixed $value): ?float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        return is_string($value) && is_numeric(trim($value)) ? (float) trim($value) : null;
+    }
+
+    /**
+     * The events behind the form window, so the leaders describe the same
+     * games the record does.
+     *
+     * @return array<int, int>
+     */
+    private function recentEventIds(int $teamId, Event $event): array
+    {
+        return DB::table('team_game_stats as t')
+            ->join('events as e', 'e.id', '=', 't.event_id')
+            ->where('t.team_id', $teamId)
+            ->where('e.starts_at', '<', $event->starts_at)
+            ->orderByDesc('e.starts_at')
+            ->limit(self::FORM_GAMES)
+            ->pluck('t.event_id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
     }
 
     /**
