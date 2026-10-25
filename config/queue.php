@@ -58,8 +58,21 @@ return [
              * makes a slow upstream a delay instead of a failure, so it
              * is set well above any of them rather than just above the
              * one that broke.
+             *
+             * Which 1800 was not. Three jobs declare `$timeout = 1800`
+             * of their own - the season backfill, the historical line
+             * import and the model retrain - so a job that reached its
+             * own limit would be reclaimed at the same moment, the same
+             * bug with no margin rather than a fixed one.
+             *
+             * 2100 keeps five minutes of headroom over the longest of
+             * them, which covers the gap between a job timing out and
+             * the worker actually releasing it.
+             * `tests/Feature/Engine/Ops/QueueRetryWindowTest.php` reads
+             * the timeouts out of the jobs themselves, so a new job with
+             * a longer one fails the suite rather than the queue.
              */
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 1800),
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 2100),
             'after_commit' => false,
         ],
 
