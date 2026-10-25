@@ -40,7 +40,15 @@
             <div class="flex gap-3 rounded-xl bg-[var(--vg-night)] p-3">
                 {{-- The real navigation, which is a fact rather than a claim. --}}
                 <nav class="hidden w-28 shrink-0 flex-col gap-2.5 sm:flex">
-                    @foreach (['Today', 'Board', 'Model Lab', 'Bankroll', 'Parlays', 'Record'] as $i => $item)
+                    {{--
+                        The actual customer navigation, which is the
+                        point of drawing it at all. It used to list Board
+                        and Model Lab; those are the engine's own pages
+                        and no longer appear to a customer, so a mockup
+                        showing them would be a picture of a product
+                        nobody is sold.
+                    --}}
+                    @foreach (['Today', 'AI Picks', 'Live Odds', 'Parlays', 'Results', 'Bankroll'] as $i => $item)
                         <span @class([
                             'flex items-center gap-2 rounded-md px-2 py-1.5 text-[10px] font-semibold tracking-wide',
                             'bg-[color-mix(in_srgb,var(--vg-paper)_12%,transparent)] text-[var(--vg-paper)]' => $i === 1,
@@ -55,7 +63,7 @@
                 <div class="min-w-0 flex-1 space-y-3">
                     {{-- Stat tiles: the labels are true, the figures are withheld. --}}
                     <div class="grid grid-cols-3 gap-2">
-                        @foreach (['Evaluated', 'Picks', 'Passed'] as $label)
+                        @foreach (['Published', 'Live now', 'Graded'] as $label)
                             <div class="rounded-lg border border-[var(--vg-line)] bg-[var(--vg-navy)] p-2.5">
                                 <span class="block text-[9px] uppercase tracking-[0.14em] text-[var(--vg-slate)]">{{ $label }}</span>
                                 <span class="mt-1.5 block h-2.5 w-10 rounded bg-[color-mix(in_srgb,var(--vg-paper)_30%,transparent)]"></span>
@@ -67,23 +75,30 @@
                     <div class="overflow-hidden rounded-lg border border-[var(--vg-line)] bg-[var(--vg-navy)]">
                         <div class="flex items-center gap-3 border-b border-[var(--vg-line)] px-3 py-2 text-[9px] uppercase tracking-[0.14em] text-[var(--vg-slate)]">
                             <span class="flex-1">Game</span>
-                            <span class="w-12">Market</span>
-                            <span class="w-10 text-right">Edge</span>
-                            <span class="w-12 text-right">Verdict</span>
+                            <span class="w-12">Pick</span>
+                            <span class="w-10 text-right">Odds</span>
+                            <span class="w-14 text-right">Confidence</span>
                         </div>
 
-                        @foreach ([68, 44, 82, 36] as $i => $width)
+                        {{--
+                            The confidence column is a bar and not a
+                            figure, for the same reason nothing else here
+                            is: a percentage printed on a hero is a claim,
+                            and the only honest confidence figures this
+                            product has are the live ones further down the
+                            page. The widths vary because real ones do.
+                        --}}
+                        @foreach ([[68, 78], [44, 64], [82, 71], [36, 59]] as [$width, $confidence])
                             <div class="flex items-center gap-3 border-b border-[var(--vg-line)] px-3 py-2 last:border-0">
                                 <span class="flex-1"><span class="block h-1.5 rounded bg-[var(--vg-line)]" style="width: {{ $width }}%"></span></span>
                                 <span class="w-12"><span class="block h-1.5 w-8 rounded bg-[var(--vg-line)]"></span></span>
                                 <span class="w-10"><span class="ml-auto block h-1.5 w-6 rounded bg-[var(--vg-line)]"></span></span>
-                                {{--
-                                    Every row says Pass, because on the day
-                                    this was written every row did. It is a
-                                    screenshot of the honest common case,
-                                    not of the exciting rare one.
-                                --}}
-                                <span class="w-12 text-right text-[9px] font-bold uppercase tracking-wide text-[var(--vg-slate)]">Pass</span>
+                                <span class="w-14">
+                                    <span class="ml-auto block h-1.5 w-full overflow-hidden rounded bg-[var(--vg-line)]">
+                                        <span class="block h-full rounded bg-[color-mix(in_srgb,var(--vg-paper)_55%,transparent)]"
+                                              style="width: {{ $confidence }}%"></span>
+                                    </span>
+                                </span>
                             </div>
                         @endforeach
                     </div>
@@ -105,13 +120,23 @@
 
         {{-- Floating cards, offset in front of the glass. --}}
         <div class="fx-console-card absolute -left-14 top-28 hidden w-36 rounded-xl border border-[var(--vg-line)] bg-[color-mix(in_srgb,var(--vg-navy)_88%,transparent)] p-3 backdrop-blur-sm lg:block">
-            <span class="block text-[9px] uppercase tracking-[0.14em] text-[var(--vg-slate)]">Model verdict</span>
-            <span class="mt-2 block text-[11px] font-bold text-[var(--vg-paper)]">Not yet proven</span>
-            <span class="mt-2 block h-1 w-full rounded bg-[var(--vg-line)]"></span>
+            {{--
+                "Not yet proven" used to sit here, from when the product's
+                whole story was that most days the answer is pass. It
+                publishes picks every day now, and a hero card saying the
+                model is unproven beside a headline saying the engine
+                makes the call was the illustration arguing with the
+                words.
+            --}}
+            <span class="block text-[9px] uppercase tracking-[0.14em] text-[var(--vg-slate)]">Today's pick</span>
+            <span class="mt-2 block h-1.5 w-20 rounded bg-[color-mix(in_srgb,var(--vg-paper)_45%,transparent)]"></span>
+            <span class="mt-2 block h-1 w-full overflow-hidden rounded bg-[var(--vg-line)]">
+                <span class="block h-full w-[74%] rounded bg-[color-mix(in_srgb,var(--vg-paper)_55%,transparent)]"></span>
+            </span>
         </div>
 
         <div class="fx-console-card absolute -right-10 -bottom-6 hidden w-40 rounded-xl border border-[var(--vg-line)] bg-[color-mix(in_srgb,var(--vg-navy)_88%,transparent)] p-3 backdrop-blur-sm lg:block">
-            <span class="block text-[9px] uppercase tracking-[0.14em] text-[var(--vg-slate)]">Why this was passed</span>
+            <span class="block text-[9px] uppercase tracking-[0.14em] text-[var(--vg-slate)]">Why this pick</span>
             @foreach ([100, 76, 88] as $w)
                 <span class="mt-1.5 block h-1 rounded bg-[var(--vg-line)]" style="width: {{ $w }}%"></span>
             @endforeach

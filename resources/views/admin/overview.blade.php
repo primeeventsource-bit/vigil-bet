@@ -40,7 +40,7 @@
             @else
                 <ul class="mt-4 space-y-2">
                     @foreach ($byTier as $tier => $total)
-                        <x-chart.bar-row :label="$tier" :value="$total" :max="$byTier->max()" suffix="" />
+                        <x-chart.bar-row :label="$tier" :value="$total" :max="$byTier->max()" format="count" />
                     @endforeach
                 </ul>
             @endif

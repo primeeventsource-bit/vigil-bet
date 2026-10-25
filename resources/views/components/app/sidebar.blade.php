@@ -12,32 +12,49 @@
      * separately, by middleware, because this list is decoration.
      */
     /*
-     * The first nine are the reference design's nav, in its order.
-     * "Results" there is this product's opinion record: every published
-     * opinion and how it turned out, which is the page that makes the
-     * picks worth reading.
+     * What a bettor actually uses: the picks, what happened to them,
+     * their own money, and the settings behind both.
      *
-     * The rest follow because the product has them and the reference
-     * simply did not draw them. Dropping a working feature to match a
-     * mockup would be matching the picture rather than the design.
+     * Everything that explains the engine to itself has come off this
+     * list - the model lab, the decline breakdowns, the crossbook
+     * tooling, the prop board that is empty because props are not
+     * modelled. A customer paying for picks does not need the machinery
+     * that produced them, and a nav full of pages that answer nothing is
+     * worse than a short one: every empty page is a small promise the
+     * product failed to keep.
+     *
+     * None of it is deleted. The routes still work and still carry their
+     * own middleware; they are listed under $engine below and shown to
+     * whoever runs the product. Deleting a working feature to tidy a
+     * sidebar would be throwing away the thing rather than the link.
      */
     $items = [
         ['route' => 'today', 'label' => 'Dashboard', 'icon' => 'grid'],
-        ['route' => 'live-odds', 'label' => 'Live Odds', 'icon' => 'activity', 'feature' => 'board.full'],
         ['route' => 'picks', 'label' => 'AI Picks', 'icon' => 'target', 'feature' => 'board.full'],
+        ['route' => 'live-odds', 'label' => 'Live Odds', 'icon' => 'activity', 'feature' => 'board.full'],
         ['route' => 'parlays', 'label' => 'Parlays', 'icon' => 'layers', 'feature' => 'parlay.grade'],
+        ['route' => 'opinions', 'label' => 'Results', 'icon' => 'file'],
+        ['route' => 'bets', 'label' => 'My Bets', 'icon' => 'file'],
         ['route' => 'bankroll', 'label' => 'Bankroll', 'icon' => 'chart', 'feature' => 'bankroll'],
+        ['route' => 'alerts', 'label' => 'Alerts', 'icon' => 'bell', 'feature' => 'alerts'],
+        ['route' => 'account', 'label' => 'Settings', 'icon' => 'cog'],
+    ];
+
+    /*
+     * The engine's own pages. Reachable, and not advertised to a
+     * customer who did not buy a model lab.
+     */
+    $engine = [
         ['route' => 'analytics', 'label' => 'Analytics', 'icon' => 'chart', 'feature' => 'bets.clv'],
         ['route' => 'models', 'label' => 'Models', 'icon' => 'cpu', 'feature' => 'modellab'],
-        ['route' => 'opinions', 'label' => 'Results', 'icon' => 'file'],
-        ['route' => 'account', 'label' => 'Settings', 'icon' => 'cog'],
-
         ['route' => 'props', 'label' => 'Props', 'icon' => 'target', 'feature' => 'props'],
         ['route' => 'tools', 'label' => 'Tools', 'icon' => 'search', 'feature' => 'tools.crossbook'],
-        ['route' => 'bets', 'label' => 'My Bets', 'icon' => 'file'],
-        ['route' => 'alerts', 'label' => 'Alerts', 'icon' => 'bell', 'feature' => 'alerts'],
         ['route' => 'reports', 'label' => 'Reports', 'icon' => 'file'],
     ];
+
+    if (auth()->user()?->isAdmin()) {
+        $items = array_merge($items, $engine);
+    }
 
     /*
      * Admin, for whoever runs the product. Appended rather than listed

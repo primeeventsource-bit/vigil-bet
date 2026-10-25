@@ -132,7 +132,7 @@
                 <ul class="mt-3 space-y-2">
                     @foreach ($passReasons as $reason => $count)
                         <x-chart.bar-row :label="str_replace('_', ' ', $reason)" :value="$count"
-                                         :max="$passReasons->max()" suffix="" />
+                                         :max="$passReasons->max()" format="count" />
                     @endforeach
                 </ul>
             @endif
