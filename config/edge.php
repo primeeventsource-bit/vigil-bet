@@ -315,7 +315,29 @@ return [
     ],
 
     'http' => [
-        'timeout' => 20,
+        /*
+         * Read timeout, in seconds.
+         *
+         * Twenty was not enough, and the failure was quiet:
+         * `ingest:results:ncaaf` failed with "cURL error 28" seven times
+         * in twelve hours while every other sport succeeded. Nothing
+         * looked broken anywhere a dashboard looks - the games simply
+         * stayed marked scheduled hours after they had finished, and
+         * anything waiting on a final score waited for ever.
+         *
+         * Not because the endpoint is slow. Measured directly it answers
+         * in under five seconds, and that measurement is the point: the
+         * timeouts clustered in the window when the odds backfill was
+         * saturating the single worker, so twenty seconds of wall clock
+         * was being spent somewhere other than waiting for CFBD. A
+         * timeout has to have headroom over the worst the machine is
+         * doing, not over the best the source does.
+         *
+         * Forty-five gives that headroom and is still a timeout: a
+         * source that has genuinely stopped answering fails inside the
+         * minute rather than holding a worker.
+         */
+        'timeout' => 45,
         'connect_timeout' => 8,
         'retries' => 3,
         'retry_sleep_ms' => 400,
