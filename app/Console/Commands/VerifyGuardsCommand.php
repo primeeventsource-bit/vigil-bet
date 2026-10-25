@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -17,6 +18,22 @@ use Throwable;
  * Runs against Postgres in CI, where the triggers and check constraints
  * actually exist. On SQLite it reports that the model-level guards are what
  * is in force, since SQLite cannot add either after table creation.
+ *
+ * Two things about how it is written matter more than they look.
+ *
+ * The whole run happens inside a transaction that is always rolled back. A
+ * check proving odds_snapshots cannot be deleted necessarily leaves behind
+ * a row it cannot delete, so every run wrote permanent fixtures into the
+ * table whose integrity is the product's evidence base - two quotes a run,
+ * for ever, from a book that does not exist.
+ *
+ * And the setup happens outside the assertions. `expectRejected` reads a
+ * failure as the guard firing, which is only sound while the only thing
+ * that can fail is the thing being tested. It was not: the seeded model
+ * version collided with a real one on the unique key, so the leakage check
+ * threw during setup and the throw was reported as a pass. The most
+ * important guard in the schema was green without once being exercised.
+ * Setup that fails now stops the command and says so.
  */
 class VerifyGuardsCommand extends Command
 {
@@ -34,23 +51,85 @@ class VerifyGuardsCommand extends Command
             return self::SUCCESS;
         }
 
+        DB::beginTransaction();
+
+        try {
+            $fixtures = $this->seed();
+        } catch (Throwable $e) {
+            DB::rollBack();
+
+            $this->error('Could not set up the check: '.$e->getMessage());
+            $this->line('Nothing was proved. That is a failure of this command, not of the guards.');
+
+            return self::FAILURE;
+        }
+
+        try {
+            $failures = $this->runChecks($fixtures);
+        } finally {
+            /*
+             * Always, whatever happened. The point is to prove the guards
+             * hold, not to leave evidence of having tested them in the
+             * tables the guards exist to protect.
+             */
+            DB::rollBack();
+        }
+
+        $this->newLine();
+
+        if ($failures > 0) {
+            $this->error("{$failures} guard(s) did not hold. The database is not protecting history.");
+
+            return self::FAILURE;
+        }
+
+        $this->info('All integrity guards held. Nothing was left behind.');
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Everything the checks need, created before any of them runs.
+     *
+     * @return array{event: int, model: int, snapshots: array<int, int>}
+     */
+    private function seed(): array
+    {
+        $event = $this->seedEvent();
+
+        return [
+            'event' => $event,
+            'model' => $this->seedModelVersion(),
+            // One each: the first check proves a row cannot be updated,
+            // the second that it cannot be deleted.
+            'snapshots' => [$this->seedSnapshot($event), $this->seedSnapshot($event)],
+        ];
+    }
+
+    /** @param  array{event: int, model: int, snapshots: array<int, int>}  $fixtures */
+    private function runChecks(array $fixtures): int
+    {
         $failures = 0;
 
         $failures += $this->expectRejected(
             'append-only update on odds_snapshots',
-            fn () => DB::table('odds_snapshots')->where('id', $this->seedSnapshot())->update(['price_american' => -200]),
+            fn () => DB::table('odds_snapshots')
+                ->where('id', $fixtures['snapshots'][0])
+                ->update(['price_american' => -200]),
         );
 
         $failures += $this->expectRejected(
             'append-only delete on odds_snapshots',
-            fn () => DB::table('odds_snapshots')->where('id', $this->seedSnapshot())->delete(),
+            fn () => DB::table('odds_snapshots')
+                ->where('id', $fixtures['snapshots'][1])
+                ->delete(),
         );
 
         $failures += $this->expectRejected(
             'prediction timestamped after kickoff',
             fn () => DB::table('predictions')->insert([
-                'event_id' => $this->seedEvent(),
-                'model_version_id' => $this->seedModelVersion(),
+                'event_id' => $fixtures['event'],
+                'model_version_id' => $fixtures['model'],
                 'market' => 'h2h',
                 'side' => 'home',
                 'prob' => 0.55,
@@ -61,24 +140,27 @@ class VerifyGuardsCommand extends Command
             ]),
         );
 
-        $this->newLine();
-
-        if ($failures > 0) {
-            $this->error("{$failures} guard(s) did not hold. The database is not protecting history.");
-
-            return self::FAILURE;
-        }
-
-        $this->info('All integrity guards held.');
-
-        return self::SUCCESS;
+        return $failures;
     }
 
+    /**
+     * Runs one attempt the database is supposed to refuse.
+     *
+     * Only a query error counts. Anything else is this command being
+     * wrong rather than the database being right, and telling those two
+     * apart is the whole value of the check: a setup failure caught here
+     * reads exactly like a guard holding.
+     *
+     * Each attempt gets its own savepoint, because a failed statement
+     * poisons a Postgres transaction until one is rolled back to - so
+     * without this the first rejection would make every later check fail
+     * for a reason with nothing to do with what it is testing.
+     */
     private function expectRejected(string $what, callable $attempt): int
     {
         try {
-            $attempt();
-        } catch (Throwable) {
+            DB::transaction($attempt);
+        } catch (QueryException) {
             $this->line("  <fg=green>rejected</> {$what}");
 
             return 0;
@@ -130,18 +212,21 @@ class VerifyGuardsCommand extends Command
         ]);
     }
 
+    /**
+     * A model version of a type nothing real uses.
+     *
+     * model_versions is unique on sport, market, model_type and version,
+     * and this asked for nfl/h2h/elo version 1 - which is a real trained
+     * model in any database old enough to have one. The insert raised a
+     * unique violation, the violation was read as the leakage constraint
+     * doing its job, and the check passed without reaching it.
+     */
     private function seedModelVersion(): int
     {
-        $existing = DB::table('model_versions')->where('label', 'guard-check')->value('id');
-
-        if ($existing) {
-            return (int) $existing;
-        }
-
         return (int) DB::table('model_versions')->insertGetId([
             'sport' => 'nfl',
             'market' => 'h2h',
-            'model_type' => 'elo',
+            'model_type' => 'guard-check',
             'version' => 1,
             'label' => 'guard-check',
             'params' => json_encode([]),
@@ -153,7 +238,7 @@ class VerifyGuardsCommand extends Command
         ]);
     }
 
-    private function seedSnapshot(): int
+    private function seedSnapshot(int $event): int
     {
         $book = DB::table('books')->where('key', 'guard-check')->value('id')
             ?? DB::table('books')->insertGetId([
@@ -164,7 +249,7 @@ class VerifyGuardsCommand extends Command
             ]);
 
         return (int) DB::table('odds_snapshots')->insertGetId([
-            'event_id' => $this->seedEvent(),
+            'event_id' => $event,
             'book_id' => $book,
             'market' => 'h2h',
             'side' => 'home',

@@ -2196,3 +2196,60 @@ the shadow recorder stay hourly: nobody is watching those in real time.
 Worst case is now about twenty minutes from a game ending to its row on
 the public page carrying a result, most of which is waiting for the
 upstream feed rather than for us.
+
+---
+
+### The guard that was never actually checked
+
+**25 October 2026.** Noticed while answering a different question: the
+production `events` table contains a game between `guard-away` and
+`guard-home`. It is a fixture `edge:verify:guards` writes, and it never
+cleaned up after itself.
+
+The residue is the small half. Proving that `odds_snapshots` refuses a
+delete means writing a row that cannot then be deleted, so every run left
+two fake quotes in the append-only table that is the product's entire
+evidence base, from a book that does not exist, permanently. The guards
+are working exactly as designed — which is also why the rows already
+there cannot be removed now. They stay.
+
+The large half is that one of the three checks had never run.
+
+`seedModelVersion()` asked for nfl/h2h/elo version 1. `model_versions` is
+unique on sport, market, model type and version, and nfl/h2h/elo v1 is a
+real trained model in any database old enough to have one — in production
+it is `first-production-run`, retired. So the insert raised a unique
+violation, and `expectRejected` caught it: it treated *any* `Throwable`
+as proof the guard had fired. The leakage check reported `rejected` every
+time without once reaching the constraint it was written to exercise.
+
+That is the worst shape a test can fail in. It does not go red, it does
+not go quiet — it reports success, and it reports it most confidently in
+exactly the case where it has measured nothing. The entry above this one
+cites this command passing, including "a prediction timestamped after
+kickoff rejected". That claim was unfounded when it was written.
+
+**The guarantee itself was never at risk.** `predictions_before_kickoff`
+and `feature_sets_no_leakage` are both present in production — checked
+against `information_schema` directly rather than by trusting the command
+that was supposed to check them. Only the evidence was hollow.
+
+Three changes. The run is wrapped in a transaction that is always rolled
+back, so proving the guards no longer costs what it proves. Setup is
+hoisted out of the assertions, so a seed that fails stops the command
+with "nothing was proved" instead of looking like a pass. And only a
+`QueryException` counts as a rejection, with each attempt in its own
+savepoint — a failed statement poisons a Postgres transaction until one
+is rolled back to, so without that the first rejection would make every
+later check fail for reasons unrelated to what it is testing. The
+fixture model now uses a model type nothing real can collide with.
+
+**Two things left open.** The tests for this are Postgres-only and are
+*skipped*, not passing, on SQLite — this machine has no `pdo_pgsql`, so
+the fix is reasoned and unexecuted. Saying so matters more than usual
+here, given what the entry is about.
+
+And `DEPLOY_LARAVEL_CLOUD.md` and `ENGINE_DECISIONS.md` both describe CI
+running this command against Postgres. There is no `.github` directory in
+this repository. Nothing has been running it automatically, which is how
+a check that fails during setup went years without anybody noticing.
