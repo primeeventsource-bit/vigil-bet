@@ -38,9 +38,15 @@ cloud command:run env-a307a4b9-3ec3-4f35-8c14-5d23798471f2 --cmd='php artisan â€
 | Resource | Setting |
 | --- | --- |
 | Database | Serverless Postgres |
-| Queue | One worker cluster, default queue |
+| Queue | One worker cluster, default queue, `database` driver |
 | Scheduler | Enabled |
-| Key-value store | Enabled - used for cache and job locks |
+| Cache, sessions, locks | Postgres. There is no key-value store |
+
+There is no Redis and nothing needs one. Cache, queue, sessions and the
+`withoutOverlapping` locks all run on the database, which holds across
+instances - a file-backed lock on ephemeral containers would not, and that is
+the failure this table used to invite by claiming a key-value store that was
+never provisioned.
 
 ## Build and deploy commands
 
