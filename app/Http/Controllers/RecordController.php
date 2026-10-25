@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Opinion;
 use App\Models\PublishedPick;
+use App\Services\Record\OpinionRecord;
 use App\Services\Record\PublicRecord;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -19,7 +21,7 @@ use Illuminate\View\View;
  */
 class RecordController extends Controller
 {
-    public function index(Request $request, PublicRecord $record): View
+    public function index(Request $request, PublicRecord $record, OpinionRecord $opinions): View
     {
         $options = $record->filterOptions();
 
@@ -43,6 +45,29 @@ class RecordController extends Controller
             // Kept for the hero strip on the home page, which reads the
             // unfiltered figures.
             'overall' => $record->summary(),
+
+            /*
+             * The published opinions, on the page a visitor reaches by
+             * clicking "Track record".
+             *
+             * Without them this page says there is nothing and there
+             * will be nothing until a market clears the gate - true of
+             * the proven tier, and badly misleading beside a product
+             * that publishes picks every day and grades all of them. A
+             * record page that reports none of what was published is not
+             * being careful, it is being wrong.
+             *
+             * They are passed as their own figures and rendered in their
+             * own section. The two are never added together: a pick from
+             * a proven market is a stronger claim than an opinion, and
+             * summing them would destroy the stronger one.
+             */
+            'opinionRecord' => $opinions->summary(),
+            'opinions' => Opinion::query()
+                ->with('result')
+                ->orderByDesc('kickoff_at')
+                ->limit(20)
+                ->get(),
         ]);
     }
 

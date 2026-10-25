@@ -30,7 +30,6 @@
      */
     $items = [
         ['route' => 'today', 'label' => 'Dashboard', 'icon' => 'grid'],
-        ['route' => 'picks', 'label' => 'AI Picks', 'icon' => 'target', 'feature' => 'board.full'],
         ['route' => 'live-odds', 'label' => 'Live Odds', 'icon' => 'activity', 'feature' => 'board.full'],
         ['route' => 'parlays', 'label' => 'Parlays', 'icon' => 'layers', 'feature' => 'parlay.grade'],
         ['route' => 'opinions', 'label' => 'Results', 'icon' => 'file'],
@@ -45,6 +44,17 @@
      * customer who did not buy a model lab.
      */
     $engine = [
+        /*
+         * The board is every candidate the engine judged, with the
+         * reason it declined each one. That is a diagnostic, not a picks
+         * page - on a normal day it is twenty thousand rows that all say
+         * pass - and it was reaching customers under the label "AI
+         * Picks", which is the one thing it is not.
+         *
+         * A customer's picks are on the dashboard, published and ready
+         * to act on, with the record behind them under Results.
+         */
+        ['route' => 'picks', 'label' => 'Board', 'icon' => 'target', 'feature' => 'board.full'],
         ['route' => 'analytics', 'label' => 'Analytics', 'icon' => 'chart', 'feature' => 'bets.clv'],
         ['route' => 'models', 'label' => 'Models', 'icon' => 'cpu', 'feature' => 'modellab'],
         ['route' => 'props', 'label' => 'Props', 'icon' => 'target', 'feature' => 'props'],

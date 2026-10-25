@@ -42,29 +42,145 @@
         </div>
     </section>
 
+    {{--
+        The published picks, which is what a visitor clicking "Track
+        record" came to see.
+
+        This section exists because the page used to say "nothing
+        published yet, and there will be nothing until a market clears
+        the gate" - true of the proven tier below, and badly misleading
+        on a site that publishes picks every day and grades all of them.
+        A record that reports none of what was published is not being
+        careful, it is being wrong.
+
+        Kept in its own section, with its own totals, above a proven tier
+        that has its own. The two are never added together: a pick from a
+        proven market is a stronger claim than an opinion, and summing
+        them destroys the stronger one.
+    --}}
+    <section class="mx-auto max-w-5xl px-6 pt-12">
+        <h2 class="font-[family-name:var(--font-display)] text-2xl font-bold">
+            {{ config('brand.name') }}'s published picks
+        </h2>
+
+        <p class="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--vg-slate)]">
+            Every pick published before kickoff, with the confidence stated at the time, graded
+            against the final score. These are the engine's own opinions from markets whose
+            probabilities have been measured against real results &mdash; not proven edges, and
+            the losers are in the table with the winners.
+        </p>
+
+        <dl class="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[var(--vg-line)] bg-[var(--vg-line)] sm:grid-cols-4">
+            @foreach ([
+                ['Published', number_format($opinionRecord['published']), 'before kickoff'],
+                ['Graded', number_format($opinionRecord['graded']), 'games finished'],
+                [
+                    'Win rate',
+                    $opinionRecord['win_rate'] === null ? '—' : number_format($opinionRecord['win_rate'] * 100, 1).'%',
+                    $opinionRecord['graded'] > 0 ? 'n = '.number_format($opinionRecord['graded']) : 'nothing graded yet',
+                ],
+                [
+                    'Units',
+                    $opinionRecord['units'] === null ? '—' : ($opinionRecord['units'] > 0 ? '+' : '').number_format($opinionRecord['units'], 2),
+                    $opinionRecord['graded'] > 0 ? 'at one unit a pick' : 'nothing graded yet',
+                ],
+            ] as [$label, $value, $sample])
+                <div class="bg-[var(--vg-navy)] px-5 py-4">
+                    <dt class="text-[11px] uppercase tracking-wide text-[var(--vg-slate)]">{{ $label }}</dt>
+                    <dd class="mt-1 font-[family-name:var(--font-mono)] text-xl font-bold" data-numeric>{{ $value }}</dd>
+                    <dd class="mt-0.5 text-[11px] text-[var(--vg-muted)]">{{ $sample }}</dd>
+                </div>
+            @endforeach
+        </dl>
+
+        @if ($opinions->isEmpty())
+            <p class="panel mt-5 p-6 text-center text-sm text-[var(--vg-slate)]">
+                Nothing published yet. Picks appear here as the engine publishes them.
+            </p>
+        @else
+            <div class="panel mt-5 overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <caption class="sr-only">Published picks and how they turned out.</caption>
+                    <thead class="border-b border-[var(--vg-line)] text-[11px] uppercase tracking-wide text-[var(--vg-slate)]">
+                        <tr>
+                            <th scope="col" class="px-4 py-2">Kickoff</th>
+                            <th scope="col" class="px-4 py-2">Pick</th>
+                            <th scope="col" class="px-4 py-2 text-right">We said</th>
+                            <th scope="col" class="px-4 py-2 text-right">Price</th>
+                            <th scope="col" class="px-4 py-2">Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($opinions as $opinion)
+                            <tr class="border-b border-[var(--vg-line)] last:border-0">
+                                <td class="px-4 py-3 text-[var(--vg-slate)]" data-numeric>
+                                    {{ $opinion->kickoff_at?->format('d M H:i') }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="font-semibold">{{ $opinion->selection }}</span>
+                                    <span class="block text-xs text-[var(--vg-slate)]">
+                                        {{ strtoupper((string) $opinion->sport) }} · {{ $opinion->matchup }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-right" data-numeric>{{ $opinion->confidencePercent() }}%</td>
+                                <td class="px-4 py-3 text-right" data-numeric>
+                                    {{ $opinion->price_american > 0 ? '+' : '' }}{{ $opinion->price_american }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    @if ($opinion->result === null)
+                                        <span class="text-xs text-[var(--vg-slate)]">pending</span>
+                                    @else
+                                        <span @class([
+                                            'badge',
+                                            'badge-edge' => $opinion->result->won(),
+                                            'badge-pass' => ! $opinion->result->won(),
+                                        ])>{{ $opinion->result->status }}</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="mt-4 text-sm">
+                <a class="text-[var(--vg-blue)] underline" href="{{ route('opinions') }}">
+                    Every published pick, and whether the confidence was true &rarr;
+                </a>
+            </p>
+        @endif
+    </section>
+
     <section class="mx-auto max-w-5xl px-6 py-12">
+        <h2 class="font-[family-name:var(--font-display)] text-2xl font-bold">
+            Picks from a proven market
+        </h2>
+
+        <p class="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--vg-slate)]">
+            The stronger claim, and a separate table. A market reaches this tier only once its model
+            has beaten the closing line over a measured sample. It is counted on its own and never
+            added to the figures above.
+        </p>
+
         @if ($summary['published'] === 0)
             {{--
                 Nothing published. Said as a fact about the gate rather
                 than dressed up: the product does not sell from a market
                 until it has beaten the closing line, and no market has.
-                A page that implied otherwise would undo the one thing
-                this page exists for.
             --}}
-            <div class="panel p-8 text-center">
-                <h2 class="font-[family-name:var(--font-display)] text-xl font-bold">
-                    Nothing published yet
-                </h2>
+            <div class="panel mt-5 p-8 text-center">
+                <h3 class="font-[family-name:var(--font-display)] text-lg font-bold">
+                    No market has cleared the gate
+                </h3>
                 <p class="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[var(--vg-slate)]">
-                    {{ config('brand.name') }} publishes a pick only from a market that has already
-                    beaten the closing line over a measured sample. No market has yet cleared that
-                    gate, so there is nothing on this page — and there will be nothing until one
-                    does.
+                    {{ config('brand.name') }} sells a pick only from a market that has already beaten
+                    the closing line over a measured sample. None has, so this table is empty &mdash;
+                    and it stays empty until one does.
                 </p>
                 <p class="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-[var(--vg-slate)]">
-                    This is the state the product is designed to be honest about. A record page with
-                    numbers on it before any pick had been published would tell you nothing except
-                    that we were willing to make numbers up.
+                    This is the state the product is designed to be honest about. A tier with numbers
+                    on it before any pick had been published would tell you nothing except that we
+                    were willing to make numbers up.
                 </p>
                 <p class="mt-6">
                     <a class="text-[var(--vg-blue)] underline" href="{{ route('how-it-works') }}">
