@@ -51,14 +51,20 @@ it('proves a model that beats the market on log loss and is calibrated with it',
 });
 
 it('refuses to prove a sharper model whose probabilities are miscalibrated', function () {
-    // Better at ranking games, worse at stating how likely they are. Kelly
-    // reads the number literally, so this is the dangerous case, not the
-    // merely disappointing one.
+    /*
+     * Better at ranking games, worse at stating how likely they are.
+     * Whoever reads the number reads it literally, so this is the
+     * dangerous case rather than the merely disappointing one - and it
+     * clears neither tier: not proven, because the probabilities are
+     * wrong, and not publishable as calibrated for the same reason.
+     *
+     * 11 points of error, against the 6 the calibrated tier allows.
+     */
     $result = $this->verdicter->decide(
         predictions: 600,
         modelLogLoss: 0.6650,
         marketLogLoss: 0.6800,
-        modelCalibrationError: 0.060,
+        modelCalibrationError: 0.110,
         marketCalibrationError: 0.020,
         improvementTStat: 2.4,
     );
@@ -68,7 +74,17 @@ it('refuses to prove a sharper model whose probabilities are miscalibrated', fun
         ->and($result->reason)->toContain('worse calibrated');
 });
 
-it('refuses to prove a well calibrated model that does not beat the market', function () {
+it('publishes a calibrated model that does not beat the market, and says it does not', function () {
+    /*
+     * The change this tier exists for. Beating the no-vig close is the
+     * strongest claim a sports model can make and nothing here makes it -
+     * every one of the eleven live markets loses to the close. A gate
+     * only that could pass meant VIGIL published nothing, for ever.
+     *
+     * What this model can say is narrower and true: when it says 60%, it
+     * happens about 60% of the time. So it may be published, and the
+     * reason carries the rest of the truth with it.
+     */
     $result = $this->verdicter->decide(
         predictions: 600,
         modelLogLoss: 0.6850,
@@ -78,8 +94,11 @@ it('refuses to prove a well calibrated model that does not beat the market', fun
         improvementTStat: -0.8,
     );
 
-    expect($result->verdict)->toBe(Verdict::Unproven)
-        ->and($result->reason)->toContain('Neither measure separates');
+    expect($result->verdict)->toBe(Verdict::Calibrated)
+        ->and($result->allowsRecommendation())->toBeTrue()
+        // Publishable, and never as an edge over the book.
+        ->and($result->verdict->claimsEdge())->toBeFalse()
+        ->and($result->reason)->toContain('loses to the closing line');
 });
 
 it('will not call unmeasurable calibration a pass', function () {
@@ -98,12 +117,19 @@ it('will not call unmeasurable calibration a pass', function () {
         ->and($result->reason)->toContain('could not be measured');
 });
 
-it('calls a model that loses to the market by more than chance negative', function () {
+it('still condemns a model that is both worse than the market and miscalibrated', function () {
+    /*
+     * The warning that has to survive the new tier. A model losing to the
+     * close whose own numbers are also wrong has nothing honest to say,
+     * and the board should discourage the market rather than publish it.
+     *
+     * 12 points of calibration error, against the 6 the tier allows.
+     */
     $result = $this->verdicter->decide(
         predictions: 600,
         modelLogLoss: 0.7000,
         marketLogLoss: 0.6800,
-        modelCalibrationError: 0.030,
+        modelCalibrationError: 0.120,
         marketCalibrationError: 0.020,
         improvementTStat: -3.1,
     );
@@ -113,9 +139,15 @@ it('calls a model that loses to the market by more than chance negative', functi
         ->and($result->reason)->toContain('Do not bet this market');
 });
 
-it('needs the improvement to clear the noise, not merely to exist', function () {
-    // Ahead of the market, but by less than this sample could have produced
-    // by accident.
+it('needs the improvement to clear the noise before it will call anything proven', function () {
+    /*
+     * Ahead of the market, but by less than this sample could have thrown
+     * up by accident. Not proven - that claim needs the margin to survive
+     * its own standard error.
+     *
+     * Its probabilities are sound, so it is publishable as a calibrated
+     * market. The two statements are independent and both are made.
+     */
     $result = $this->verdicter->decide(
         predictions: 600,
         modelLogLoss: 0.6799,
@@ -125,16 +157,22 @@ it('needs the improvement to clear the noise, not merely to exist', function () 
         improvementTStat: 0.4,
     );
 
-    expect($result->verdict)->toBe(Verdict::Unproven)
-        ->and($result->reason)->toContain('standard errors from zero');
+    expect($result->verdict)->not->toBe(Verdict::Proven)
+        ->and($result->verdict)->toBe(Verdict::Calibrated)
+        ->and($result->verdict->claimsEdge())->toBeFalse();
 });
 
-it('treats a model that merely matches the market as unproven', function () {
+it('treats a model that matches the market but misstates its own odds as unproven', function () {
+    /*
+     * Neither claim is available: it does not beat the close, and its
+     * stated probabilities are off by 9 points against the 6 the
+     * calibrated tier allows. Unproven is the honest answer.
+     */
     $result = $this->verdicter->decide(
         predictions: 600,
         modelLogLoss: 0.6800,
         marketLogLoss: 0.6800,
-        modelCalibrationError: 0.020,
+        modelCalibrationError: 0.090,
         marketCalibrationError: 0.020,
         improvementTStat: 0.0,
     );
@@ -164,8 +202,11 @@ it('does not let a home-side lean influence the verdict at all', function () {
         )->verdict;
     }
 
+    // The point is that every bias produces the same answer, whatever
+    // that answer is - a lean toward the home side is reported and never
+    // tested.
     expect(array_unique(array_map(fn ($v) => $v->value, $verdicts)))
-        ->toBe([Verdict::Negative->value]);
+        ->toHaveCount(1);
 });
 
 it('reports the home-side lean without testing it', function () {
@@ -185,12 +226,16 @@ it('reports the home-side lean without testing it', function () {
 });
 
 it('does not let profit buy a verdict', function () {
-    // ROI is not an input at all. Over a few hundred bets it is variance.
+    /*
+     * ROI is not an input at all. Over a few hundred bets it is variance,
+     * and a profitable run cannot promote a model that is worse than the
+     * market on log loss and wrong about its own probabilities.
+     */
     $result = $this->verdicter->decide(
         predictions: 600,
         modelLogLoss: 0.6900,
         marketLogLoss: 0.6800,
-        modelCalibrationError: 0.040,
+        modelCalibrationError: 0.140,
         marketCalibrationError: 0.020,
         improvementTStat: -2.2,
     );
@@ -242,6 +287,12 @@ it('lets a tight calibration tolerance disqualify a model a loose one allows', f
 
     expect((new Verdicter(minPredictions: 300, calibrationTolerance: 0.01))->decide(...$args)->verdict)
         ->toBe(Verdict::Proven)
+        /*
+         * Tightened past what this model can show, it loses the proven
+         * claim. It keeps the weaker one, because its own probabilities
+         * are still sound - which is the distinction the calibrated tier
+         * exists to make.
+         */
         ->and((new Verdicter(minPredictions: 300, calibrationTolerance: 0.001))->decide(...$args)->verdict)
-        ->toBe(Verdict::Unproven);
+        ->toBe(Verdict::Calibrated);
 });

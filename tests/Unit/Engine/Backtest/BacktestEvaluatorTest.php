@@ -83,8 +83,13 @@ it('finds no improvement when the model simply is the market', function () {
     expect($summary->logLossImprovement())->toEqualWithDelta(0.0, 0.01)
         ->and($summary->meanHomeBias)->toEqualWithDelta(0.0, 0.01)
         ->and($summary->calibrationImprovement())->toEqualWithDelta(0.0, 0.01)
+        /*
+         * A model that reproduces the market's own probabilities is
+         * perfectly calibrated by construction and beats nothing. That is
+         * exactly the calibrated tier: honest numbers, no edge claimed.
+         */
         ->and($summary->verdict(new Verdicter(minPredictions: 100))->verdict)
-        ->toBe(Verdict::Unproven);
+        ->toBe(Verdict::Calibrated);
 });
 
 it('proves a model that genuinely knows more than the market', function () {
@@ -123,7 +128,7 @@ it('condemns a model the market clearly beats', function () {
         ->and($verdict->verdict)->toBe(Verdict::Negative);
 });
 
-it('treats a slightly worse model as unproven rather than condemned', function () {
+it('does not condemn a model that is merely indistinguishable from the market', function () {
     // Mildly overconfident, and only 0.08 standard errors from the market.
     // That is indistinguishable from it, so neither Proven nor Negative is
     // an honest answer.
@@ -138,7 +143,14 @@ it('treats a slightly worse model as unproven rather than condemned', function (
     $verdict = (new BacktestEvaluator)->evaluate(predictions($rows))
         ->verdict(new Verdicter(minPredictions: 100));
 
-    expect($verdict->verdict)->toBe(Verdict::Unproven);
+    /*
+     * The claim is about what it is not. Indistinguishable from the
+     * market is neither an edge nor evidence the model is wrong, so
+     * whether it lands as unproven or as calibrated depends on its own
+     * probabilities - and either is honest. Condemning it would not be.
+     */
+    expect($verdict->verdict)->not->toBe(Verdict::Negative)
+        ->and($verdict->verdict)->not->toBe(Verdict::Proven);
 });
 
 it('is not fooled by a model that merely leans away from home teams', function () {

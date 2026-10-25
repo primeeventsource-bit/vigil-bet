@@ -61,6 +61,14 @@ final class Verdicter
          * genuinely sharper model failing on calibration noise.
          */
         private readonly float $calibrationTolerance = 0.01,
+        /*
+         * How far this model's own stated probabilities may sit from
+         * the observed rate before it has nothing honest to say. The
+         * same 6 points OpinionBar already publishes against, so the
+         * board and the opinions cannot disagree about which markets
+         * are fit to show.
+         */
+        private readonly float $ownCalibrationTolerance = 0.06,
     ) {}
 
     public static function fromConfig(): self
@@ -70,6 +78,7 @@ final class Verdicter
             minLogLossImprovement: (float) config('edge.verdict.min_log_loss_improvement', 0.0),
             minTStat: (float) config('edge.verdict.min_t_stat', 1.64),
             calibrationTolerance: (float) config('edge.verdict.calibration_tolerance', 0.01),
+            ownCalibrationTolerance: (float) config('edge.verdict.own_calibration_tolerance', 0.06),
         );
     }
 
@@ -137,10 +146,45 @@ final class Verdicter
             );
         }
 
-        // Worse on log loss by more than chance explains is not merely
-        // unproven, it is evidence the model is wrong, and the board should
-        // discourage the market rather than leave it looking like a work in
-        // progress.
+        /*
+         * A market whose own probabilities hold up, even though it does
+         * not beat the close.
+         *
+         * Decided before the negative branch on purpose. Losing to the
+         * closing line is the ordinary condition of an honest model - the
+         * close is the sharpest number in the sport - and treating that
+         * as "do not bet this market" left all eleven markets condemned
+         * and VIGIL publishing nothing it could ever publish.
+         *
+         * What this tier asserts is narrower and checkable: when the
+         * model says 60%, it happens about 60% of the time. It is not an
+         * edge, it is not a claim about the book, and every surface that
+         * shows it says so.
+         */
+        $ownCalibration = $modelCalibrationError === null
+            ? null
+            : abs($modelCalibrationError);
+
+        if ($ownCalibration !== null && $ownCalibration <= $this->ownCalibrationTolerance) {
+            return new VerdictResult(
+                Verdict::Calibrated,
+                sprintf(
+                    'Stated probabilities land within %.1f points of the observed rate over %d predictions. '
+                    .'Honest numbers, not an edge: it still loses to the closing line by %.4f on log loss.',
+                    $ownCalibration * 100,
+                    $predictions,
+                    abs($improvement),
+                ),
+                $improvement,
+                $meanHomeBias,
+                $calibrationGap,
+            );
+        }
+
+        // Worse on log loss by more than chance explains, and not
+        // calibrated either, is evidence the model is wrong - the board
+        // should discourage the market rather than leave it looking like
+        // a work in progress.
         $meaningfullyWorse = $improvement < 0
             && ($improvementTStat === null || $improvementTStat <= -$this->minTStat);
 

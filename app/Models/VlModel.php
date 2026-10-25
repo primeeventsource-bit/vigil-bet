@@ -41,7 +41,7 @@ class VlModel extends Model
 
     public function scopeProven(Builder $query): Builder
     {
-        return $query->where('verdict', 'proven');
+        return $query->whereIn('verdict', VlBoardEntry::recommendableVerdicts());
     }
 
     /**

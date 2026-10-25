@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\Verdict;
 use App\Models\Concerns\AppendOnly;
 use App\Models\Concerns\MirrorsEdgeLab;
 use Illuminate\Database\Eloquent\Builder;
@@ -55,7 +56,26 @@ class VlBoardEntry extends Model
      */
     public function scopeSellablePicks(Builder $query): Builder
     {
-        return $query->where('recommendation', 'bet')->where('market_verdict', 'proven');
+        return $query->where('recommendation', 'bet')
+            ->whereIn('market_verdict', self::recommendableVerdicts());
+    }
+
+    /**
+     * The verdicts that may surface a pick.
+     *
+     * Derived from the enum rather than restated here, because this list
+     * used to be the single word 'proven' written out in four places -
+     * and adding a tier would have left some of them behind, which is
+     * how a market becomes publishable on one screen and not another.
+     *
+     * @return array<int, string>
+     */
+    public static function recommendableVerdicts(): array
+    {
+        return array_values(array_map(
+            static fn (Verdict $verdict): string => $verdict->value,
+            array_filter(Verdict::cases(), static fn (Verdict $verdict): bool => $verdict->allowsRecommendation()),
+        ));
     }
 
     public function scopePasses(Builder $query): Builder
@@ -104,6 +124,7 @@ class VlBoardEntry extends Model
 
     public function isSellablePick(): bool
     {
-        return $this->recommendation === 'bet' && $this->market_verdict === 'proven';
+        return $this->recommendation === 'bet'
+            && in_array($this->market_verdict, self::recommendableVerdicts(), true);
     }
 }
