@@ -6,8 +6,28 @@
 <footer class="mt-16 border-t border-[var(--vg-line)] bg-[var(--vg-navy)]">
     <div class="mx-auto max-w-6xl px-6 py-10">
         <div class="flex flex-col gap-8 sm:flex-row sm:justify-between">
-            <div class="max-w-sm">
+            <div class="max-w-md">
                 <x-brand.lockup size="h-7" />
+
+                {{--
+                    What the name stands for, under the mark, which is
+                    where a full name belongs. Guarded rather than
+                    assumed: a backronym is the kind of thing a brand
+                    changes its mind about, and setting BRAND_EXPANSION
+                    empty should remove it without touching markup.
+                --}}
+                {{--
+                    Tracking is tight enough that the line survives the
+                    column. At 0.14em it wrapped and left "& Logic"
+                    stranded on a line of its own, which reads as a
+                    mistake rather than as a name.
+                --}}
+                @if (filled(config('brand.expansion')))
+                    <p class="mt-3 text-[11px] uppercase tracking-[0.08em] text-[var(--vg-muted)]">
+                        {{ config('brand.expansion') }}
+                    </p>
+                @endif
+
                 <p class="mt-3 text-sm text-[var(--vg-slate)]">{{ config('brand.description') }}</p>
             </div>
 

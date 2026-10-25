@@ -27,6 +27,20 @@ return [
     'tagline' => env('BRAND_TAGLINE', 'AI-Driven Edge'),
 
     /*
+    | What the name stands for.
+    |
+    | Lives here rather than in a template for the same reason the name
+    | does: it is spelled by the initials of the product's name, so a
+    | rename makes it nonsense and whoever renames it needs to find this
+    | in one place rather than in whichever views happened to use it.
+    |
+    | Set BRAND_EXPANSION to an empty string to drop it from the site
+    | entirely - a backronym is the kind of thing a brand changes its
+    | mind about, and that should not need a deploy of new markup.
+    */
+    'expansion' => env('BRAND_EXPANSION', 'Virtual Intelligence for Gambling Insights & Logic'),
+
+    /*
     | What the product actually does, in one sentence, for meta
     | descriptions and the OG card. Kept out of the tagline because a
     | tagline is a mood and this has to be literally true.
