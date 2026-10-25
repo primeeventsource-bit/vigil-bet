@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Enums\Sport;
 use App\Services\Ingestion\PlayerGameStatsWriter;
 use App\Services\Ingestion\ProvidesGameBoxScore;
+use App\Services\Ingestion\ProvidesPlayerGameStats;
 use App\Services\Ingestion\ProvidesTeamGameStats;
 use App\Services\Ingestion\SourceRegistry;
 use App\Services\Ingestion\TeamGameStatsWriter;
@@ -92,6 +93,10 @@ class BoxScoresCommand extends Command
 
                 for ($year = $from; $year <= $season; $year++) {
                     $this->bulk($sport, $source, $teamWriter, $year);
+
+                    if ($source instanceof ProvidesPlayerGameStats) {
+                        $this->bulkPlayers($sport, $source, $playerWriter, $year);
+                    }
                 }
 
                 continue;
@@ -211,6 +216,42 @@ class BoxScoresCommand extends Command
 
         $this->line(sprintf(
             '  %s: wrote %s, no event %d, unresolved team %d, empty %d',
+            $label,
+            number_format($counts['written']),
+            $counts['no_event'],
+            $counts['no_team'],
+            $counts['empty'],
+        ));
+    }
+
+    /**
+     * Player lines for a season, from a source that serves them a week
+     * at a time.
+     *
+     * Separate from bulk() rather than folded into it: the two read
+     * different endpoints, and a season whose team lines arrive while
+     * its player lines fail is a useful outcome rather than a reason to
+     * discard both.
+     */
+    private function bulkPlayers(
+        Sport $sport,
+        ProvidesPlayerGameStats $source,
+        PlayerGameStatsWriter $writer,
+        int $season,
+    ): void {
+        $week = $this->option('week') === null ? null : (int) $this->option('week');
+        $label = $sport->value.' '.$season.($week === null ? '' : " week {$week}");
+
+        try {
+            $counts = $writer->write($source->playerGameStats($season, $week));
+        } catch (Throwable $e) {
+            $this->error("  {$label} players: ".$e->getMessage());
+
+            return;
+        }
+
+        $this->line(sprintf(
+            '  %s players: wrote %s, no event %d, unresolved team %d, empty %d',
             $label,
             number_format($counts['written']),
             $counts['no_event'],

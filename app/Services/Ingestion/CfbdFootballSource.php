@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ingestion;
 
+use App\Data\PlayerGameStatLine;
 use App\Data\ScheduleGame;
 use App\Data\TeamGameStatLine;
 use App\Enums\EventStatus;
@@ -23,7 +24,7 @@ use Throwable;
  * CFBD moved from snake_case to camelCase keys between major versions, so
  * every field is read through a helper that accepts either.
  */
-class CfbdFootballSource implements ProvidesTeamGameStats, SportDataSource
+class CfbdFootballSource implements ProvidesPlayerGameStats, ProvidesTeamGameStats, SportDataSource
 {
     use MakesHttpRequests;
 
@@ -233,6 +234,165 @@ class CfbdFootballSource implements ProvidesTeamGameStats, SportDataSource
      *
      * @return Generator<int, TeamGameStatLine>
      */
+    public function playerGameStats(int $season, ?int $week = null): Generator
+    {
+        if (! $this->isAvailable()) {
+            throw new RuntimeException('CFBD API key is not configured.');
+        }
+
+        /*
+         * A season is its weeks, for the same reason teamGameStats walks
+         * them: CFBD will not serve a whole season of box scores and
+         * answers 400 without a week, team or conference.
+         */
+        if ($week === null) {
+            foreach (range(1, 16) as $each) {
+                foreach ($this->playerLinesFor(['year' => $season, 'week' => $each, 'seasonType' => 'regular']) as $line) {
+                    yield $line;
+                }
+            }
+
+            foreach ($this->playerLinesFor(['year' => $season, 'week' => 1, 'seasonType' => 'postseason']) as $line) {
+                yield $line;
+            }
+
+            return;
+        }
+
+        foreach ($this->playerLinesFor(['year' => $season, 'week' => $week, 'seasonType' => 'regular']) as $line) {
+            yield $line;
+        }
+    }
+
+    /**
+     * One request's worth of player lines.
+     *
+     * The payload nests four deep - game, team, category, stat type -
+     * with the same athlete repeated under every stat they recorded. So
+     * the lines are gathered per player per category first and yielded
+     * after, rather than emitting a line per stat and leaving the writer
+     * to stitch a quarterback back together.
+     *
+     * @param  array<string, int|string>  $query
+     * @return Generator<int, PlayerGameStatLine>
+     */
+    private function playerLinesFor(array $query): Generator
+    {
+        $games = $this->getJson($this->url('games/players'), $query, [
+            'Authorization' => 'Bearer '.config('edge.sources.cfbd.key'),
+        ]);
+
+        foreach ($games as $game) {
+            if (! is_array($game) || ! isset($game['id'])) {
+                continue;
+            }
+
+            $sourceEventId = (string) $game['id'];
+
+            foreach ($game['teams'] ?? [] as $team) {
+                if (! is_array($team)) {
+                    continue;
+                }
+
+                $teamName = $this->field($team, 'team', 'team');
+
+                foreach ($team['categories'] ?? [] as $category) {
+                    if (! is_array($category) || ! isset($category['name'])) {
+                        continue;
+                    }
+
+                    $lines = $this->categoryLines(
+                        $category,
+                        $sourceEventId,
+                        $teamName === null ? null : (string) $teamName,
+                        $this->idOf($team, 'team_id', 'teamId'),
+                    );
+
+                    /*
+                     * Looped rather than `yield from`, which would pass
+                     * this generator's keys up and have every category
+                     * start again at 0 - collapsing all but the last
+                     * line of each index for any caller that keys the
+                     * result.
+                     */
+                    foreach ($lines as $line) {
+                        yield $line;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Every player's line for one stat category of one team.
+     *
+     * @param  array<string, mixed>  $category
+     * @return Generator<int, PlayerGameStatLine>
+     */
+    private function categoryLines(
+        array $category,
+        string $sourceEventId,
+        ?string $teamName,
+        ?string $teamId,
+    ): Generator {
+        $group = (string) $category['name'];
+        $players = [];
+
+        foreach ($category['types'] ?? [] as $type) {
+            if (! is_array($type) || ! isset($type['name'])) {
+                continue;
+            }
+
+            foreach ($type['athletes'] ?? [] as $athlete) {
+                if (! is_array($athlete)) {
+                    continue;
+                }
+
+                $id = $athlete['id'] ?? null;
+
+                /*
+                 * No id, no line. A player we cannot name the same way
+                 * twice cannot be joined to anything, and a stat
+                 * attributed to nobody is noise in a table that exists
+                 * to be joined.
+                 */
+                if ($id === null || (string) $id === '') {
+                    continue;
+                }
+
+                $key = (string) $id;
+
+                $players[$key] ??= ['name' => (string) ($athlete['name'] ?? ''), 'stats' => []];
+
+                $stat = $athlete['stat'] ?? null;
+
+                if ($stat !== null && is_scalar($stat)) {
+                    // As printed. "27/44" is not a number, and casting it
+                    // would quietly make it 27.
+                    $players[$key]['stats'][(string) $type['name']] = (string) $stat;
+                }
+            }
+        }
+
+        foreach ($players as $id => $player) {
+            $line = new PlayerGameStatLine(
+                sport: Sport::Ncaaf,
+                sourceEventId: $sourceEventId,
+                playerExternalId: (string) $id,
+                playerName: $player['name'],
+                sourceTeamName: $teamName,
+                sourceTeamId: $teamId,
+                statGroup: $group,
+                stats: $player['stats'],
+                source: 'cfbd',
+            );
+
+            if ($line->hasContent()) {
+                yield $line;
+            }
+        }
+    }
+
     public function teamGameStats(int $season, ?int $week = null): Generator
     {
         if (! $this->isAvailable()) {
@@ -250,21 +410,36 @@ class CfbdFootballSource implements ProvidesTeamGameStats, SportDataSource
          * failing, so the range does not need to know when the season
          * ended.
          */
+        /*
+         * Looped rather than `yield from` throughout, which would hand
+         * the inner generator's keys up: every week would start again at
+         * 0, and a caller that keys the result - collect(),
+         * iterator_to_array preserving keys - would keep only the last
+         * line per index and silently lose the season. The writers
+         * iterate with foreach and never saw it, which is what made it
+         * worth a test rather than a comment.
+         */
         if ($week === null) {
             foreach (range(1, 16) as $each) {
-                yield from $this->teamGameStats($season, $each);
+                foreach ($this->teamGameStats($season, $each) as $line) {
+                    yield $line;
+                }
             }
 
-            yield from $this->postseasonTeamGameStats($season);
+            foreach ($this->postseasonTeamGameStats($season) as $line) {
+                yield $line;
+            }
 
             return;
         }
 
-        yield from $this->boxScores([
+        foreach ($this->boxScores([
             'year' => $season,
             'week' => $week,
             'seasonType' => 'regular',
-        ]);
+        ]) as $line) {
+            yield $line;
+        }
     }
 
     /**
@@ -278,11 +453,13 @@ class CfbdFootballSource implements ProvidesTeamGameStats, SportDataSource
      */
     private function postseasonTeamGameStats(int $season): Generator
     {
-        yield from $this->boxScores([
+        foreach ($this->boxScores([
             'year' => $season,
             'week' => 1,
             'seasonType' => 'postseason',
-        ]);
+        ]) as $line) {
+            yield $line;
+        }
     }
 
     /**
