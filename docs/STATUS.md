@@ -2253,3 +2253,57 @@ And `DEPLOY_LARAVEL_CLOUD.md` and `ENGINE_DECISIONS.md` both describe CI
 running this command against Postgres. There is no `.github` directory in
 this repository. Nothing has been running it automatically, which is how
 a check that fails during setup went years without anybody noticing.
+
+---
+
+### CI, which this repository has never had
+
+**25 October 2026.** The entry above ends on the observation that
+`DEPLOY_LARAVEL_CLOUD.md` and `ENGINE_DECISIONS.md` both describe CI
+running `edge:verify:guards` against Postgres, and that there is no
+`.github` directory here. Both are true. The CI those documents describe
+belongs to `edge-lab`, and when the engine was merged into this
+repository the prose came across and the workflow did not.
+
+So the guard command sat unrun, which is the whole reason a check that
+failed during its own setup could report success indefinitely.
+
+`.github/workflows/ci.yml` now runs four things, in separate jobs so a
+red build says which promise broke without anyone opening the log:
+
+- the suite on SQLite, which is what a contributor runs;
+- **the integrity guards on real PostgreSQL** — migrations applied,
+  `edge:verify:guards`, the suite again, then the whole chain rolled
+  back. This is the job that matters. The append-only triggers and the
+  CHECK constraints are created by migrations and exist nowhere but
+  Postgres, so the SQLite suite cannot execute them at all;
+- `npm ci && npm run build`, because the feature tests call
+  `withoutVite()` and a broken front end would otherwise reach a deploy;
+- `pint --test`.
+
+One detail took checking rather than assuming, because getting it wrong
+would have reproduced the exact bug the job exists to catch. `phpunit.xml`
+sets `DB_CONNECTION=sqlite`, and if that won, the Postgres job would run
+the suite on SQLite, skip every guard test, and report green. PHPUnit's
+`PhpHandler` only calls `putenv` when `force` is set or the variable is
+unset, so the job's own environment wins. Verified by reading it.
+
+**The PHP floor moved to 8.4, and the README was wrong.** It promised
+8.3. `composer.lock` resolves six Symfony packages requiring 8.4.1 —
+clock, css-selector, event-dispatcher, string, translation, yaml — so
+`composer install` fails outright on an 8.3 runner. `ENGINE_DECISIONS`
+records this being solved once by pinning `config.platform.php` to
+8.3.35; that pin is not in this repository's `composer.json`, having
+stayed behind with the workflow. The README now says 8.4 and gives the
+reason, and CI runs the version the README claims. `composer.json` still
+declares `^8.2`, which is a separate decision and left alone.
+
+**Written without being executed.** Docker Desktop is installed here and
+its Linux engine returns a 500 because WSL is not installed at all, which
+needs elevation and a reboot — the same wall `ENGINE_DECISIONS` hit, and
+the reason the Postgres job was CI-only in the first place. `pdo_pgsql`
+is enabled locally now, so the only missing piece is a reachable server.
+The first CI run is therefore the first execution of this workflow and of
+two of the three guards, and it may well go red. That is the job doing
+what it is for, and it is better written down here in advance than
+explained afterwards.

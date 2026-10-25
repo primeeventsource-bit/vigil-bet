@@ -1,0 +1,159 @@
+name: CI
+
+# Four things, in their own jobs, because a red build should say which
+# promise broke without anyone opening the log.
+#
+# The Postgres job is the one that matters most and is the reason this
+# file exists. The append-only triggers and the CHECK constraints are
+# created by migrations and live nowhere but Postgres, so the suite - which
+# runs on SQLite, where neither can be added after table creation - cannot
+# execute them at all. CI is their only real execution.
+#
+# That gap is not theoretical. `edge:verify:guards` spent a long time
+# reporting that a prediction timestamped after kickoff was rejected, while
+# actually failing during its own setup and reading the failure as proof.
+# Nothing was running it, so nothing noticed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Resolved once rather than per job, so the floor this project tests
+  # against is a single line to change.
+  PHP_VERSION: '8.4'
+
+jobs:
+  tests:
+    name: Test suite (SQLite)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, bcmath, intl, pdo_sqlite, sqlite3
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare the environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # The suite peaks near 140M against PHP's 128M default. phpunit.xml
+      # states the limit, so this is a plain run rather than a special one.
+      - name: Run the suite
+        run: php artisan test
+
+  postgres:
+    name: Integrity guards (PostgreSQL)
+    runs-on: ubuntu-24.04
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: vigil_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: vigil_test
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, bcmath, intl, pdo_pgsql, pgsql
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare the environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # Applying them here is itself a test. A migration that is valid on
+      # SQLite can still be rejected by Postgres, and one of these alters a
+      # table that carries an append-only trigger.
+      - name: Apply every migration
+        run: php artisan migrate --force
+
+      - name: Prove the guards are in force
+        run: php artisan edge:verify:guards
+
+      # The suite again, on Postgres. Most of it is unchanged, but the
+      # guard tests skip on SQLite and this is where they actually run.
+      - name: Run the suite against Postgres
+        run: php artisan test
+
+      # One fresh database puts every migration in a single batch, so a
+      # single rollback has to reverse the lot. A migration with no working
+      # `down()` is only discovered here.
+      - name: Roll the whole chain back
+        run: php artisan migrate:rollback --force
+
+  assets:
+    name: Front end compiles
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Feature tests call withoutVite(), so the suite passes without a
+      # build and a broken front end would otherwise reach a deploy. This
+      # is the step that makes that trade safe.
+      - name: Build
+        run: npm run build
+
+  format:
+    name: Formatting
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Check formatting
+        run: ./vendor/bin/pint --test

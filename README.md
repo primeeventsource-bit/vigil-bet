@@ -15,7 +15,11 @@ Choices that were genuinely open are recorded in
 
 ## Requirements
 
-PHP 8.3+, Composer, Node 20+. SQLite locally, PostgreSQL in production.
+PHP 8.4+, Composer, Node 20+. SQLite locally, PostgreSQL in production.
+
+The floor is 8.4 because `composer.lock` resolves six Symfony packages that
+require 8.4.1, so `composer install` fails outright on 8.3 rather than failing
+later in some subtle way. CI runs on the same version this says.
 
 ## Setup
 
