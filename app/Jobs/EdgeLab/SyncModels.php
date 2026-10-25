@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs\EdgeLab;
 
+use App\Enums\Verdict;
 use App\Models\SyncRun;
 use App\Models\VlModel;
 use App\Services\EdgeLab\EdgeLabClient;
@@ -98,8 +99,17 @@ class SyncModels implements ShouldQueue
             'status' => $row['status'] ?? null,
             'verdict' => $row['verdict'] ?? null,
             'verdict_reason' => $row['verdict_reason'] ?? null,
-            // Read, never inferred from the metrics beside it.
-            'allows_picks' => ($row['verdict'] ?? null) === 'proven',
+            /*
+             * Read, never inferred from the metrics beside it - and
+             * taken from the enum rather than compared against the
+             * string 'proven', which is what this was. A fifth copy of
+             * that word, missed when the other four were changed, would
+             * have mirrored every calibrated market as allows_picks
+             * false and left the board refusing what the engine had
+             * just approved.
+             */
+            'allows_picks' => Verdict::tryFrom((string) ($row['verdict'] ?? ''))
+                ?->allowsRecommendation() ?? false,
             'predictions' => $row['predictions'] ?? null,
             'log_loss_improvement' => $row['log_loss_improvement'] ?? null,
             'gate' => $row['gate'] ?? null,

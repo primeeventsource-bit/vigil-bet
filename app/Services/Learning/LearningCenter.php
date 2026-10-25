@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Learning;
 
+use App\Enums\Verdict;
 use App\Models\AiUsage;
 use App\Models\SyncRun;
 use App\Models\VlBoardEntry;
@@ -109,7 +110,18 @@ class LearningCenter
         return [
             'versions' => $models->count(),
             'markets' => $models->groupBy(fn (VlModel $m) => $m->sport.'|'.$m->market)->count(),
-            'proven' => $models->where('verdict', 'proven')->count(),
+            /*
+             * Two counts, because they are two different claims. `proven`
+             * is beating the closing line and is currently nobody.
+             * `publishable` includes the calibrated tier - markets whose
+             * own probabilities have held up - and reporting only the
+             * first would show a zero beside four markets that are
+             * publishing.
+             */
+            'proven' => $models->where('verdict', Verdict::Proven->value)->count(),
+            'publishable' => $models
+                ->filter(fn (VlModel $m): bool => $m->allowsPicks())
+                ->count(),
             // Predictions the engine has actually graded itself against.
             // Summed across the newest version of each market, not across
             // all versions, which would count the same games repeatedly.

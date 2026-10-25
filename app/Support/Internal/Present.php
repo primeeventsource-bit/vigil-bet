@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support\Internal;
 
+use App\Enums\Verdict;
 use App\Modeling\Odds\OddsConverter;
 use App\Models\Event;
 use App\Models\InjuryReport;
@@ -184,7 +185,11 @@ final class Present
 
             'verdict' => $metrics['verdict'] ?? null,
             'verdict_reason' => $metrics['verdict_reason'] ?? null,
-            'allows_picks' => ($metrics['verdict'] ?? null) === 'proven',
+            // From the enum, not the string: a calibrated market may
+            // surface a pick too, and comparing against 'proven' here
+            // would have the engine export it as unpublishable.
+            'allows_picks' => Verdict::tryFrom((string) ($metrics['verdict'] ?? ''))
+                ?->allowsRecommendation() ?? false,
 
             'predictions' => $metrics['predictions'] ?? null,
             'log_loss' => $metrics['log_loss'] ?? null,

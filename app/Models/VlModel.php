@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\Verdict;
 use App\Models\Concerns\AppendOnly;
 use App\Models\Concerns\MirrorsEdgeLab;
 use Illuminate\Database\Eloquent\Builder;
@@ -53,7 +54,7 @@ class VlModel extends Model
      */
     public function allowsPicks(): bool
     {
-        return $this->verdict === 'proven';
+        return Verdict::tryFrom((string) $this->verdict)?->allowsRecommendation() ?? false;
     }
 
     /** Plain words for a customer, from the stored verdict only. */

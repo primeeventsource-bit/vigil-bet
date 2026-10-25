@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai;
 
+use App\Enums\Verdict;
 use App\Models\ParlayGrade;
 use App\Models\VlBoardEntry;
 use App\Models\VlEvent;
@@ -41,11 +42,22 @@ class FactSheet
             'selection' => $entry->selection,
             'line' => $entry->line,
 
-            // The gate, stated plainly, because the model is required to
-            // say whether the market is proven and must not have to infer
-            // it from the recommendation.
+            /*
+             * The gate, stated plainly, because the model is required to
+             * say where a market stands and must not have to infer it
+             * from the recommendation.
+             *
+             * Two separate facts, and a Read that confused them would
+             * misdescribe the product. `proven` means it beats the
+             * closing line - nothing currently does. `may publish` is the
+             * weaker tier: honest probabilities, no edge claimed. A
+             * calibrated market is published and is not proven, and both
+             * halves of that have to reach the prompt.
+             */
             'market_verdict' => $entry->market_verdict,
-            'market_is_proven' => $entry->market_verdict === 'proven',
+            'market_is_proven' => $entry->market_verdict === Verdict::Proven->value,
+            'market_may_publish' => Verdict::tryFrom((string) $entry->market_verdict)
+                ?->allowsRecommendation() ?? false,
             'recommendation' => $entry->recommendation,
             'pass_reason' => $entry->pass_reason,
             'engine_sentence' => $entry->reason,
