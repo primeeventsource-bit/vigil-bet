@@ -32,11 +32,20 @@ class PropProjectionWriter
     /**
      * Record every projectable prop on the upcoming board.
      *
+     * `$rows` is passed in when the caller already has the board, which
+     * the reporting command does. Loading it twice is what exhausted the
+     * memory limit in production: props are pulled every five minutes,
+     * so one evening is a couple of hundred thousand quote rows and two
+     * copies do not fit. Relying on the service to memoise would not
+     * have helped, because the command and this class are handed
+     * separate instances of it.
+     *
+     * @param  array<int, array<string, mixed>>|null  $rows
      * @return array{recorded: int, existing: int, declined: int, candidates: int}
      */
-    public function record(?string $sport = null, ?string $market = null): array
+    public function record(?string $sport = null, ?string $market = null, ?array $rows = null): array
     {
-        $rows = $this->board->upcoming($sport, $market);
+        $rows ??= $this->board->upcoming($sport, $market);
         $fingerprint = $this->fingerprint();
         $params = $this->parameters();
 

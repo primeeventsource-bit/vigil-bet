@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Players\PropCalibration;
 use App\Services\Players\PropProjectionSettler;
 use App\Services\Players\PropProjectionWriter;
+use App\Support\BatchMemory;
 use Illuminate\Console\Command;
 
 /**
@@ -38,6 +39,9 @@ class SettlePropProjectionsCommand extends Command
         PropCalibration $calibration,
         PropProjectionWriter $writer,
     ): int {
+        // Thousands of projections and a box score for each.
+        BatchMemory::raise();
+
         $graded = $settler->run((int) $this->option('limit'));
 
         $this->info(sprintf(

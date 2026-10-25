@@ -54,8 +54,8 @@ function recordedGame(int $n, bool $finished = false): Event
              * declined to grade games that had not happened.
              */
             'starts_at' => $finished
-                ? now()->subDays(90)->addMinutes($n)
-                : now()->addDays(2)->addMinutes($n),
+                ? now()->startOfDay()->subDays(90)->addMinutes($n)
+                : now()->startOfDay()->addDays(2)->addMinutes($n),
         ],
         [
             'season' => (int) now()->year,

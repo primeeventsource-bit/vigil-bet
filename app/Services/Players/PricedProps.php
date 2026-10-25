@@ -22,17 +22,32 @@ use Illuminate\Support\Facades\DB;
  */
 class PricedProps
 {
+    /** @var array<string, array<int, array<string, mixed>>> */
+    private array $memo = [];
+
     /**
      * Every projectable prop on a game still to come.
+     *
+     * Memoised for the length of the request, because the report and
+     * the writer both ask for it and the second call was what exhausted
+     * the memory limit in production: props are pulled every five
+     * minutes, so one evening's board is a couple of hundred thousand
+     * quote rows and holding two copies of it is not affordable.
      *
      * @return array<int, array<string, mixed>>
      */
     public function upcoming(?string $sport = null, ?string $market = null): array
     {
+        $memoKey = ($sport ?? '*').'|'.($market ?? '*');
+
+        if (isset($this->memo[$memoKey])) {
+            return $this->memo[$memoKey];
+        }
+
         $markets = $market !== null ? [$market] : RatingSchema::projectableProps();
 
         if ($markets === []) {
-            return [];
+            return $this->memo[$memoKey] = [];
         }
 
         $quotes = DB::table('odds_snapshots as o')
@@ -42,6 +57,18 @@ class PricedProps
             ->whereNotNull('o.player_name')
             ->whereNotNull('o.price_american')
             ->where('e.starts_at', '>', now())
+            /*
+             * Recent pulls only, which is cheaper and also more
+             * correct. Props are pulled every five minutes, so without
+             * this the query returns every quote ever taken on tonight's
+             * games - a couple of hundred thousand rows, almost all of
+             * them superseded - and a price nobody is still offering is
+             * not a price. Six hours is many cadences' worth of margin
+             * for a feed that has stopped.
+             */
+            ->where('o.pulled_at', '>', now()->subHours(
+                (int) config('edge.props.quote_freshness_hours', 6)
+            ))
             ->when($sport, fn ($q) => $q->where('e.sport', $sport))
             ->orderBy('o.pulled_at')
             ->get([
@@ -79,7 +106,7 @@ class PricedProps
             $out[] = $entry['meta'] + ['prices' => $entry['prices']];
         }
 
-        return $out;
+        return $this->memo[$memoKey] = $out;
     }
 
     /**

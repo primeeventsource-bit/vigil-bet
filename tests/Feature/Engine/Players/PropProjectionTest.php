@@ -42,7 +42,19 @@ function propGame(string $sport, int $n): int
             'sport' => $sport,
             'home_team_id' => $home->id,
             'away_team_id' => $away->id,
-            'starts_at' => now()->subDays(300)->addDays($n),
+            /*
+             * Anchored to the start of the day, not to the clock.
+             *
+             * firstOrCreate keys on starts_at including its time, so
+             * with a bare now() a second ticking over between two calls
+             * for the same game produced a second event - and the
+             * anytime-touchdown test, which asks for one game twice to
+             * file a rushing and a receiving line against it, then saw
+             * thirteen games instead of twelve. It passed alone and
+             * failed after a slower file, which is the worst way for a
+             * fixture to be wrong.
+             */
+            'starts_at' => now()->startOfDay()->subDays(300)->addDays($n),
         ],
         [
             'season' => (int) now()->year,
@@ -83,7 +95,7 @@ function propStatLine(
         'source' => 'test',
         // Overridable, so a backfill can be simulated: a row written
         // today for a game played two seasons ago.
-        'as_of' => $asOf ?? now()->subDays(300)->addDays($event)->toDateTimeString(),
+        'as_of' => $asOf ?? now()->startOfDay()->subDays(300)->addDays($event)->toDateTimeString(),
         'created_at' => now(),
     ]);
 }
@@ -428,7 +440,7 @@ it('refuses a player whose team has moved on without him', function () {
             'stat_group' => 'receiving',
             'stats' => json_encode(['receivingYards' => '48']),
             'source' => 'test',
-            'as_of' => now()->subDays(300)->addDays($game)->toDateTimeString(),
+            'as_of' => now()->startOfDay()->subDays(300)->addDays($game)->toDateTimeString(),
             'created_at' => now(),
         ]);
     }
@@ -469,7 +481,7 @@ it('still projects a player who has only missed a bye', function () {
             'stat_group' => 'receiving',
             'stats' => json_encode(['receivingYards' => '52']),
             'source' => 'test',
-            'as_of' => now()->subDays(300)->addDays($game)->toDateTimeString(),
+            'as_of' => now()->startOfDay()->subDays(300)->addDays($game)->toDateTimeString(),
             'created_at' => now(),
         ]);
     }

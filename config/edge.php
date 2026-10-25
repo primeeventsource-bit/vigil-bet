@@ -511,6 +511,19 @@ return [
          * Zero turns the check off.
          */
         'max_team_games_missed' => 2,
+
+        /*
+         * How recent a prop quote must be to count as a price.
+         *
+         * Cheaper and also more correct. Props are pulled every five
+         * minutes, so without a window the board query returns every
+         * quote ever taken on tonight's games - a couple of hundred
+         * thousand rows, almost all superseded, which exhausted the
+         * memory limit in production - and a price nobody is still
+         * offering is not a price. Six hours is many cadences' worth of
+         * margin for a feed that has stopped.
+         */
+        'quote_freshness_hours' => 6,
     ],
 
     'http' => [

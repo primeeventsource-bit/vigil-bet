@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Players\PricedProps;
 use App\Services\Players\PropProjectionWriter;
 use App\Services\Players\PropProjector;
+use App\Support\BatchMemory;
 use Illuminate\Console\Command;
 
 /**
@@ -57,6 +58,15 @@ class ProjectPropsCommand extends Command
     public function handle(PropProjector $projector, PricedProps $board, PropProjectionWriter $writer): int
     {
         /*
+         * Batch work, and it holds the whole evening's board plus every
+         * player's game log for eight markets. Laravel Cloud caps a
+         * process at 256M in a managed ini while allowing the container
+         * four times that, and this died on the former with the latter
+         * going spare.
+         */
+        BatchMemory::raise();
+
+        /*
          * Overridable for this run so the bias can be measured at
          * several half-lives without a deploy. Measured rather than
          * chosen: how fast a player's role actually changes is a
@@ -105,7 +115,7 @@ class ProjectPropsCommand extends Command
         $this->board($projected, $board);
 
         if ($this->option('record')) {
-            $this->record($writer);
+            $this->record($writer, $rows);
         }
 
         return self::SUCCESS;
@@ -119,7 +129,7 @@ class ProjectPropsCommand extends Command
      * tested is whether it knew beforehand - so the record starts while
      * the model is still not good enough to show anybody, and accrues.
      */
-    private function record(PropProjectionWriter $writer): void
+    private function record(PropProjectionWriter $writer, array $rows): void
     {
         $this->newLine();
 
@@ -130,7 +140,7 @@ class ProjectPropsCommand extends Command
             $this->warn('Recording with an overridden half-life: these rows are filed under their own model fingerprint.');
         }
 
-        $counts = $writer->record($this->argument('sport'), $this->option('market'));
+        $counts = $writer->record($this->argument('sport'), $this->option('market'), $rows);
 
         $this->info(sprintf(
             'Recorded %d projections (%d already on file, %d declined) under model %s.',
