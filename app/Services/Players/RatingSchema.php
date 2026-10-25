@@ -262,6 +262,94 @@ final class RatingSchema
         ],
     ];
 
+    /**
+     * How each prop market's stat is distributed, and what its sides are.
+     *
+     * Separate from PROP_STATS because they answer different questions.
+     * PROP_STATS says which box score column a market is about;
+     * this says what shape that column's values take, which decides how a
+     * line becomes a probability. Getting the shape wrong does not fail -
+     * it returns a number that is wrong by a few points, which is worse.
+     *
+     * Three families, and the third is not a convenience:
+     *
+     *   count      - a small whole number: rebounds, assists, threes,
+     *                points. Fitted with a negative binomial, falling
+     *                back to Poisson when the sample varies less than
+     *                its own mean.
+     *
+     *   continuous - yardage. Near enough normal over a season, and a
+     *                normal is the only one of the three that cannot
+     *                produce a push, which is noted where it is used.
+     *
+     *   threshold  - "did it happen at all", which is anytime touchdown
+     *                and nothing else so far. Deliberately NOT a count
+     *                distribution, because the count families misprice
+     *                it in a specific and knowable direction: a player
+     *                who scores in 35% of his games has a mean of 0.35
+     *                and a variance near 0.23, so he is underdispersed,
+     *                so the fit falls to Poisson, and Poisson answers
+     *                1 - e^-0.35 = 29.5%. Six points light, on the
+     *                largest prop market on the board. The weighted
+     *                share of games he actually scored in is both
+     *                simpler and right.
+     *
+     * @var array<string, array{family: string, sides: array<int, string>, threshold?: float}>
+     */
+    public const PROP_MODELS = [
+        'player_points' => ['family' => 'count', 'sides' => ['over', 'under']],
+        'player_rebounds' => ['family' => 'count', 'sides' => ['over', 'under']],
+        'player_assists' => ['family' => 'count', 'sides' => ['over', 'under']],
+        'player_threes' => ['family' => 'count', 'sides' => ['over', 'under']],
+
+        'player_pass_yds' => ['family' => 'continuous', 'sides' => ['over', 'under']],
+        'player_rush_yds' => ['family' => 'continuous', 'sides' => ['over', 'under']],
+        'player_reception_yds' => ['family' => 'continuous', 'sides' => ['over', 'under']],
+
+        'player_anytime_td' => ['family' => 'threshold', 'sides' => ['yes', 'no'], 'threshold' => 1.0],
+    ];
+
+    /**
+     * The distribution and sides for a prop market, or nothing.
+     *
+     * Nothing means the market cannot be projected. The caller says so
+     * rather than guessing a family, because a guessed family is an
+     * unreported assumption about somebody's money.
+     *
+     * @return array{family: string, sides: array<int, string>, threshold?: float}|null
+     */
+    public static function modelForProp(string $marketKey): ?array
+    {
+        return self::PROP_MODELS[$marketKey] ?? null;
+    }
+
+    /** Every prop market that has both a stat and a distribution behind it. */
+    public static function projectableProps(): array
+    {
+        return array_values(array_intersect(
+            array_keys(self::PROP_STATS),
+            array_keys(self::PROP_MODELS),
+        ));
+    }
+
+    /**
+     * How one field should be read.
+     *
+     * Defaults to a counting stat, which is what most of them are, and
+     * is the safe default because a `made` compound read as a total
+     * returns nothing rather than something wrong.
+     */
+    public static function kindOf(string $sport, string $group, string $key): string
+    {
+        foreach (self::SPORTS[$sport] ?? [] as $measure) {
+            if ($measure['group'] === $group && $measure['key'] === $key) {
+                return $measure['kind'];
+            }
+        }
+
+        return 'total';
+    }
+
     /** @return array<int, string> */
     public static function sports(): array
     {

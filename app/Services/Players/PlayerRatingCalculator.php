@@ -431,95 +431,32 @@ class PlayerRatingCalculator
     }
 
     /**
-     * A stat as a number, or nothing.
-     *
-     * The feeds print a completion line as "27/44" in the same field
-     * shape as a yardage. Casting that gives 27, which is not wrong so
-     * much as about a different thing.
-     */
-    /**
      * A stat as a number, read the way its kind says to read it.
      *
-     * A `made` stat is a compound the feed writes as "5-12" or "5/12":
-     * five three-pointers from twelve attempts, three field goals from
-     * four. The first part is what happened and the second is what was
-     * tried, so the first is taken deliberately rather than by letting a
-     * cast pick it up by accident.
-     *
-     * Everything else must be wholly a number. A completion line of
-     * "27/44" cast as a yardage gives 27, which is not wrong so much as
-     * about a different thing.
+     * The reading itself lives in StatValue, shared with the prop
+     * projections. Both are built from these same rows and a difference
+     * of opinion about what "5-12" means would be invisible: the rating
+     * and the projection would simply be about different numbers.
      */
     private function value(mixed $value, string $kind): ?float
     {
-        if ($kind === 'made') {
-            return $this->madePart($value);
-        }
-
-        if ($kind === 'innings') {
-            return $this->innings($value);
-        }
-
-        return $this->numeric($value);
+        return StatValue::read($value, $kind);
     }
 
-    /**
-     * Baseball's innings notation as a real number.
-     *
-     * "5.2" is five innings and two thirds, not five point two. Read as
-     * a decimal it happens to sort correctly, which is how a wrong
-     * number survives: the ranking looks right while the arithmetic is
-     * not, and anything that later sums or averages it inherits the
-     * error. Converted here instead.
-     */
+    /** Baseball's innings notation as a real number. */
     private function innings(mixed $value): ?float
     {
-        $raw = $this->numeric($value);
-
-        if ($raw === null) {
-            return null;
-        }
-
-        $full = floor(abs($raw));
-        $thirds = (int) round((abs($raw) - $full) * 10);
-
-        // Only .0, .1 and .2 are meaningful; anything else is a feed
-        // writing a plain decimal, and is taken at face value.
-        if ($thirds > 2) {
-            return $raw;
-        }
-
-        $innings = $full + ($thirds / 3);
-
-        return $raw < 0 ? -$innings : $innings;
+        return StatValue::innings($value);
     }
 
     /** The first half of a "made-attempted" compound. */
     private function madePart(mixed $value): ?float
     {
-        if (is_int($value) || is_float($value)) {
-            return (float) $value;
-        }
-
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $parts = preg_split('/[-\/]/', trim($value), 2);
-
-        if ($parts === false || $parts === []) {
-            return null;
-        }
-
-        return is_numeric(trim($parts[0])) ? (float) trim($parts[0]) : null;
+        return StatValue::madePart($value);
     }
 
     private function numeric(mixed $value): ?float
     {
-        if (is_int($value) || is_float($value)) {
-            return (float) $value;
-        }
-
-        return is_string($value) && is_numeric(trim($value)) ? (float) trim($value) : null;
+        return StatValue::numeric($value);
     }
 }

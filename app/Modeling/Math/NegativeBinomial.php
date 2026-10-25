@@ -75,6 +75,42 @@ final class NegativeBinomial
     }
 
     /**
+     * Over, under and push for ONE count against a line.
+     *
+     * `totalProbabilities` below convolves two scorers because a game
+     * total is the sum of two teams. A player prop is one count - his
+     * own rebounds - so there is nothing to convolve, and running it
+     * through the two-variable form would price the sum of two players
+     * who do not exist.
+     *
+     * The push is the part worth being careful about. A line of 7.5
+     * cannot be tied, but books post whole numbers too, and a player
+     * with exactly 8 rebounds against a line of 8 has neither won nor
+     * lost the bet. Folding that probability into either side overstates
+     * it, and on a low-count market like threes it is worth several
+     * points.
+     *
+     * @return array{over: float, under: float, push: float}
+     */
+    public static function outcomes(float $mean, float $dispersion, float $line): array
+    {
+        if (! is_finite($line) || $line < 0.0) {
+            throw new InvalidArgumentException("A prop line must be a non-negative number, got {$line}.");
+        }
+
+        self::assertParams($mean, $dispersion);
+
+        $push = floor($line) === $line ? self::pmf((int) $line, $mean, $dispersion) : 0.0;
+        $under = max(0.0, self::cdf((int) floor($line), $mean, $dispersion) - $push);
+
+        return [
+            'over' => max(0.0, 1.0 - $under - $push),
+            'under' => $under,
+            'push' => $push,
+        ];
+    }
+
+    /**
      * @return array{home:float, draw:float, away:float}
      */
     public static function matchOutcome(

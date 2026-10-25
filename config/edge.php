@@ -424,6 +424,69 @@ return [
         'shrink_games' => 20,
     ],
 
+    /*
+     * Player prop projections.
+     *
+     * Note what is NOT here: a shrink for the projected level. The
+     * ratings shrink toward the peer mean because they produce a rank,
+     * and shrinkage protects a rank. A projection produces a level that
+     * is compared against a line, and shrinking it would bias every
+     * comparison the same direction - a back averaging a hundred rushing
+     * yards pulled toward a pool averaging twenty-five projects
+     * seventy-eight, and the model says "under" on everything while each
+     * individual number still looks sober. Only the spread is pooled,
+     * and only as a scale-free ratio.
+     */
+    'props' => [
+        /*
+         * Games before a player can be projected at all.
+         *
+         * Matches the ratings, and for the same reason: fewer than ten
+         * is a sample that can produce any number asked of it. Below
+         * this the projection is refused rather than widened, because a
+         * refusal is legible and a very wide distribution reads as an
+         * opinion.
+         */
+        'min_games' => 10,
+
+        /*
+         * Half-life, in games, of how much an old game counts.
+         *
+         * A sample has to span seasons to say anything in October, and
+         * the user asked for exactly that - last season's stats
+         * informing this season's. But a player's role in October is not
+         * his role last March, so the older games inform rather than
+         * govern: at 20, a game twenty back weighs half as much as
+         * tonight's and one forty back a quarter.
+         *
+         * Zero weights every game equally.
+         */
+        'recency_half_life_games' => 20,
+
+        /*
+         * How far a player's own spread is trusted against his group's.
+         *
+         * A variance over twelve games is poorly estimated in a way a
+         * mean is not, and pooling it costs no bias in the level - the
+         * dispersion index and the coefficient of variation are both
+         * scale-free, so the group's value is multiplied back by the
+         * player's own mean rather than replacing it.
+         */
+        'dispersion_pool_games' => 8,
+
+        /*
+         * The prior behind a "did it happen at all" rate.
+         *
+         * Anytime touchdown, and the one place a level IS shrunk. A rate
+         * is bounded at zero, so a player who has not scored in eleven
+         * games has an unshrunk estimate of exactly nil - a claim he
+         * cannot score, which eleven games cannot support. The pull
+         * toward the group rate is what stops an absence being read as a
+         * certainty.
+         */
+        'threshold_prior_games' => 8,
+    ],
+
     'http' => [
         /*
          * Read timeout, in seconds.

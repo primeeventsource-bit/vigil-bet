@@ -77,3 +77,50 @@ it('rejects impossible parameters', function () {
     expect(fn () => NB::pmf(1, 0.0, 4.0))->toThrow(InvalidArgumentException::class)
         ->and(fn () => NB::pmf(1, 4.0, 0.0))->toThrow(InvalidArgumentException::class);
 });
+
+it('prices one count against a line without convolving it with anything', function () {
+    /*
+     * A game total is the sum of two teams and has to be convolved. A
+     * player prop is one count - his own rebounds - and running it
+     * through the two-variable form would price the sum of two players
+     * who do not exist.
+     *
+     * A rebounder averaging 8 with a variance of 12 is dispersion
+     * (8*8)/(12-8) = 16.
+     */
+    $outcomes = NB::outcomes(8.0, 16.0, 7.5);
+
+    expect($outcomes['push'])->toBe(0.0)
+        ->and($outcomes['over'] + $outcomes['under'])->toEqualWithDelta(1.0, 1e-9)
+        // Just above his average, so a little under even money.
+        ->and($outcomes['over'])->toBeGreaterThan(0.45)
+        ->and($outcomes['over'])->toBeLessThan(0.55);
+});
+
+it('leaves the push out of both sides on a whole-number prop line', function () {
+    /*
+     * Exactly eight rebounds against a line of eight is neither a win
+     * nor a loss, and folding it into either side overstates that side.
+     * On a low count the push is worth several points.
+     */
+    $outcomes = NB::outcomes(8.0, 16.0, 8.0);
+
+    expect($outcomes['push'])->toBeGreaterThan(0.05)
+        ->and($outcomes['over'] + $outcomes['under'] + $outcomes['push'])
+        ->toEqualWithDelta(1.0, 1e-9);
+});
+
+it('gives a prop tail more weight than Poisson would', function () {
+    /*
+     * The reason this family is used for props at all. Poisson ties the
+     * variance to the mean, so it understates exactly the tail an over
+     * bet is bought from - and understating it turns a bet with value
+     * into a pass.
+     */
+    expect(NB::outcomes(8.0, 16.0, 11.5)['over'])
+        ->toBeGreaterThan(Poisson::survival(11, 8.0));
+});
+
+it('refuses a negative prop line rather than answering about one', function () {
+    expect(fn () => NB::outcomes(8.0, 16.0, -1.0))->toThrow(InvalidArgumentException::class);
+});
