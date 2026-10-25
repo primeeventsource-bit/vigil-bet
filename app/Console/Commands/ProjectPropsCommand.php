@@ -45,12 +45,26 @@ class ProjectPropsCommand extends Command
                             {sport? : Sport key; omit for every sport with projectable props}
                             {--market= : One prop market key}
                             {--limit=20 : How many rows to print per market}
-                            {--min-edge=0.03 : Only print rows at least this far from the fair price}';
+                            {--min-edge=0.03 : Only print rows at least this far from the fair price}
+                            {--half-life= : Override the recency half-life, in games, for this run}';
 
     protected $description = 'Project tonight\'s player props from box scores and compare them to the board';
 
     public function handle(PropProjector $projector): int
     {
+        /*
+         * Overridable for this run so the bias can be measured at
+         * several half-lives without a deploy. Measured rather than
+         * chosen: how fast a player's role actually changes is a
+         * question about the data, and the answer is whichever setting
+         * leaves the least bias against the sharpest price available.
+         */
+        if ($this->option('half-life') !== null) {
+            config()->set('edge.props.recency_half_life_games', (float) $this->option('half-life'));
+
+            $this->line(sprintf('Recency half-life overridden to %s games.', $this->option('half-life')));
+        }
+
         $rows = $this->pricedProps($this->argument('sport'), $this->option('market'));
 
         if ($rows === []) {

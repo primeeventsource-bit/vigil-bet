@@ -153,12 +153,30 @@ class PropProjector
             $wanted[$stat['group']][$stat['key']] = RatingSchema::kindOf($sport, $stat['group'], $stat['key']);
         }
 
-        $rows = DB::table('player_game_stats')
-            ->where('sport', $sport)
-            ->whereIn('stat_group', $groups)
-            ->orderBy('as_of')
-            ->orderBy('id')
-            ->get(['player_external_id', 'player_name', 'team_id', 'event_id', 'stat_group', 'stats', 'as_of']);
+        /*
+         * Ordered by when the game was PLAYED, not by when the row was
+         * written, and the difference is not academic - it inverted the
+         * recency weighting for exactly the players it mattered most
+         * for.
+         *
+         * `as_of` is an ingestion stamp. A backfill of the 2023-24
+         * season ran after this season's games were pulled, so those
+         * rows carry the later stamp, so ordering by it put a player's
+         * oldest games at the newest end of his log and gave them the
+         * heaviest weight. Ty Jerome has gone 5.2, 11.0, 17.8, 30.0
+         * points a game across four seasons, and the weighting was
+         * leaning on the 5.2.
+         */
+        $rows = DB::table('player_game_stats as p')
+            ->join('events as e', 'e.id', '=', 'p.event_id')
+            ->where('p.sport', $sport)
+            ->whereIn('p.stat_group', $groups)
+            ->orderBy('e.starts_at')
+            ->orderBy('p.id')
+            ->get([
+                'p.player_external_id', 'p.player_name', 'p.team_id', 'p.event_id',
+                'p.stat_group', 'p.stats', 'e.starts_at as played_at',
+            ]);
 
         /** @var array<string, array<string, mixed>> $players */
         $players = [];
@@ -199,13 +217,13 @@ class PropProjector
                 'external_ids' => [],
                 'team_id' => $row->team_id,
                 'byEvent' => [],
-                'first' => $row->as_of,
-                'last' => $row->as_of,
+                'first' => $row->played_at,
+                'last' => $row->played_at,
             ];
 
             $players[$key]['external_ids'][(string) $row->player_external_id] = true;
             $players[$key]['team_id'] = $row->team_id ?? $players[$key]['team_id'];
-            $players[$key]['last'] = $row->as_of;
+            $players[$key]['last'] = $row->played_at;
 
             // Summed per event, so two stat groups in one game are one
             // game with a bigger number.

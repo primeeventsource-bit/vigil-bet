@@ -69,6 +69,7 @@ function propStatLine(
     array $stats,
     ?string $name = null,
     ?string $externalId = null,
+    ?string $asOf = null,
 ): void {
     DB::table('player_game_stats')->insert([
         'sport' => $sport,
@@ -80,7 +81,9 @@ function propStatLine(
         'stat_group' => $group,
         'stats' => json_encode($stats),
         'source' => 'test',
-        'as_of' => now()->subDays(900)->addDays($event),
+        // Overridable, so a backfill can be simulated: a row written
+        // today for a game played two seasons ago.
+        'as_of' => $asOf ?? now()->subDays(900)->addDays($event)->toDateTimeString(),
         'created_at' => now(),
     ]);
 }
@@ -166,6 +169,40 @@ it('weights a recent change in role above an old one', function () {
         // Thirty games weighted toward the recent ones are not thirty
         // games of evidence, and the number says so.
         ->and($projection->effectiveGames)->toBeLessThan(30.0);
+});
+
+it('weights by when a game was played, not by when the row was written', function () {
+    /*
+     * The bug this pins was invisible, produced sober-looking numbers,
+     * and was wrong in a direction.
+     *
+     * `as_of` is an ingestion stamp. A backfill of an old season runs
+     * after the current season has been pulled, so those rows carry the
+     * LATER stamp - and ordering a game log by it puts a player's oldest
+     * games at the newest end and gives them the heaviest recency
+     * weight. In production it had the weighting leaning on Ty Jerome's
+     * 5.2-point rookie season while the book priced his current 30, and
+     * the model called a 19.5 line a 58-point edge on the under.
+     *
+     * Twenty old quiet games stamped as written TODAY, then ten recent
+     * big ones stamped as written a year ago. Ordered by the stamp the
+     * log reads backwards; ordered by the fixture it reads correctly.
+     */
+    foreach (range(1, 20) as $i) {
+        propStatLine('nba', 'all', 'Backfilled Guard', $i, ['points' => '8'],
+            null, null, now()->toDateTimeString());
+    }
+
+    foreach (range(21, 30) as $i) {
+        propStatLine('nba', 'all', 'Backfilled Guard', $i, ['points' => '28'],
+            null, null, now()->subYear()->toDateTimeString());
+    }
+
+    $projection = app(PropProjector::class)->project('nba', 'player_points', 'Backfilled Guard', 20.5);
+
+    // The flat average is 14.7. Weighted toward the games actually
+    // played most recently it must land above that, not below.
+    expect($projection->projectedMean)->toBeGreaterThan(16.0);
 });
 
 /*

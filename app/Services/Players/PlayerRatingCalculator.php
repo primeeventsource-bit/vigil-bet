@@ -189,11 +189,25 @@ class PlayerRatingCalculator
          */
         $derivation = RatingSchema::derivation($sport, $group);
 
-        $rows = DB::table('player_game_stats')
-            ->where('sport', $sport)
-            ->where('stat_group', $derivation['from'] ?? $group)
-            ->orderBy('id')
-            ->get(['player_external_id', 'player_name', 'team_id', 'event_id', 'stats', 'as_of']);
+        /*
+         * Ordered by when the game was played rather than by row id.
+         * `as_of` is an ingestion stamp and a backfill carries a later
+         * one than the season it is filling, so reading the window off
+         * it reported a sample that ran to a date the player had not
+         * played on - and "latest team wins" below picked whichever
+         * row was written last rather than whichever game was played
+         * last, which for a traded player is the wrong team.
+         */
+        $rows = DB::table('player_game_stats as p')
+            ->join('events as e', 'e.id', '=', 'p.event_id')
+            ->where('p.sport', $sport)
+            ->where('p.stat_group', $derivation['from'] ?? $group)
+            ->orderBy('e.starts_at')
+            ->orderBy('p.id')
+            ->get([
+                'p.player_external_id', 'p.player_name', 'p.team_id',
+                'p.event_id', 'p.stats', 'e.starts_at as played_at',
+            ]);
 
         $players = [];
 
@@ -221,13 +235,13 @@ class PlayerRatingCalculator
                 'events' => [],
                 'totals' => [],
                 'counts' => [],
-                'first' => $row->as_of,
-                'last' => $row->as_of,
+                'first' => $row->played_at,
+                'last' => $row->played_at,
             ];
 
             // Latest team wins: a traded player belongs to where he is.
             $players[$id]['team_id'] = $row->team_id ?? $players[$id]['team_id'];
-            $players[$id]['last'] = $row->as_of;
+            $players[$id]['last'] = $row->played_at;
 
             if (! isset($players[$id]['events'][$row->event_id])) {
                 $players[$id]['events'][$row->event_id] = true;
