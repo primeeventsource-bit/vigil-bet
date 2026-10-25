@@ -187,6 +187,28 @@ return [
          * Verdict::claimsEdge().
          */
         'unproven_edge_shrink' => 0.25,
+
+        /*
+         * How much a lopsided injury list tightens that shrink.
+         *
+         * The engine's probability is a power rating and has never seen
+         * an injury report. A book reprices within minutes of a
+         * quarterback being ruled out, so an absence is information the
+         * market holds and this model does not - and the response is to
+         * disagree with the market less on those games rather than to
+         * invent a points-per-injury number nobody measured.
+         *
+         * It is the imbalance that counts, not the count. Measured on 25
+         * October 2026, every upcoming NFL game had two to six players
+         * out per side; that is ordinary attrition and roughly cancels in
+         * a head-to-head price. Indianapolis at Minnesota was five
+         * against none, which does not cancel at all.
+         *
+         * At 0.25 an imbalance of one divides the shrink by 1.25 and an
+         * imbalance of five divides it by 2.25, so a one-sided list moves
+         * the published number most of the way back to the book.
+         */
+        'absence_imbalance_weight' => 0.25,
         // A pick must also win often enough to be worth showing. This is a
         // display preference, not a profitability test: a 52% bet at a good
         // price is profitable, it just is not what was asked for.

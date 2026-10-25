@@ -20,6 +20,7 @@ use App\Models\BankrollLedgerEntry;
 use App\Models\BankrollSetting;
 use App\Models\Book;
 use App\Models\ConsensusPrice as ConsensusPriceRow;
+use App\Models\Event;
 use App\Models\Prediction;
 use App\Models\ValueBet;
 use App\Models\ValueScan;
@@ -61,6 +62,7 @@ class ValueScanner
         private readonly LineShopper $shopper,
         private readonly StakeSizer $sizer,
         private readonly LimitGuard $limits,
+        private readonly Availability $availability,
     ) {}
 
     public function scan(?Sport $sport = null, int $horizonHours = 72, ?int $jobRunId = null): ValueScan
@@ -170,7 +172,7 @@ class ValueScanner
          * the edge at the price, expected value, the Kelly stake - is
          * measured from this number rather than the raw model one.
          */
-        $modelProb = $this->shrinkToMarket($modelProb, $fairProb, $verdict);
+        $modelProb = $this->shrinkToMarket($modelProb, $fairProb, $verdict, $event);
 
         $edge = $fairProb === null ? null : $modelProb - $fairProb;
 
@@ -490,13 +492,35 @@ class ValueScanner
      * With no market price there is nothing to shrink toward, so the
      * model's own number stands and the edge is null anyway.
      */
-    private function shrinkToMarket(float $modelProb, ?float $fairProb, Verdict $verdict): float
+    private function shrinkToMarket(float $modelProb, ?float $fairProb, Verdict $verdict, Event $event): float
     {
         if ($fairProb === null || $verdict->claimsEdge()) {
             return $modelProb;
         }
 
         $shrink = (float) config('edge.value.unproven_edge_shrink', 0.25);
+
+        /*
+         * And further still when one side is missing more players than
+         * the other.
+         *
+         * The engine's probability is a power rating that has never seen
+         * an injury report; the market reprices within minutes of a
+         * quarterback being ruled out. So a lopsided absence list is
+         * information the price holds and this number does not, and the
+         * correct response is to disagree with the price less - not to
+         * invent a points-per-injury coefficient nobody measured.
+         *
+         * Symmetric absences barely move this, which is deliberate: every
+         * NFL game has players out, and treating ordinary attrition as a
+         * crisis would shrink every pick to nothing.
+         */
+        $imbalance = $this->availability->imbalance($event);
+
+        if ($imbalance > 0) {
+            $weight = (float) config('edge.value.absence_imbalance_weight', 0.25);
+            $shrink /= 1.0 + ($weight * $imbalance);
+        }
 
         return $fairProb + ($shrink * ($modelProb - $fairProb));
     }

@@ -24,13 +24,64 @@ declare(strict_types=1);
 */
 
 use App\Enums\Verdict;
+use App\Models\Event;
+use App\Models\Team;
 use App\Services\Value\ValueScanner;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
-function shrink(float $model, ?float $fair, Verdict $verdict): float
+/**
+ * A game nobody is injured for, so the base shrink is what is measured.
+ */
+function cleanGame(): Event
+{
+    $salt = Str::random(6);
+
+    $team = fn (string $side) => Team::create([
+        'sport' => 'nfl',
+        'name' => $side.' '.$salt,
+        'display_name' => $side.' '.$salt,
+        'slug' => mb_strtolower($side).'-'.$salt,
+    ]);
+
+    return Event::create([
+        'sport' => 'nfl',
+        'home_team_id' => $team('Home')->id,
+        'away_team_id' => $team('Away')->id,
+        'starts_at' => now()->addDays(2),
+        'season' => (int) now()->year,
+        'status' => 'scheduled',
+    ]);
+}
+
+/** Rule a number of players out for one side. */
+function ruleOut(Event $event, string $side, int $count): void
+{
+    $teamId = $side === 'home' ? $event->home_team_id : $event->away_team_id;
+
+    foreach (range(1, max($count, 0)) as $i) {
+        if ($i > $count) {
+            break;
+        }
+
+        DB::table('injury_reports')->insert([
+            'sport' => 'nfl',
+            'team_id' => $teamId,
+            'player_name' => $side.' Player '.$i.' '.Str::random(4),
+            'position' => 'WR',
+            'status' => 'out',
+            'source' => 'test',
+            'reported_at' => now()->addDay(),
+            'created_at' => now(),
+        ]);
+    }
+}
+
+function shrink(float $model, ?float $fair, Verdict $verdict, ?Event $event = null): float
 {
     $method = new ReflectionMethod(ValueScanner::class, 'shrinkToMarket');
 
-    return $method->invoke(app(ValueScanner::class), $model, $fair, $verdict);
+    return $method->invoke(app(ValueScanner::class), $model, $fair, $verdict, $event ?? cleanGame());
 }
 
 it('pulls an unproven market most of the way back to the book', function () {
@@ -109,4 +160,94 @@ it('ships with a ceiling that actually binds', function () {
 
     expect($configured)->toBeGreaterThan(0.0)
         ->and($configured)->toBeLessThan(1.0);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Injuries the model has never seen
+|--------------------------------------------------------------------------
+|
+| The engine's probability is a power rating. A book reprices within
+| minutes of a quarterback being ruled out, so a lopsided absence list is
+| information the market holds and this model does not - and the response
+| is to disagree with the market less, not to invent a points-per-injury
+| coefficient nobody measured.
+|
+*/
+
+it('disagrees with the market less when one side is missing more players', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+    config()->set('edge.value.absence_imbalance_weight', 0.25);
+
+    $game = cleanGame();
+    $even = shrink(0.623, 0.336, Verdict::Calibrated, $game);
+
+    $lopsided = cleanGame();
+    ruleOut($lopsided, 'home', 5);
+
+    expect(shrink(0.623, 0.336, Verdict::Calibrated, $lopsided))
+        ->toBeLessThan($even);
+});
+
+it('treats absences on both sides as the ordinary attrition they are', function () {
+    /*
+     * Every upcoming NFL game had two to six players out per side when
+     * this was written. Counting that as a crisis would shrink every pick
+     * to nothing.
+     */
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+    config()->set('edge.value.absence_imbalance_weight', 0.25);
+
+    $game = cleanGame();
+    ruleOut($game, 'home', 5);
+    ruleOut($game, 'away', 5);
+
+    expect(round(shrink(0.623, 0.336, Verdict::Calibrated, $game), 3))
+        ->toBe(round(shrink(0.623, 0.336, Verdict::Calibrated, cleanGame()), 3));
+});
+
+it('shrinks further the more lopsided the list gets', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+    config()->set('edge.value.absence_imbalance_weight', 0.25);
+
+    $one = cleanGame();
+    ruleOut($one, 'home', 1);
+
+    $five = cleanGame();
+    ruleOut($five, 'home', 5);
+
+    expect(shrink(0.623, 0.336, Verdict::Calibrated, $five))
+        ->toBeLessThan(shrink(0.623, 0.336, Verdict::Calibrated, $one));
+});
+
+it('ignores a report filed after kickoff, which is the leakage rule', function () {
+    /*
+     * A scan re-run over a finished game would otherwise count the report
+     * filed at half time and look clairvoyant.
+     */
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+
+    $game = cleanGame();
+
+    DB::table('injury_reports')->insert([
+        'sport' => 'nfl',
+        'team_id' => $game->home_team_id,
+        'player_name' => 'Ruled Out At Half Time',
+        'status' => 'out',
+        'source' => 'test',
+        'reported_at' => $game->starts_at->copy()->addHours(2),
+        'created_at' => now(),
+    ]);
+
+    expect(round(shrink(0.623, 0.336, Verdict::Calibrated, $game), 3))
+        ->toBe(round(shrink(0.623, 0.336, Verdict::Calibrated, cleanGame()), 3));
+});
+
+it('leaves a proven market unshrunk however lopsided the game is', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+
+    $game = cleanGame();
+    ruleOut($game, 'home', 6);
+
+    expect(shrink(0.623, 0.336, Verdict::Proven, $game))->toBe(0.623);
 });
