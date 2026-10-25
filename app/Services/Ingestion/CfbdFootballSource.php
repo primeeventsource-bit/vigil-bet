@@ -25,6 +25,9 @@ class CfbdFootballSource implements ProvidesTeamGameStats, SportDataSource
 {
     use MakesHttpRequests;
 
+    /** Quarters in a regulation football game. A fifth period is overtime. */
+    private const REGULATION_PERIODS = 4;
+
     public function key(): string
     {
         return 'cfbd';
@@ -266,6 +269,13 @@ class CfbdFootballSource implements ProvidesTeamGameStats, SportDataSource
             $awayPoints = $this->field($row, 'away_points', 'awayPoints');
             $completed = (bool) ($this->field($row, 'completed', 'completed') ?? false);
 
+            $periods = $this->periods(
+                $this->field($row, 'home_line_scores', 'homeLineScores'),
+                $this->field($row, 'away_line_scores', 'awayLineScores'),
+            );
+
+            $final = $completed || $this->finishedOnTheBoard($periods, $homePoints, $awayPoints);
+
             yield new ScheduleGame(
                 sport: Sport::Ncaaf,
                 sourceEventId: (string) $row['id'],
@@ -275,15 +285,101 @@ class CfbdFootballSource implements ProvidesTeamGameStats, SportDataSource
                 season: (int) ($this->field($row, 'season', 'season') ?? $query['year'] ?? 0),
                 seasonType: $this->seasonTypeFrom($this->field($row, 'season_type', 'seasonType'), $seasonType),
                 week: $this->field($row, 'week', 'week') !== null ? (int) $this->field($row, 'week', 'week') : null,
-                status: $completed ? EventStatus::Final : EventStatus::Scheduled,
+                status: $final ? EventStatus::Final : EventStatus::Scheduled,
                 homeScore: $homePoints !== null ? (int) $homePoints : null,
                 awayScore: $awayPoints !== null ? (int) $awayPoints : null,
                 homeTeamExternalId: $this->idOf($row, 'home_id', 'homeId'),
                 awayTeamExternalId: $this->idOf($row, 'away_id', 'awayId'),
                 venueName: $this->field($row, 'venue', 'venue'),
                 neutralSite: (bool) ($this->field($row, 'neutral_site', 'neutralSite') ?? false),
+                wentOvertime: $final && count($periods ?? []) > self::REGULATION_PERIODS,
+                periodScores: $periods,
             );
         }
+    }
+
+    /**
+     * Quarter scores, paired home against away.
+     *
+     * CFBD sends two parallel arrays. They are zipped here rather than
+     * stored side by side so a period is one row, which is what reading
+     * a box score asks of them.
+     *
+     * @return array<int, array{num: int, home: ?int, away: ?int}>|null
+     */
+    private function periods(mixed $home, mixed $away): ?array
+    {
+        if (! is_array($home) || ! is_array($away) || $home === [] || $away === []) {
+            return null;
+        }
+
+        $periods = [];
+
+        for ($i = 0, $count = max(count($home), count($away)); $i < $count; $i++) {
+            $periods[] = [
+                'num' => $i + 1,
+                'home' => isset($home[$i]) && is_numeric($home[$i]) ? (int) $home[$i] : null,
+                'away' => isset($away[$i]) && is_numeric($away[$i]) ? (int) $away[$i] : null,
+            ];
+        }
+
+        return $periods;
+    }
+
+    /**
+     * Whether the board says the game is over, for a game CFBD has not
+     * yet flagged.
+     *
+     * `completed` comes from a batch job that runs hours behind the
+     * scoreboard: on 24 October 2026, seventeen week-8 games carried full
+     * final scores with `completed: false`, one of them 27-24 with four
+     * quarters of line scores, while weeks 5 to 7 were all flagged. So the
+     * flag arrives eventually and the only cost of waiting for it is that
+     * an opinion on a finished game cannot be graded for a few hours.
+     *
+     * The line scores settle it earlier and on stronger evidence than a
+     * clock estimate would: every period of regulation played, the period
+     * scores adding up to the totals on both sides, and someone ahead.
+     *
+     * Each condition rules out a way of being wrong. Fewer periods than
+     * regulation means the game is still running. Periods that do not sum
+     * to the total mean the two disagree, and a disagreement is not
+     * evidence of anything. A tie at the end of regulation means overtime
+     * is pending, and calling that game a draw would grade every opinion
+     * on it against a result that never happened.
+     *
+     * @param  array<int, array{num: int, home: ?int, away: ?int}>|null  $periods
+     */
+    private function finishedOnTheBoard(?array $periods, mixed $homePoints, mixed $awayPoints): bool
+    {
+        if ($periods === null || count($periods) < self::REGULATION_PERIODS) {
+            return false;
+        }
+
+        if (! is_numeric($homePoints) || ! is_numeric($awayPoints)) {
+            return false;
+        }
+
+        $home = (int) $homePoints;
+        $away = (int) $awayPoints;
+
+        if ($home === $away) {
+            return false;
+        }
+
+        foreach (['home', 'away'] as $side) {
+            $scores = array_column($periods, $side);
+
+            if (in_array(null, $scores, true)) {
+                return false;
+            }
+
+            if (array_sum($scores) !== ($side === 'home' ? $home : $away)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function field(array $row, string $snake, string $camel): mixed
