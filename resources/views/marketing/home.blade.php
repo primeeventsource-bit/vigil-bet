@@ -47,6 +47,46 @@
         </div>
     </section>
 
+    {{--
+        The brand band, from the supplied asset pack.
+
+        Used whole rather than as a background plate. At 801x174 it is a
+        4.6:1 strip, and object-cover inside a tall hero would crop away
+        both the helmet and the tagline, which is most of what the image
+        is. As a band the composition arrives as it was drawn.
+
+        801px is its native size in the master reference - the supplied
+        crops are 1:1, so there is no larger version to be had. It spans
+        the viewport, which means an upscale on a wide screen; the 2x
+        file softens that and the image is dark and atmospheric rather
+        than detailed, so the cost is small. A sharper band would need
+        new artwork, not a better scaler.
+    --}}
+    <section aria-label="{{ config('brand.name') }}" class="relative isolate overflow-hidden border-b border-[var(--vg-line)]">
+        <img src="{{ asset('images/hero/hero-banner.jpg') }}"
+             srcset="{{ asset('images/hero/hero-banner.jpg') }} 801w, {{ asset('images/hero/hero-banner@2x.jpg') }} 1602w"
+             sizes="100vw"
+             alt=""
+             aria-hidden="true"
+             loading="lazy"
+             decoding="async"
+             {{--
+                 Its own aspect rather than a fixed height. The strip is
+                 4.6:1, and any height that does not match crops the
+                 helmet or the tagline - the two things it is for.
+             --}}
+             class="aspect-[801/174] w-full object-cover object-center">
+
+        {{--
+            Seams at both ends. The band is darkest in its corners but not
+            quite the page colour, so without these the join reads as a
+            slightly wrong black rather than as no join at all.
+        --}}
+        <span aria-hidden="true"
+              class="pointer-events-none absolute inset-y-0 left-0 w-24 bg-[linear-gradient(90deg,var(--vg-night),transparent)]"></span>
+        <span aria-hidden="true"
+              class="pointer-events-none absolute inset-y-0 right-0 w-24 bg-[linear-gradient(270deg,var(--vg-night),transparent)]"></span>
+    </section>
     {{-- The honest counter-pitch, which is the product's actual edge. --}}
     <section class="relative border-b border-[var(--vg-line)] bg-[var(--vg-navy)]">
         <div class="mx-auto max-w-6xl px-6 py-16">

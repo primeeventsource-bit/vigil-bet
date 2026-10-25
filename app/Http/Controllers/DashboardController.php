@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Opinion;
 use App\Models\User;
 use App\Models\VigilRead;
 use App\Models\VlBoardEntry;
@@ -14,6 +15,7 @@ use App\Services\Ai\ReadQuota;
 use App\Services\Ai\ResearchBrief;
 use App\Services\EdgeLab\SyncHealth;
 use App\Services\Entitlements\Entitlements;
+use App\Services\Record\OpinionRecord;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -42,6 +44,7 @@ class DashboardController extends Controller
         Entitlements $entitlements,
         ReadQuota $quota,
         ResearchBrief $research,
+        OpinionRecord $opinionRecord,
     ): View {
         $sport = $request->query('sport');
         $user = $request->user();
@@ -72,8 +75,25 @@ class DashboardController extends Controller
             ? VlBoardEntry::query()->current()->nearMisses()->limit(5)->get()
             : collect();
 
+        /*
+         * The day's published opinions, which is what this page is for
+         * while no market is proven. Live only - a game that has started
+         * is no longer a pick anybody can act on, and leaving it up
+         * would pad the card with selections that are already settled
+         * in everything but name.
+         */
+        $opinions = Opinion::query()->live()->with('event:id,starts_at')->limit(12)->get();
+
         return view('app.dashboard', [
             'picks' => $picks,
+            'opinions' => $opinions,
+            /*
+             * The accuracy of everything published so far, shown beside
+             * today's card. A picks page without its record is a claim
+             * with nowhere to check it, and the figures come back null
+             * rather than zero until something has been graded.
+             */
+            'opinionRecord' => $opinionRecord->summary(),
             // Only sports the engine has actually judged. A tab with
             // nothing behind it is a dead end dressed as a feature.
             'availableSports' => VlBoardEntry::query()->current()->sellablePicks()
