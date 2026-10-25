@@ -40,7 +40,26 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            /*
+             * How long before an in-flight job is presumed abandoned and
+             * handed to another worker. It must exceed the longest job
+             * this application runs, or that job is not slow - it is
+             * broken: the queue reclaims it mid-run, a second worker
+             * starts it over, and it dies on max attempts having done its
+             * work twice.
+             *
+             * That is not hypothetical. At 90 seconds,
+             * `ingest:results:ncaaf` failed 8 of 19 runs over twelve
+             * hours while averaging 442 seconds, and the two failed_jobs
+             * rows it left were both MaxAttemptsExceeded rather than
+             * anything about football.
+             *
+             * The ingestion jobs are faster now, but the ceiling is what
+             * makes a slow upstream a delay instead of a failure, so it
+             * is set well above any of them rather than just above the
+             * one that broke.
+             */
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 1800),
             'after_commit' => false,
         ],
 

@@ -21,6 +21,14 @@ use Illuminate\Support\Facades\DB;
  */
 class EventSynchronizer
 {
+    /**
+     * Venue name to id.
+     *
+     * Null until first needed, so a run that never sees a venue name
+     * never reads the table. @var array<string, int>|null
+     */
+    private ?array $venueIds = null;
+
     public function __construct(private readonly TeamResolver $teams) {}
 
     /**
@@ -57,7 +65,7 @@ class EventSynchronizer
             }
 
             DB::transaction(function () use ($game, $source, $home, $away, &$stats): void {
-                $event = $this->findEvent($game, $source, $home->id, $away->id);
+                ['event' => $event, 'claimed' => $claimed] = $this->findEvent($game, $source, $home->id, $away->id);
 
                 $attributes = [
                     'sport' => $game->sport->value,
@@ -97,6 +105,10 @@ class EventSynchronizer
                     $stats['updated']++;
                 }
 
+                if ($claimed) {
+                    return;
+                }
+
                 // Keyed on the sport too: a source's game ids are per-league,
                 // so without it an NBA sync claims the row an NHL game holds.
                 EventExternalId::query()->updateOrCreate(
@@ -113,18 +125,35 @@ class EventSynchronizer
         return $stats;
     }
 
-    private function findEvent(ScheduleGame $game, string $source, int $homeId, int $awayId): ?Event
+    /**
+     * The event this game refers to, and whether the source already
+     * claims it.
+     *
+     * The caller needs both. Matching on a claim row proves the claim
+     * exists and points here, so re-writing it is a round trip spent to
+     * change nothing - on the path that every already-known game takes.
+     *
+     * @return array{event: ?Event, claimed: bool}
+     */
+    private function findEvent(ScheduleGame $game, string $source, int $homeId, int $awayId): array
     {
-        $byExternal = EventExternalId::query()
-            ->where('source', $source)
-            ->where('external_id', $game->sourceEventId)
+        /*
+         * Joined rather than looked up and then fetched. The id and the
+         * row are one question, and asking it as two cost a round trip a
+         * game on a path every game takes.
+         */
+        $byExternal = Event::query()
+            ->select('events.*')
+            ->join('event_external_ids as claim', 'claim.event_id', '=', 'events.id')
+            ->where('claim.source', $source)
+            ->where('claim.external_id', $game->sourceEventId)
             // Per-league ids again: an unscoped lookup hands back whichever
             // sport claimed this number first.
-            ->where('sport', $game->sport->value)
-            ->value('event_id');
+            ->where('claim.sport', $game->sport->value)
+            ->first();
 
-        if ($byExternal) {
-            return Event::find($byExternal);
+        if ($byExternal !== null) {
+            return ['event' => $byExternal, 'claimed' => true];
         }
 
         // Fall back to the natural key for sources that have no stable id, or
@@ -135,7 +164,7 @@ class EventSynchronizer
         //  - and skipping any event this source has already claimed under a
         //    different id, which is what separates the two halves of a
         //    doubleheader and consecutive games of a postseason series.
-        return Event::query()
+        $natural = Event::query()
             ->where('sport', $game->sport->value)
             ->where('home_team_id', $homeId)
             ->where('away_team_id', $awayId)
@@ -151,6 +180,8 @@ class EventSynchronizer
                     ->where('event_external_ids.source', $source);
             })
             ->first();
+
+        return ['event' => $natural, 'claimed' => false];
     }
 
     /**
@@ -163,13 +194,59 @@ class EventSynchronizer
      * wiped by a later schedule pull that happens to carry no address, and
      * a roof flag set by hand must outlast a feed that goes quiet about it.
      */
+    /**
+     * Whether a feed has told us anything about this venue beyond its
+     * name, which is the only reason to read the row.
+     */
+    private function carriesVenueDetail(ScheduleGame $game): bool
+    {
+        return $game->venueCity !== null
+            || $game->venueRegion !== null
+            || $game->venueIndoor !== null
+            || $game->roof !== null;
+    }
+
+    /** @return array<string, int> */
+    private function venueIds(): array
+    {
+        if ($this->venueIds === null) {
+            $this->venueIds = Venue::query()
+                ->pluck('id', 'name')
+                ->map(static fn ($id): int => (int) $id)
+                ->all();
+        }
+
+        return $this->venueIds;
+    }
+
     private function venueId(ScheduleGame $game): ?int
     {
         if ($game->venueName === null || trim($game->venueName) === '') {
             return null;
         }
 
-        $venue = Venue::query()->firstOrCreate(['name' => trim($game->venueName)]);
+        $name = trim($game->venueName);
+
+        /*
+         * A stadium already on file, from a feed with nothing new to say
+         * about it, is answered from the map. CFBD sends a venue name and
+         * nothing else, so for NCAAF that is every game.
+         *
+         * When the feed does carry detail the row is read as before,
+         * because the enrichment below needs the model and skipping it
+         * would quietly stop venues ever learning their city or roof.
+         */
+        if (! $this->carriesVenueDetail($game)) {
+            $known = $this->venueIds();
+
+            if (isset($known[$name])) {
+                return $known[$name];
+            }
+        }
+
+        $venue = Venue::query()->firstOrCreate(['name' => $name]);
+
+        $this->venueIds = ($this->venueIds ?? []) + [$name => $venue->id];
 
         $fill = [];
 
