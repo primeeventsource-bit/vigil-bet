@@ -397,6 +397,33 @@ return [
      */
     'batch_memory_limit' => env('EDGE_BATCH_MEMORY_LIMIT', '512M'),
 
+    /*
+    |----------------------------------------------------------------------
+    | Player ratings
+    |----------------------------------------------------------------------
+    */
+    'players' => [
+        /*
+         * How many games of evidence it takes to be trusted as far as
+         * the crowd.
+         *
+         * A player's measures are pulled toward their peer group's
+         * average in proportion to how little we have seen of him:
+         * (games x observed + k x mean) / (games + k). At 20, a player
+         * with twenty games is trusted half as far as the group, one
+         * with two hundred almost entirely, and one with ten barely at
+         * all.
+         *
+         * Without it a percentile over fifteen innings and one over a
+         * hundred and thirty read as the same claim, and a reliever with
+         * ten appearances outranked Mason Miller at a hundred and
+         * thirty - a good fortnight beats a good season on rate alone.
+         *
+         * Zero turns it off.
+         */
+        'shrink_games' => 20,
+    ],
+
     'http' => [
         /*
          * Read timeout, in seconds.

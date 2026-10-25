@@ -526,3 +526,103 @@ it('does not let ten good appearances outrank a season of work', function () {
     expect($rated['workhorse']['components']['innings'])
         ->toBeGreaterThan($rated['cup-of-coffee']['components']['innings']);
 });
+
+/*
+|--------------------------------------------------------------------------
+| A good fortnight is not a good season
+|--------------------------------------------------------------------------
+|
+| A percentile over fifteen innings and one over a hundred and thirty read
+| as the same claim unless something asks how long the sample was. They
+| are not the same claim, and measured here the difference put a reliever
+| with ten appearances above Mason Miller at a hundred and thirty.
+|
+| So every measure is pulled toward its peer group's average in proportion
+| to how little we have seen of the player.
+|
+*/
+
+it('ranks a long good record above a short brilliant one', function () {
+    config()->set('edge.players.shrink_games', 20);
+
+    // Enough players for a group average to exist to shrink toward.
+    foreach (range(1, 8) as $i) {
+        ratedConsistent('nba', 'all', 'filler'.$i, [
+            'points' => '12', 'rebounds' => '4', 'assists' => '3',
+            'threePointFieldGoalsMade-threePointFieldGoalsAttempted' => '1-4',
+            'steals' => '1', 'blocks' => '0', 'minutes' => '24', 'turnovers' => '2',
+        ], 60, 2000 + ($i * 100));
+    }
+
+    ratedConsistent('nba', 'all', 'hot-streak', [
+        'points' => '34', 'rebounds' => '9', 'assists' => '8',
+        'threePointFieldGoalsMade-threePointFieldGoalsAttempted' => '5-9',
+        'steals' => '2', 'blocks' => '1', 'minutes' => '36', 'turnovers' => '1',
+    ], 11, 3000);
+
+    ratedConsistent('nba', 'all', 'season-long', [
+        'points' => '28', 'rebounds' => '8', 'assists' => '7',
+        'threePointFieldGoalsMade-threePointFieldGoalsAttempted' => '4-9',
+        'steals' => '2', 'blocks' => '1', 'minutes' => '36', 'turnovers' => '1',
+    ], 200, 3200);
+
+    $rated = collect(app(PlayerRatingCalculator::class)->forSport('nba'))->keyBy('player_external_id');
+
+    /*
+     * The streak player has the better raw numbers in every category and
+     * eleven games to show for them. The season-long player is behind on
+     * the raw rate and has two hundred games, and should rate higher.
+     */
+    expect($rated['season-long']['overall'])
+        ->toBeGreaterThan($rated['hot-streak']['overall']);
+});
+
+it('leaves a long record almost untouched by the shrink', function () {
+    /*
+     * Regression to the mean applied honestly, not a cap on outliers. A
+     * genuinely great player with a long record keeps his number because
+     * the sample carries it.
+     */
+    foreach (range(1, 8) as $i) {
+        ratedConsistent('nba', 'all', 'mid'.$i, [
+            'points' => '12', 'rebounds' => '4', 'assists' => '3',
+            'threePointFieldGoalsMade-threePointFieldGoalsAttempted' => '1-4',
+            'steals' => '1', 'blocks' => '0', 'minutes' => '24', 'turnovers' => '2',
+        ], 100, 4000 + ($i * 100));
+    }
+
+    ratedConsistent('nba', 'all', 'great', [
+        'points' => '31', 'rebounds' => '9', 'assists' => '9',
+        'threePointFieldGoalsMade-threePointFieldGoalsAttempted' => '4-9',
+        'steals' => '2', 'blocks' => '1', 'minutes' => '37', 'turnovers' => '2',
+    ], 300, 5000);
+
+    $rated = collect(app(PlayerRatingCalculator::class)->forSport('nba'))->keyBy('player_external_id');
+
+    expect($rated['great']['overall'])->toBeGreaterThan(90);
+});
+
+it('can be turned off in configuration rather than in code', function () {
+    config()->set('edge.players.shrink_games', 0);
+
+    ratedConsistent('nba', 'all', 'a', [
+        'points' => '30', 'rebounds' => '5', 'assists' => '5',
+        'threePointFieldGoalsMade-threePointFieldGoalsAttempted' => '3-7',
+        'steals' => '1', 'blocks' => '1', 'minutes' => '34', 'turnovers' => '2',
+    ], 11, 6000);
+
+    ratedConsistent('nba', 'all', 'b', [
+        'points' => '10', 'rebounds' => '2', 'assists' => '2',
+        'threePointFieldGoalsMade-threePointFieldGoalsAttempted' => '1-5',
+        'steals' => '0', 'blocks' => '0', 'minutes' => '18', 'turnovers' => '3',
+    ], 11, 6200);
+
+    $rated = collect(app(PlayerRatingCalculator::class)->forSport('nba'))->keyBy('player_external_id');
+
+    // Equal samples, so with the shrink off the raw rates decide.
+    expect($rated['a']['overall'])->toBeGreaterThan($rated['b']['overall']);
+});
+
+it('ships with a shrink that actually binds', function () {
+    expect((float) config('edge.players.shrink_games'))->toBeGreaterThan(0.0);
+});

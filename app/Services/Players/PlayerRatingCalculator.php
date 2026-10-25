@@ -97,6 +97,8 @@ class PlayerRatingCalculator
             return [];
         }
 
+        $players = $this->shrinkToGroup($players);
+
         /*
          * Percentiles are taken per measure across the whole group, so
          * every component is on the same scale before the weights are
@@ -283,6 +285,73 @@ class PlayerRatingCalculator
         }
 
         return $out;
+    }
+
+    /**
+     * Pull every player's measures toward the group average, in
+     * proportion to how little we have seen of them.
+     *
+     * Without this a percentile over fifteen innings and a percentile
+     * over a hundred and thirty are treated as the same claim. They are
+     * not: measured here, a reliever with ten appearances and a 1.80
+     * earned run average ranked above Mason Miller at a hundred and
+     * thirty, because a good fortnight produces a better rate than a
+     * good season and nothing was asking how long the fortnight was.
+     *
+     * The estimate is the standard one - the observation and the group
+     * mean, weighted by the sample against a constant:
+     *
+     *     (games x observed + k x mean) / (games + k)
+     *
+     * At k = 20 a player with twenty games is trusted half as far as the
+     * group, one with two hundred almost entirely, and one with ten
+     * barely at all. A rate he cannot support is pulled back toward the
+     * crowd rather than rewarded for being extreme.
+     *
+     * This is regression to the mean applied honestly rather than a cap
+     * on outliers: a genuinely great player with a long record keeps his
+     * number, because the sample carries it.
+     *
+     * @param  array<string, array<string, mixed>>  $players
+     * @return array<string, array<string, mixed>>
+     */
+    private function shrinkToGroup(array $players): array
+    {
+        $k = (float) config('edge.players.shrink_games', 20);
+
+        if ($k <= 0.0) {
+            return $players;
+        }
+
+        /*
+         * The mean is taken over players rather than over games, so one
+         * everyday starter cannot drag the average he is being compared
+         * against toward himself.
+         */
+        $means = [];
+        $counts = [];
+
+        foreach ($players as $player) {
+            foreach ($player['measures'] as $key => $value) {
+                $means[$key] = ($means[$key] ?? 0.0) + $value;
+                $counts[$key] = ($counts[$key] ?? 0) + 1;
+            }
+        }
+
+        foreach ($means as $key => $sum) {
+            $means[$key] = $sum / max($counts[$key], 1);
+        }
+
+        foreach ($players as $id => $player) {
+            foreach ($player['measures'] as $key => $value) {
+                $games = (float) $player['games'];
+
+                $players[$id]['measures'][$key] =
+                    (($games * $value) + ($k * $means[$key])) / ($games + $k);
+            }
+        }
+
+        return $players;
     }
 
     /**
