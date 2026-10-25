@@ -27,3 +27,4 @@ require_once __DIR__.'/Fixtures/teams.php';
 require_once __DIR__.'/Fixtures/internal.php';
 require_once __DIR__.'/Fixtures/shadow.php';
 require_once __DIR__.'/Fixtures/opinions.php';
+require_once __DIR__.'/Fixtures/nflverse.php';

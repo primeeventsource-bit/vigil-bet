@@ -21,6 +21,7 @@ use App\Jobs\Odds\PullPropsForSport;
 use App\Jobs\Ops\ReapStaleJobRuns;
 use App\Jobs\Value\ScanCrossBook;
 use App\Jobs\Value\ScanValue;
+use App\Services\Ingestion\ResultsCadence;
 use App\Services\Odds\PullCadence;
 use Illuminate\Support\Facades\Schedule;
 
@@ -77,15 +78,18 @@ Schedule::command('vigil:dunning')
     ->withoutOverlapping();
 
 /*
- * Grading. Hourly, because a game finishing at 22:30 should be settled
- * before the customer looks in the morning - and because the cost of
- * running it on nothing is a single query.
+ * Grading. Every quarter of an hour, because the cost of running it on
+ * nothing is a single query and the cost of not running it is a
+ * customer looking at a finished game their own bet still calls
+ * pending.
  *
  * It only ever settles from a mirrored final score, so running it before
- * Edge Lab has the result is harmless: those bets stay pending.
+ * the result has landed is harmless: those bets stay pending. That is
+ * also why the frequency belongs on the results pull rather than here -
+ * this pass can only be as current as what it reads.
  */
 Schedule::command('vigil:settle-bets')
-    ->hourlyAt(5)
+    ->everyFifteenMinutes()
     ->name('settle-bets')
     ->withoutOverlapping();
 
@@ -183,10 +187,23 @@ foreach (Sport::enabled() as $sport) {
         ->name("schedules-{$sport->value}")
         ->withoutOverlapping();
 
+    /*
+     * Final scores, on a clock that follows whether one is outstanding.
+     *
+     * Everything that grades waits on this - a customer's own bets, the
+     * published record, the opinions page - so an hourly pass meant a
+     * game finishing at ten past the hour was still showing `pending`
+     * over an hour later, which reads as a product that has not noticed
+     * rather than one waiting on a feed. ResultsCadence runs it every
+     * few minutes while a finished game is missing its score and leaves
+     * it alone otherwise, so the frequency is spent on the slate that is
+     * actually outstanding.
+     */
     Schedule::job(new SyncResults($sport))
-        ->hourly()
+        ->everyFiveMinutes()
         ->name("results-{$sport->value}")
-        ->withoutOverlapping();
+        ->withoutOverlapping()
+        ->when(fn (): bool => app(ResultsCadence::class)->isDue($sport));
 
     // Availability moves on practice reports and warmups, not
     // continuously, and one request covers a whole league. What matters is
@@ -405,17 +422,19 @@ Schedule::command('vigil:publish-opinions')
 /*
  * Grade yesterday's opinions.
  *
- * Hourly rather than daily because games finish all day, and an opinion
- * that stays ungraded while its game is over makes the accuracy figure
- * quietly stale - the published count moves and the graded count does
- * not.
+ * Through the day rather than nightly because games finish all day, and
+ * an opinion that stays ungraded while its game is over makes the
+ * accuracy figure quietly stale - the published count moves and the
+ * graded count does not. Worse, it is the page's own answer to "did
+ * this one win" sitting blank next to a result anybody can look up.
  *
- * After the results pull, so the final score it needs has usually
- * landed. An opinion with no score yet is left alone rather than
- * guessed at, so running early costs nothing but a pass.
+ * No fixed offset from the results pull any more, because that pull no
+ * longer runs on a fixed clock. An opinion with no score yet is left
+ * alone rather than guessed at, so running early costs nothing but a
+ * pass - which is what makes a quarter-hourly sweep affordable.
  */
 Schedule::command('vigil:settle-opinions')
-    ->hourlyAt(20)
+    ->everyFifteenMinutes()
     ->name('settle-opinions')
     ->withoutOverlapping();
 

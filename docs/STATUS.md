@@ -2147,3 +2147,52 @@ which reads as a broken suite rather than a missing ini setting, and
 `-d memory_limit=` does not help because the runner starts a child
 process. Declared in `phpunit.xml`, where it applies to the run that
 actually executes the tests.
+
+#### And then the rest of the lag
+
+The entry above closed with the honest remainder: results synced hourly
+and opinions graded at twenty past, so a game ending at ten past was
+still graded about seventy minutes later. That was called a cadence
+question with a defensible answer. On a second look the answer was not
+defensible — it was just the one that had never been examined.
+
+The hourly pull is wrong in both directions at once. A game finishing at
+ten past the hour waits fifty minutes for a feed that already has the
+score, while a sport whose slate finished yesterday is asked again every
+hour through the night for results it has had since. One number cannot
+be right for both, because the question it is answering is not "how
+often" but "is there an answer outstanding".
+
+So `ResultsCadence` asks that instead, in the same shape as
+`PullCadence` and for the opposite reason: that one tightens as kickoff
+approaches because a closing line is perishable, this one tightens while
+a finished game is still missing its score because that is the only
+state in which pulling results achieves anything. Five minutes while
+chasing, an hour when there is nothing to chase.
+
+The chase is bounded at both ends. A game is not expected to have a
+score until it could plausibly have finished, and is left to the idle
+pass some hours later — because without that second bound, one
+postponement that never scores would hold a sport at the fast cadence
+indefinitely, which is precisely the failure a cadence class exists to
+prevent. Canceled and postponed games are excluded for the same reason.
+
+Two smaller differences from `PullCadence`, both deliberate. It counts
+any run rather than only successful ones: a missed odds pull is
+perishable and should be retried at once, a result is not and will still
+be there in five minutes — and a sport with no results source records a
+skip every time it is asked, which would otherwise retry as fast as the
+scheduler ticks. And the key the cadence watches is the key the job
+records under, which is a string in two places, so a test ties them
+together: get it wrong and nothing throws, the lookup simply never finds
+a run and every tick looks like the first.
+
+Grading itself moved to every fifteen minutes — both the customer's own
+bets and the opinions. It only ever settles from a final score already
+in the database, so a pass with nothing to do is one query, and that is
+what makes the frequency affordable. The engine's internal settles and
+the shadow recorder stay hourly: nobody is watching those in real time.
+
+Worst case is now about twenty minutes from a game ending to its row on
+the public page carrying a result, most of which is waiting for the
+upstream feed rather than for us.

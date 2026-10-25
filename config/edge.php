@@ -138,6 +138,31 @@ return [
 
     /*
     |----------------------------------------------------------------------
+    | Results cadence
+    |----------------------------------------------------------------------
+    |
+    | How often to ask a feed for final scores. Frequently while a game
+    | that should have finished is still missing one, rarely otherwise:
+    | pulling results for a slate that is already graded achieves nothing
+    | and some of these feeds are metered.
+    |
+    | `finished_after_minutes` is how long after kickoff a game is first
+    | expected to have a score - long enough to cover a slow one rather
+    | than an average one, since asking early only wastes the call.
+    | `chase_for_hours` is when to stop asking often and leave it to the
+    | idle pass, so that one game nothing ever scores cannot hold a sport
+    | at the fast cadence for ever.
+    |
+    */
+    'results' => [
+        'finished_after_minutes' => (int) env('RESULTS_FINISHED_AFTER_MINUTES', 150),
+        'chase_for_hours' => (int) env('RESULTS_CHASE_FOR_HOURS', 12),
+        'chasing_minutes' => (int) env('RESULTS_CHASING_MINUTES', 5),
+        'idle_minutes' => (int) env('RESULTS_IDLE_MINUTES', 60),
+    ],
+
+    /*
+    |----------------------------------------------------------------------
     | My sportsbook accounts
     |----------------------------------------------------------------------
     |
