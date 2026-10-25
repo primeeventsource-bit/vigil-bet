@@ -12,9 +12,26 @@ return [
     | Everything scheduled fans out over this list, so a league removed
     | here stops being pulled, priced and scanned without anything else
     | needing to change - and stops spending the odds quota.
+    |
+    | College is deliberately not on it. That is a product decision rather
+    | than a configuration accident, so it is enforced here and an
+    | EDGE_SPORTS naming ncaaf or ncaab will not bring it back: the env var
+    | chooses among the leagues this product runs, it does not add to them.
+    |
+    | What it cost to find out is worth writing down. Neither college
+    | market ever cleared a publication bar - ncaaf h2h sat at 8.47%
+    | calibration error against a 6% ceiling over 9,929 measured
+    | predictions, and ncaab at 12.89% - and neither had any injury
+    | coverage at all, because no feed we have publishes it. The data is
+    | kept; nothing is deleted. Putting either back is one line here.
     */
-    'sports_enabled' => array_values(array_filter(
-        array_map('trim', explode(',', (string) env('EDGE_SPORTS', 'nfl,nba,mlb,nhl,ncaaf,ncaab')))
+    'sports_supported' => ['nfl', 'nba', 'mlb', 'nhl'],
+
+    'sports_enabled' => array_values(array_intersect(
+        array_values(array_filter(
+            array_map('trim', explode(',', (string) env('EDGE_SPORTS', 'nfl,nba,mlb,nhl')))
+        )),
+        ['nfl', 'nba', 'mlb', 'nhl'],
     )),
 
     /*
