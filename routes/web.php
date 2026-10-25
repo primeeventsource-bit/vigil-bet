@@ -16,6 +16,7 @@ use App\Http\Controllers\BetController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GamesController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\LearningCenterController;
 use App\Http\Controllers\ModelLabController;
@@ -225,6 +226,14 @@ Route::middleware('auth')->group(function (): void {
          * a day - and the daily cap is counted in the controller.
          */
         Route::middleware('entitled:parlay.grade')->group(function (): void {
+            /*
+             * Today's games: the betting surface. Separate from the
+             * board, which records what the engine decided and refuses
+             * everything it has not proven - the restriction that left
+             * the builder with nothing to click.
+             */
+            Route::get('games', [GamesController::class, 'index'])->name('games');
+
             Route::get('parlays', [ParlayController::class, 'index'])->name('parlays');
             Route::post('parlays/legs', [ParlayController::class, 'add'])->name('parlays.add');
             Route::delete('parlays/legs', [ParlayController::class, 'remove'])->name('parlays.remove');

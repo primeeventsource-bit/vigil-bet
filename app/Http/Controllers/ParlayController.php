@@ -11,12 +11,14 @@ use App\Models\VigilRead;
 use App\Models\VlBoardEntry;
 use App\Services\Ai\ReadWriter;
 use App\Services\Entitlements\Entitlements;
+use App\Services\Odds\GameMarkets;
 use App\Services\Parlay\ParlayJudge;
 use App\Services\Parlay\ParlayLedger;
 use App\Services\Parlay\ParlaySlip;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use RuntimeException;
 
@@ -45,7 +47,8 @@ class ParlayController extends Controller
             ->first();
 
         return view('app.parlays', [
-            'legs' => $slip->entries(),
+            'legs' => $slip->selections(),
+            'combined' => $slip->combinedPriceAmerican(),
             'maxLegs' => ParlaySlip::MAX_LEGS,
             'grade' => $latest,
             'read' => $latest === null ? null : VigilRead::query()
@@ -55,37 +58,71 @@ class ParlayController extends Controller
                 ->first(),
             'gradesToday' => $this->gradesToday($user),
             'gradeLimit' => $entitlements->limit($user, 'parlays_per_day'),
-            // Candidates to add: only picks the product is allowed to
-            // sell. A slip built from unproven markets would be graded
-            // against probabilities nobody may act on.
+            /*
+             * The engine's own recommendations, where it has any. These
+             * are a shortcut and not the way in: with no market proven
+             * this list is empty, and it used to be the only source of
+             * legs - which is why the builder had nothing to click. Games
+             * to bet on now come from Today's Games.
+             */
             'candidates' => VlBoardEntry::query()->current()->sellablePicks()
                 ->orderByDesc('edge_at_price')
                 ->limit(20)
                 ->get()
-                ->reject(fn (VlBoardEntry $e) => in_array($e->id, $slip->ids(), true))
+                ->reject(fn (VlBoardEntry $e) => $slip->has(ParlaySlip::keyFor(
+                    (int) $e->edge_lab_event_id,
+                    (string) $e->market,
+                    $e->side,
+                    $e->line,
+                )))
                 ->values(),
         ]);
     }
 
-    public function add(Request $request, ParlaySlip $slip): RedirectResponse
+    /**
+     * Put a selection on the slip.
+     *
+     * This used to require the selection be a pick from a market the
+     * engine had proven, and refused everything else. With 24,610
+     * candidates evaluated and none proven, that meant every click was
+     * refused and the page rendered nothing to click in the first place.
+     *
+     * The engine declining to sell a pick is not a reason a customer
+     * cannot record their own bet, so the gate is gone from here. It still
+     * governs what VIGIL publishes as its own opinion, which is the only
+     * thing it was ever protecting.
+     *
+     * What remains is the only check that matters: the market has to be
+     * one we can price and settle, and it has to still be on offer.
+     */
+    public function add(Request $request, ParlaySlip $slip, GameMarkets $markets): RedirectResponse
     {
         $data = $request->validate([
-            'board_entry_id' => ['required', 'integer', 'exists:vl_board_entries,id'],
+            'event_id' => ['required', 'integer', 'exists:events,id'],
+            'market' => ['required', 'string', Rule::in(GameMarkets::MARKETS)],
+            'side' => ['required', 'string', 'max:8'],
+            'line' => ['nullable', 'numeric'],
         ]);
 
-        $entry = VlBoardEntry::findOrFail($data['board_entry_id']);
+        $selection = $markets->resolve(
+            (int) $data['event_id'],
+            (string) $data['market'],
+            (string) $data['side'],
+            $data['line'] ?? null,
+        );
 
         /*
-         * The gate, again. A slip is built from board entries and a
-         * board entry id is a number anybody can type - a leg from an
-         * unproven market would be graded against a probability the
-         * product is not allowed to sell.
+         * Said rather than swallowed. A line that moved between the page
+         * loading and the click is ordinary, and a click that silently
+         * does nothing is the one outcome worse than a refusal.
          */
-        if (! $entry->isSellablePick()) {
-            return back()->withErrors(['slip' => 'That selection is not a pick from a proven market.']);
+        if ($selection === null) {
+            return back()->withErrors([
+                'slip' => 'That price is no longer on offer. Reload for the current market.',
+            ]);
         }
 
-        if (($refusal = $slip->add($entry)) !== null) {
+        if (($refusal = $slip->add($selection)) !== null) {
             return back()->withErrors(['slip' => $refusal]);
         }
 
@@ -94,7 +131,7 @@ class ParlayController extends Controller
 
     public function remove(Request $request, ParlaySlip $slip): RedirectResponse
     {
-        $slip->remove((int) $request->integer('board_entry_id'));
+        $slip->remove((string) $request->string('key'));
 
         return back();
     }
@@ -172,28 +209,19 @@ class ParlayController extends Controller
             'is_paper' => ['nullable', 'boolean'],
         ]);
 
-        $entries = $slip->entries();
-
-        if ($entries->count() < ParlayLedger::MINIMUM_LEGS) {
+        if ($slip->count() < ParlayLedger::MINIMUM_LEGS) {
             return back()->withErrors(['slip' => 'A parlay needs at least two legs.']);
         }
 
         /*
-         * A leg with no price cannot be saved: the combined price would
-         * be wrong and the payout computed from it would be fiction.
+         * Every leg carries the price the server read when it went on the
+         * slip, so there is nothing unpriced to guard against here. A leg
+         * without one could never have been added.
          */
-        $unpriced = $entries->first(fn (VlBoardEntry $entry): bool => $entry->best_price_american === null);
-
-        if ($unpriced !== null) {
-            return back()->withErrors([
-                'slip' => 'No price on hand for '.$unpriced->selection.'. Remove it or wait for the next odds pull.',
-            ]);
-        }
-
         try {
             $parlay = $ledger->save(
                 $request->user(),
-                $entries->map(fn (VlBoardEntry $entry): array => $this->legFrom($entry))->all(),
+                $slip->legsForLedger(),
                 [
                     'stake_cents' => (int) round((float) $data['stake'] * 100),
                     'book' => $data['book'] ?? null,
@@ -217,44 +245,6 @@ class ParlayController extends Controller
         return to_route('my-parlays')->with('status', $parlay->status === 'draft'
             ? 'Saved as a draft. It is not counted as a wager until you record it as placed.'
             : 'Recorded. Legs will settle as the games finish.');
-    }
-
-    /**
-     * One leg, with what the engine thought about it at this moment.
-     *
-     * Frozen rather than looked up later. The comparison the product
-     * promises - did VIGIL agree with this pick - has to be answered as
-     * of when the user chose it, and the models retrain weekly.
-     *
-     * @return array<string, mixed>
-     */
-    private function legFrom(VlBoardEntry $entry): array
-    {
-        return [
-            'edge_lab_event_id' => $entry->edge_lab_event_id,
-            'board_entry_id' => $entry->id,
-            'sport' => (string) $entry->sport,
-            'market' => (string) $entry->market,
-            'side' => $entry->side,
-            'line' => $entry->line,
-            'selection' => (string) $entry->selection,
-            'price_american' => (int) $entry->best_price_american,
-            'model_probability' => $entry->model_prob,
-            'model_version' => $entry->payload['model_version'] ?? null,
-            'model_edge' => $entry->edge_at_price ?? $entry->edge,
-            /*
-             * The engine's own verdict on this selection, in its own
-             * terms. "Passed" is not "disagreed": the engine having a
-             * probability and declining the price is a different thing
-             * from it thinking the other side wins, and flattening the
-             * two would misreport what it said.
-             */
-            'model_agreement' => match ($entry->recommendation) {
-                'bet' => 'agreed',
-                'pass' => 'passed',
-                default => 'no_prediction',
-            },
-        ];
     }
 
     /**

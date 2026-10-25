@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\Event;
 use App\Models\ParlayGrade;
 use App\Models\VigilRead;
 use App\Services\EdgeLab\EdgeLabClient;
@@ -66,7 +67,7 @@ it('builds a slip from board picks and keeps the order they were added', functio
     $user = betUser();
 
     foreach ($ids as $id) {
-        $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $id])
+        $this->actingAs($user)->post(route('parlays.add'), $id)
             ->assertSessionHasNoErrors();
     }
 
@@ -78,24 +79,62 @@ it('builds a slip from board picks and keeps the order they were added', functio
         ->assertSee('3 / '.ParlaySlip::MAX_LEGS);
 });
 
-it('refuses a leg from a market that is not proven', function () {
-    $entry = provenEntry(['market_verdict' => 'unproven', 'recommendation' => 'pass']);
+it('takes a selection the engine refused, because that refusal is not about the customer', function () {
+    /*
+     * The inverse of what this test used to assert. The builder only
+     * accepted picks from markets the engine had proven, and it has
+     * proven none of the 24,610 candidates it evaluated - so every click
+     * was refused and the page rendered nothing to click.
+     *
+     * The engine declining to publish a pick is a statement about what
+     * VIGIL will stand behind. It is not a reason somebody cannot record
+     * their own bet, and conflating the two is what broke the page.
+     */
+    $selection = pricedSelection();
+    $user = betUser();
 
-    $this->actingAs(betUser())->post(route('parlays.add'), ['board_entry_id' => $entry->id])
+    $this->actingAs($user)->post(route('parlays.add'), $selection)
+        ->assertSessionHasNoErrors();
+
+    expect(app(ParlaySlip::class)->count())->toBe(1);
+});
+
+it('refuses a market it cannot price or settle', function () {
+    /*
+     * The gate that remains. A market with no grading rule would be
+     * recorded and never settled, which is worse than not taking it.
+     */
+    $selection = pricedSelection();
+    $selection['market'] = 'team_totals';
+
+    $this->actingAs(betUser())->post(route('parlays.add'), $selection)
+        ->assertSessionHasErrors('market');
+
+    expect(app(ParlaySlip::class)->count())->toBe(0);
+});
+
+it('refuses a price that is no longer on offer rather than ignoring the click', function () {
+    /*
+     * A line that moved between the page loading and the click is
+     * ordinary. A click that silently does nothing is the one outcome
+     * worse than a refusal, because it reads as a broken page.
+     */
+    $selection = pricedSelection();
+    $selection['line'] = 99.5;
+
+    $this->actingAs(betUser())->post(route('parlays.add'), $selection)
         ->assertSessionHasErrors('slip');
 
-    // A leg from an unproven market would be graded against a
-    // probability the product is not allowed to sell.
-    expect(app(ParlaySlip::class)->count())->toBe(0);
+    expect(session('errors')->first('slip'))->toContain('no longer on offer');
 });
 
 it('refuses the same selection twice', function () {
     $ids = slipOf(1);
     $user = betUser();
 
-    $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $ids[0]]);
+    $this->actingAs($user)->post(route('parlays.add'), $ids[0]);
 
-    $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $ids[0]])
+    $this->actingAs($user)->post(route('parlays.add'), $ids[0])
         ->assertSessionHasErrors('slip');
 
     expect(session('errors')->first('slip'))->toContain('already on the slip');
@@ -104,12 +143,15 @@ it('refuses the same selection twice', function () {
 it('refuses two sides of the same market', function () {
     $user = betUser();
 
-    $home = provenEntry(['id' => 1, 'edge_lab_event_id' => 500, 'market' => 'h2h', 'side' => 'home', 'selection' => 'Chiefs']);
-    $away = provenEntry(['id' => 2, 'edge_lab_event_id' => 500, 'market' => 'h2h', 'side' => 'away', 'selection' => 'Bills']);
+    $home = pricedSelection(['side' => 'home']);
+    $away = pricedSelection([
+        'event' => Event::find($home['event_id']),
+        'side' => 'away',
+    ]);
 
-    $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $home->id]);
+    $this->actingAs($user)->post(route('parlays.add'), $home);
 
-    $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $away->id])
+    $this->actingAs($user)->post(route('parlays.add'), $away)
         ->assertSessionHasErrors('slip');
 
     // Not a correlation. Two sides of one market cannot both win, and a
@@ -122,7 +164,7 @@ it('caps the slip length', function () {
     $user = betUser();
 
     foreach ($ids as $i => $id) {
-        $response = $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $id]);
+        $response = $this->actingAs($user)->post(route('parlays.add'), $id);
 
         if ($i === ParlaySlip::MAX_LEGS) {
             $response->assertSessionHasErrors('slip');
@@ -137,7 +179,7 @@ it('will not grade a slip with fewer than two legs', function () {
     $ids = slipOf(1);
     $user = betUser();
 
-    $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $ids[0]]);
+    $this->actingAs($user)->post(route('parlays.add'), $ids[0]);
 
     $this->actingAs($user)->post(route('parlays.grade'))->assertSessionHasErrors('slip');
 
@@ -168,7 +210,7 @@ it('stores what the engine said, verbatim, and never computes it here', function
     $user = betUser();
 
     foreach ($ids as $id) {
-        $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $id]);
+        $this->actingAs($user)->post(route('parlays.add'), $id);
     }
 
     $this->actingAs($user)->post(route('parlays.grade'))->assertSessionHasNoErrors();
@@ -198,7 +240,7 @@ it('sends one leg per selection in the shape the engine prices', function () {
     $user = betUser();
 
     foreach ($ids as $id) {
-        $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $id]);
+        $this->actingAs($user)->post(route('parlays.add'), $id);
     }
 
     $this->actingAs($user)->post(route('parlays.grade'));
@@ -214,7 +256,7 @@ it('records that the judge could not be reached rather than calling the slip wor
     $user = betUser();
 
     foreach ($ids as $id) {
-        $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $id]);
+        $this->actingAs($user)->post(route('parlays.add'), $id);
     }
 
     $this->actingAs($user)->post(route('parlays.grade'));
@@ -245,7 +287,7 @@ it('writes a read explaining the grade', function () {
     $user = betUser();
 
     foreach ($ids as $id) {
-        $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $id]);
+        $this->actingAs($user)->post(route('parlays.add'), $id);
     }
 
     $this->actingAs($user)->post(route('parlays.grade'));
@@ -266,7 +308,7 @@ it('does not let a read describe an ungraded slip as a bad bet', function () {
     $user = betUser();
 
     foreach ($ids as $id) {
-        $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $id]);
+        $this->actingAs($user)->post(route('parlays.add'), $id);
     }
 
     $this->actingAs($user)->post(route('parlays.grade'));
@@ -284,7 +326,7 @@ it('never rewrites a grade once it is stored', function () {
     $user = betUser();
 
     foreach ($ids as $id) {
-        $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $id]);
+        $this->actingAs($user)->post(route('parlays.add'), $id);
     }
 
     $this->actingAs($user)->post(route('parlays.grade'));
@@ -300,7 +342,7 @@ it('grades three a day on the free plan and says when that is used up', function
     $user = betUser(null);
 
     foreach ($ids as $id) {
-        $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $id]);
+        $this->actingAs($user)->post(route('parlays.add'), $id);
     }
 
     foreach (range(1, 3) as $i) {
@@ -322,7 +364,7 @@ it('does not limit a subscriber', function () {
     $user = betUser('daily');
 
     foreach ($ids as $id) {
-        $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $id]);
+        $this->actingAs($user)->post(route('parlays.add'), $id);
     }
 
     foreach (range(1, 6) as $i) {
@@ -337,10 +379,17 @@ it('clears and removes legs', function () {
     $user = betUser();
 
     foreach ($ids as $id) {
-        $this->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $id]);
+        $this->actingAs($user)->post(route('parlays.add'), $id);
     }
 
-    $this->actingAs($user)->delete(route('parlays.remove'), ['board_entry_id' => $ids[0]]);
+    /*
+     * Removal is by the selection's key - the game, market, side and
+     * line - because that is what identifies a leg now that a leg is a
+     * selection rather than a board entry.
+     */
+    $this->actingAs($user)->delete(route('parlays.remove'), [
+        'key' => ParlaySlip::keyFor($ids[0]['event_id'], $ids[0]['market'], $ids[0]['side'], $ids[0]['line']),
+    ]);
     expect(app(ParlaySlip::class)->count())->toBe(1);
 
     $this->actingAs($user)->delete(route('parlays.clear'));

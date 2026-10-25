@@ -25,7 +25,7 @@ beforeEach(function () {
 function slipFor($user, int $legs = 2): void
 {
     foreach (slipOf($legs) as $id) {
-        test()->actingAs($user)->post(route('parlays.add'), ['board_entry_id' => $id])
+        test()->actingAs($user)->post(route('parlays.add'), $id)
             ->assertSessionHasNoErrors();
     }
 }
@@ -133,17 +133,44 @@ it('shows a customer their own parlays and nobody else’s', function () {
         ->assertSee('2-leg parlay');
 });
 
-it('shows what the engine thought about each leg when it was saved', function () {
+it('says the engine had no view, when it had none', function () {
+    /*
+     * The ordinary case now, and the one the old version of this test
+     * could not reach. A customer picking a game off Today's Games is
+     * usually picking one the engine never published an opinion on, and
+     * the record has to say that rather than imply agreement.
+     */
     $user = betUser();
     slipFor($user);
 
     $this->actingAs($user)->post(route('parlays.save'), ['stake' => '25.00']);
 
+    $this->actingAs($user)->get(route('my-parlays'))
+        ->assertOk()
+        ->assertSee('VIGIL had no qualifying prediction');
+});
+
+it('says the engine backed a leg when it did', function () {
+    $user = betUser();
+
     /*
-     * The slip only accepts picks from proven markets the engine
-     * recommended, so these legs are ones it backed - and the page has to
-     * say so for the comparison to mean anything.
+     * A priced selection the engine also recommended. The board entry is
+     * matched on game, market and side - the same selection, not merely
+     * the same game - so the comparison is about this bet.
      */
+    $selection = pricedSelection();
+    provenEntry([
+        'id' => 9001,
+        'edge_lab_event_id' => $selection['event_id'],
+        'market' => $selection['market'],
+        'side' => $selection['side'],
+        'selection' => 'Engine agreed',
+    ]);
+
+    $this->actingAs($user)->post(route('parlays.add'), $selection)->assertSessionHasNoErrors();
+    $this->actingAs($user)->post(route('parlays.add'), pricedSelection())->assertSessionHasNoErrors();
+    $this->actingAs($user)->post(route('parlays.save'), ['stake' => '25.00']);
+
     $this->actingAs($user)->get(route('my-parlays'))
         ->assertOk()
         ->assertSee('VIGIL backed this');

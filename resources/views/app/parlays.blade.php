@@ -22,27 +22,33 @@
 
             @if ($legs->isEmpty())
                 <p class="px-5 py-10 text-center text-sm text-[var(--vg-slate)]">
-                    Nothing on the slip. Add a pick from the list.
+                    Nothing on the slip yet. Pick a market from <a class="text-[var(--vg-blue)] underline" href="{{ route('games') }}">today's games</a>.
                 </p>
             @else
                 <ul class="divide-y divide-[var(--vg-line)]">
                     @foreach ($legs as $leg)
                         <li class="flex items-start justify-between gap-3 px-5 py-3.5">
                             <div class="min-w-0">
-                                <p class="font-medium">{{ $leg->selection }}</p>
+                                <p class="font-medium">{{ $leg['selection'] }}</p>
                                 <p class="mt-0.5 text-xs uppercase text-[var(--vg-slate)]">
-                                    {{ $leg->sport }} &middot; {{ $leg->market }}
-                                    @if ($leg->best_price_american !== null)
-                                        &middot;
-                                        <span data-numeric>{{ $leg->best_price_american > 0 ? '+' : '' }}{{ $leg->best_price_american }}</span>
+                                    {{ $leg['sport'] }} &middot; {{ $leg['market'] }}
+                                    &middot;
+                                    <span class="font-[family-name:var(--font-mono)] tabular-nums">
+                                        {{ $leg['price_american'] > 0 ? '+' : '' }}{{ $leg['price_american'] }}
+                                    </span>
+                                    @if (! empty($leg['book_title']))
+                                        &middot; {{ $leg['book_title'] }}
                                     @endif
                                 </p>
+                                @if (($leg['matchup'] ?? null) !== null)
+                                    <p class="mt-0.5 text-xs text-[var(--vg-slate)]">{{ $leg['matchup'] }}</p>
+                                @endif
                             </div>
 
                             <form method="POST" action="{{ route('parlays.remove') }}">
                                 @csrf
                                 @method('DELETE')
-                                <input type="hidden" name="board_entry_id" value="{{ $leg->id }}">
+                                <input type="hidden" name="key" value="{{ $leg['key'] }}">
                                 <button type="submit" class="text-xs text-[var(--vg-slate)] underline hover:text-[var(--vg-paper)]">
                                     Remove
                                 </button>
@@ -50,6 +56,24 @@
                         </li>
                     @endforeach
                 </ul>
+
+                {{--
+                    Our own product of the legs, and said to be an
+                    estimate. A book compounds its margin over every leg,
+                    so the real ticket comes back worse - which is why the
+                    save form asks for the price the book actually
+                    accepted and settles on that instead.
+                --}}
+                @if ($combined !== null)
+                    <div class="flex items-baseline justify-between border-t border-[var(--vg-line)] px-5 py-3">
+                        <span class="text-xs uppercase tracking-wide text-[var(--vg-slate)]">
+                            Estimated combined
+                        </span>
+                        <span class="font-[family-name:var(--font-mono)] text-lg font-bold tabular-nums">
+                            {{ $combined > 0 ? '+' : '' }}{{ $combined }}
+                        </span>
+                    </div>
+                @endif
 
                 <div class="flex flex-wrap items-center gap-3 border-t border-[var(--vg-line)] px-5 py-4">
                     <form method="POST" action="{{ route('parlays.grade') }}">
@@ -253,18 +277,24 @@
     {{-- Picks you can add --}}
     <section class="panel mt-5 overflow-hidden">
         <h2 class="border-b border-[var(--vg-line)] px-5 py-3.5 font-[family-name:var(--font-display)] font-semibold">
-            Add a leg
+            VIGIL's own recommendations
         </h2>
 
         @if ($candidates->isEmpty())
             {{--
-                Only picks from proven markets can be legs. With nothing
-                proven there is nothing to build with, and saying so beats
-                offering a list the engine is not allowed to stand behind.
+                A shortcut, not the way in. The engine publishes a pick
+                only from a market it has proven against closing lines,
+                and it has proven none - so this list is empty and will be
+                until one clears. That used to be the only source of legs,
+                which is why the builder had nothing to click; games to bet
+                on now come from Today's Games regardless of what the
+                engine thinks of them.
             --}}
             <p class="px-5 py-8 text-center text-sm text-[var(--vg-slate)]">
-                No picks from proven markets right now, so there is nothing to build a slip from.
-                A parlay of unproven selections would be graded against probabilities nobody may act on.
+                VIGIL is not recommending anything right now — no market has proven itself
+                against the closing line yet, and it will not publish a pick it cannot stand
+                behind. Your own selections are unaffected:
+                <a class="text-[var(--vg-blue)] underline" href="{{ route('games') }}">browse today's games</a>.
             </p>
         @else
             <ul class="divide-y divide-[var(--vg-line)]">
@@ -282,7 +312,10 @@
 
                         <form method="POST" action="{{ route('parlays.add') }}">
                             @csrf
-                            <input type="hidden" name="board_entry_id" value="{{ $candidate->id }}">
+                            <input type="hidden" name="event_id" value="{{ $candidate->edge_lab_event_id }}">
+                            <input type="hidden" name="market" value="{{ $candidate->market }}">
+                            <input type="hidden" name="side" value="{{ $candidate->side }}">
+                            <input type="hidden" name="line" value="{{ $candidate->line }}">
                             <button type="submit"
                                     class="rounded-md border border-[var(--vg-line)] px-3 py-1 text-xs font-semibold text-[var(--vg-slate)] hover:text-[var(--vg-paper)]">
                                 Add

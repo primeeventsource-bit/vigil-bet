@@ -31,6 +31,7 @@
     $items = [
         ['route' => 'today', 'label' => 'Dashboard', 'icon' => 'grid'],
         ['route' => 'live-odds', 'label' => 'Live Odds', 'icon' => 'activity', 'feature' => 'board.full'],
+        ['route' => 'games', 'label' => "Today's Games", 'icon' => 'grid', 'feature' => 'parlay.grade'],
         ['route' => 'parlays', 'label' => 'Parlay Builder', 'icon' => 'layers', 'feature' => 'parlay.grade'],
         ['route' => 'my-parlays', 'label' => 'My Parlays', 'icon' => 'file', 'feature' => 'parlay.grade'],
         ['route' => 'opinions', 'label' => 'Results', 'icon' => 'file'],

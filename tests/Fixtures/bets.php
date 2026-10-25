@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Models\Book;
+use App\Models\Event;
 use App\Models\Subscription;
+use App\Models\Team;
 use App\Models\User;
 use App\Models\VigilRead;
 use App\Models\VlBoardEntry;
@@ -11,6 +14,7 @@ use App\Models\VlModel;
 use App\Models\VlOddsDisplay;
 use App\Services\EdgeLab\Mirror;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * A customer, optionally on a tier.
@@ -50,29 +54,112 @@ function provenEntry(array $overrides = []): VlBoardEntry
 }
 
 /**
- * Board picks for a slip, in the order they should come back.
+ * A game with a real price on it, which is what makes a selection
+ * clickable.
+ *
+ * The builder used to take its legs from board entries, so a fixture only
+ * had to write one of those. It now takes them from the odds the books
+ * are publishing - the change that let a customer bet on a game the
+ * engine had refused - so a clickable selection needs the three things
+ * the page actually reads: an event still ahead of us, a book, and a
+ * quote.
+ *
+ * Returns the payload the page posts: an identifier and no price, because
+ * the server reads the price back from its own table.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function pricedSelection(array $overrides = []): array
+{
+    $salt = Str::random(6);
+
+    $market = (string) ($overrides['market'] ?? 'h2h');
+    $side = (string) ($overrides['side'] ?? 'home');
+    $line = $overrides['line'] ?? null;
+    $sport = (string) ($overrides['sport'] ?? 'nfl');
+
+    $event = $overrides['event'] ?? null;
+
+    if ($event === null) {
+        $home = Team::create([
+            'sport' => $sport,
+            'name' => 'Home '.$salt,
+            'display_name' => $overrides['home'] ?? 'Home '.$salt,
+            'slug' => 'home-'.$salt,
+        ]);
+
+        $away = Team::create([
+            'sport' => $sport,
+            'name' => 'Away '.$salt,
+            'display_name' => $overrides['away'] ?? 'Away '.$salt,
+            'slug' => 'away-'.$salt,
+        ]);
+
+        $event = Event::create([
+            'sport' => $sport,
+            'home_team_id' => $home->id,
+            'away_team_id' => $away->id,
+            'starts_at' => now()->addDays(2),
+            'season' => (int) now()->year,
+            'status' => 'scheduled',
+        ]);
+    }
+
+    $book = Book::firstOrCreate(
+        ['key' => $overrides['book'] ?? 'testbook'],
+        ['title' => $overrides['book_title'] ?? 'Test Book']
+    );
+
+    $price = (int) ($overrides['price_american'] ?? -110);
+
+    DB::table('odds_snapshots')->insert([
+        'event_id' => $event->id,
+        'book_id' => $book->id,
+        'market' => $market,
+        'side' => $side,
+        'line' => $line,
+        'price_american' => $price,
+        'price_decimal' => $price > 0 ? 1 + ($price / 100) : 1 + (100 / abs($price)),
+        'pulled_at' => now(),
+        'created_at' => now(),
+    ]);
+
+    return [
+        'event_id' => $event->id,
+        'market' => $market,
+        'side' => $side,
+        'line' => $line,
+    ];
+}
+
+/**
+ * Selections for a slip, in the order they should come back.
  *
  * Shared for the reason given above: a helper that only exists when its
  * own test file loads breaks a single-file run for a reason unrelated to
- * the code under test, and both the builder tests and the saving tests
+ * the code under test, and the builder tests and the saving tests both
  * need a slip.
  *
- * @return array<int, int> board entry ids
+ * Each leg is its own game, because two legs on one game and market are
+ * refused as a contradiction - which is correct, and not what these
+ * fixtures are for.
+ *
+ * @return array<int, array<string, mixed>>
  */
 function slipOf(int $legs): array
 {
-    $ids = [];
+    $selections = [];
 
-    foreach (range(1, $legs) as $i) {
-        $ids[] = provenEntry([
-            'id' => $i,
-            'event_id' => 100 + $i,
-            'edge_lab_event_id' => 100 + $i,
-            'selection' => 'Leg '.$i,
-        ])->id;
+    foreach (range(1, max($legs, 1)) as $i) {
+        if ($i > $legs) {
+            break;
+        }
+
+        $selections[] = pricedSelection(['home' => 'Leg '.$i, 'away' => 'Opponent '.$i]);
     }
 
-    return $ids;
+    return $selections;
 }
 /**
  * A proven board pick with a mirrored game, far enough from kickoff to
