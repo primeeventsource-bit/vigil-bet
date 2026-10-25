@@ -6,26 +6,30 @@ piece of modelling math lives in `app/Modeling/` as plain PHP.
 
 ## Which application is production
 
-There are two Cloud applications built from this repository, and only one of
-them is real. Getting this wrong is easy and quiet, so the ids are written
-down here rather than remembered.
+One Cloud application, and these are its ids. They are written down rather
+than remembered because there used to be two.
 
-| | Live | Duplicate |
-| --- | --- | --- |
-| Application | `app-a307a4b6-8877-4ec1-a815-9080baced557` ("Vigil") | `app-a30bf63f-7487-4a51-84cf-bab09ad55ff1` ("vigil-bet") |
-| Environment | `env-a307a4b9-3ec3-4f35-8c14-5d23798471f2` | `env-a30bf641-c724-49a1-83bb-55debc6d79e1` |
-| Database | schema `67484972` | schema `1562204` |
-| Domains | parlayq.com, parlayhq.online | none |
-| State | serving | HTTP 500, partial schema |
+| | |
+| --- | --- |
+| Application | `app-a307a4b6-8877-4ec1-a815-9080baced557` ("Vigil", slug `edge-lab`) |
+| Environment | `env-a307a4b9-3ec3-4f35-8c14-5d23798471f2` |
+| Database | schema `67484972` |
+| Domains | parlayq.com, parlayhq.online |
 
-**The live application deploys on push to `main`** — `usesPushToDeploy` is true
-on it and false on the duplicate. So `git push origin main` is the deploy, and
-an explicit `cloud deploy <app-id>` is only needed to redeploy without a commit.
+**Deployment is `git push origin main`.** `usesPushToDeploy` is on, so the push
+is the deploy; an explicit `cloud deploy <app-id>` is only for redeploying
+without a commit.
 
-This was found the hard way: a day of `cloud deploy app-a30bf63f…` commands
-reported success while rebuilding the broken duplicate, and the live site kept
-updating anyway because every push deployed it. Both things were true at once,
-which is why nothing looked wrong.
+A second application, `vigil-bet`, was built from this same repository and was
+deleted on 25 October 2026. It had no domains, a partial schema and returned
+500, and a day of `cloud deploy app-a30bf63f…` commands reported success while
+rebuilding it - the live site updated anyway, because every push deployed the
+real one. Both things were true at once, which is exactly why nothing looked
+wrong for a day.
+
+The lesson outlives the duplicate: a deployment that reports success is not
+evidence that the thing you are looking at is the thing you deployed. Check the
+domain, not the exit code.
 
 Run one-off commands against the live environment:
 
