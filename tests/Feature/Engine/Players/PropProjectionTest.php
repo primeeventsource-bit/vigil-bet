@@ -42,7 +42,7 @@ function propGame(string $sport, int $n): int
             'sport' => $sport,
             'home_team_id' => $home->id,
             'away_team_id' => $away->id,
-            'starts_at' => now()->subDays(900)->addDays($n),
+            'starts_at' => now()->subDays(300)->addDays($n),
         ],
         [
             'season' => (int) now()->year,
@@ -83,7 +83,7 @@ function propStatLine(
         'source' => 'test',
         // Overridable, so a backfill can be simulated: a row written
         // today for a game played two seasons ago.
-        'as_of' => $asOf ?? now()->subDays(900)->addDays($event)->toDateTimeString(),
+        'as_of' => $asOf ?? now()->subDays(300)->addDays($event)->toDateTimeString(),
         'created_at' => now(),
     ]);
 }
@@ -399,7 +399,88 @@ it('refuses a thin sample rather than widening it until it looks adequate', func
         ->and($projector->reasonFor('nba', 'player_points', 'Thin Callup'))->toBe('too few games');
 });
 
-it('says which of the four reasons it declined for', function () {
+it('refuses a player whose team has moved on without him', function () {
+    /*
+     * The loudest error on the live board, and the mirror of the
+     * role-growth case. A projection averages a player's history; the
+     * market prices the player he is tonight. Adam Trautman averaged
+     * 12.8, 14.5 and 17.7 receiving yards over three seasons, last
+     * appeared three team games ago, and the board priced over half a
+     * yard at even money - the market saying he probably will not catch
+     * a pass. The projection called it a 34-point edge.
+     *
+     * Fourteen games for one team, then three more games that team
+     * played without him.
+     */
+    $team = Team::firstOrCreate(
+        ['sport' => 'nfl', 'slug' => 'absent-side'],
+        ['name' => 'Absent Side', 'display_name' => 'Absent Side'],
+    );
+
+    foreach (range(1, 14) as $game) {
+        DB::table('player_game_stats')->insert([
+            'sport' => 'nfl',
+            'event_id' => propGame('nfl', $game),
+            'team_id' => $team->id,
+            'player_external_id' => 'benched',
+            'player_name' => 'Benched End',
+            'played' => true,
+            'stat_group' => 'receiving',
+            'stats' => json_encode(['receivingYards' => '48']),
+            'source' => 'test',
+            'as_of' => now()->subDays(300)->addDays($game)->toDateTimeString(),
+            'created_at' => now(),
+        ]);
+    }
+
+    // His side keeps playing. He does not appear in any of these.
+    foreach (range(15, 17) as $game) {
+        Event::whereKey(propGame('nfl', $game))->update([
+            'home_team_id' => $team->id,
+            'status' => 'final',
+        ]);
+    }
+
+    $projector = app(PropProjector::class);
+
+    expect($projector->project('nfl', 'player_reception_yds', 'Benched End', 0.5))->toBeNull()
+        ->and($projector->reasonFor('nfl', 'player_reception_yds', 'Benched End'))
+        ->toBe('recently absent');
+});
+
+it('still projects a player who has only missed a bye', function () {
+    /*
+     * Ordinary attrition, not a collapsed role. Refusing on one missed
+     * game would drop most of a Sunday.
+     */
+    $team = Team::firstOrCreate(
+        ['sport' => 'nfl', 'slug' => 'bye-side'],
+        ['name' => 'Bye Side', 'display_name' => 'Bye Side'],
+    );
+
+    foreach (range(40, 53) as $game) {
+        DB::table('player_game_stats')->insert([
+            'sport' => 'nfl',
+            'event_id' => propGame('nfl', $game),
+            'team_id' => $team->id,
+            'player_external_id' => 'regular',
+            'player_name' => 'Regular Starter',
+            'played' => true,
+            'stat_group' => 'receiving',
+            'stats' => json_encode(['receivingYards' => '52']),
+            'source' => 'test',
+            'as_of' => now()->subDays(300)->addDays($game)->toDateTimeString(),
+            'created_at' => now(),
+        ]);
+    }
+
+    Event::whereKey(propGame('nfl', 54))->update(['home_team_id' => $team->id, 'status' => 'final']);
+
+    expect(app(PropProjector::class)->project('nfl', 'player_reception_yds', 'Regular Starter', 49.5))
+        ->not->toBeNull();
+});
+
+it('says which of the reasons it declined for', function () {
     /*
      * A count of nulls says the feature is partly broken without saying
      * which part, and the reasons need different fixes: a missing

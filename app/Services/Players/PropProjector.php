@@ -53,6 +53,9 @@ class PropProjector
     /** @var array<string, array<string, float>> */
     private array $pooled = [];
 
+    /** @var array<string, array<int, array<int, int>>> */
+    private array $schedules = [];
+
     /**
      * Project one line, or decline.
      *
@@ -78,7 +81,7 @@ class PropProjector
 
         $log = $logs[$key];
 
-        if (count($log['values']) < $this->minimumGames()) {
+        if (count($log['values']) < $this->minimumGames() || $this->isRecentlyAbsent($log)) {
             return null;
         }
 
@@ -115,7 +118,48 @@ class PropProjector
             return 'too few games';
         }
 
+        if ($this->isRecentlyAbsent($logs[$key])) {
+            return 'recently absent';
+        }
+
         return null;
+    }
+
+    /**
+     * Has he stopped appearing.
+     *
+     * The other half of the role problem, and the half that produced the
+     * worst numbers on the board. A projection is an average over a
+     * player's history, and the market prices the player he is tonight.
+     * When the role grew the model takes the under; when it collapsed
+     * the model takes the over, and the second is louder because the
+     * history is long and the collapse is recent.
+     *
+     * Adam Trautman went 12.8, 14.5 and 17.7 receiving yards a game over
+     * three seasons, has played twice this season for five, and last
+     * appeared three team games ago. The board priced over half a yard
+     * at even money - the market saying he probably will not catch a
+     * pass - and the projection, averaging four seasons, called it a
+     * 34-point edge.
+     *
+     * Missed games are the signal, and they are already in the data: no
+     * injury report is needed to notice that a player's team has played
+     * twice since he last did. The answer is a refusal rather than a
+     * discount, because how much to discount a player who might be
+     * injured, benched or cut is not something this knows, and a number
+     * invented for it would be the least examined part of the estimate.
+     *
+     * @param  array<string, mixed>  $log
+     */
+    private function isRecentlyAbsent(array $log): bool
+    {
+        $limit = (int) config('edge.props.max_team_games_missed', 2);
+
+        if ($limit <= 0) {
+            return false;
+        }
+
+        return ($log['missed'] ?? 0) > $limit;
     }
 
     /**
@@ -254,6 +298,7 @@ class PropProjector
                 'values' => array_values($player['byEvent']),
                 'first' => $player['first'],
                 'last' => $player['last'],
+                'missed' => $this->missedSince($sport, $player['team_id'], (string) $player['last']),
             ];
         }
 
@@ -619,6 +664,81 @@ class PropProjector
         }
 
         return $hit / $sumW;
+    }
+
+    /**
+     * How many games his team has finished since he last played one.
+     *
+     * Zero for a player who featured in his team's most recent game.
+     * Three for one whose team has played three times without him, which
+     * is the state the board was pricing and the projection was not.
+     *
+     * Unknown team means unknown answer, and the honest value for that is
+     * zero rather than a guess: a player whose side could not be resolved
+     * is not thereby absent, and refusing him would drop a whole team's
+     * roster over one unmatched name.
+     */
+    private function missedSince(string $sport, ?int $teamId, string $lastPlayed): int
+    {
+        if ($teamId === null || $lastPlayed === '') {
+            return 0;
+        }
+
+        $schedule = $this->schedule($sport);
+
+        if (! isset($schedule[$teamId])) {
+            return 0;
+        }
+
+        $last = strtotime($lastPlayed);
+        $missed = 0;
+
+        foreach ($schedule[$teamId] as $kickoff) {
+            if ($kickoff > $last) {
+                $missed++;
+            }
+        }
+
+        return $missed;
+    }
+
+    /**
+     * Every finished game per team, as timestamps.
+     *
+     * Loaded once per sport rather than queried per player: there are
+     * three and a half thousand priced props on a given evening and this
+     * is asked about each of them.
+     *
+     * @return array<int, array<int, int>>
+     */
+    private function schedule(string $sport): array
+    {
+        if (isset($this->schedules[$sport])) {
+            return $this->schedules[$sport];
+        }
+
+        $rows = DB::table('events')
+            ->where('sport', $sport)
+            ->where('status', 'final')
+            ->where('starts_at', '<', now())
+            // A season back is more than enough to count a recent
+            // absence and keeps this from loading years of schedule.
+            ->where('starts_at', '>', now()->subDays(400))
+            ->get(['home_team_id', 'away_team_id', 'starts_at']);
+
+        $schedule = [];
+
+        foreach ($rows as $row) {
+            $kickoff = strtotime((string) $row->starts_at);
+
+            foreach ([$row->home_team_id, $row->away_team_id] as $team) {
+                if ($team !== null) {
+                    $schedule[(int) $team][] = $kickoff;
+                }
+            }
+        }
+
+        return $this->schedules[$sport] = $schedule;
     }
 
     private function minimumGames(): int

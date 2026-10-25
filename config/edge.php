@@ -485,6 +485,32 @@ return [
          * certainty.
          */
         'threshold_prior_games' => 8,
+
+        /*
+         * How many of his team's games a player may have missed and
+         * still be projected.
+         *
+         * The other half of the role problem. A projection averages a
+         * player's history and the market prices the player he is
+         * tonight: when the role grew the model takes the under, and
+         * when it collapsed the model takes the over - louder, because
+         * the history is long and the collapse is recent.
+         *
+         * Adam Trautman went 12.8, 14.5 and 17.7 receiving yards a game
+         * over three seasons, has played twice this season for five, and
+         * last appeared three team games ago. The board priced over half
+         * a yard at even money and the projection called it a 34-point
+         * edge on the over.
+         *
+         * Two allows for a bye plus one missed week. Above it the
+         * projection is refused rather than discounted, because how far
+         * to discount a player who may be injured, benched or cut is not
+         * something this knows, and a number invented for it would be
+         * the least examined part of the estimate.
+         *
+         * Zero turns the check off.
+         */
+        'max_team_games_missed' => 2,
     ],
 
     'http' => [
