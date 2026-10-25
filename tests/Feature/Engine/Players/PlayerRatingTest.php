@@ -23,6 +23,7 @@ declare(strict_types=1);
 use App\Models\Event;
 use App\Models\Team;
 use App\Services\Players\PlayerRatingCalculator;
+use App\Services\Players\RatingSchema;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -245,4 +246,156 @@ it('skips a stat that is not a number rather than reading it as one', function (
     // rather than counted as 27.
     expect($rating['components'])->not->toHaveKey('passing volume')
         ->and($rating['components'])->toHaveKey('passer rating');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Everyone who turns up on a fantasy team or a prop board
+|--------------------------------------------------------------------------
+|
+| The first version rated quarterbacks, backs, receivers and the defence.
+| That left out 63 kickers, 56 punters, 307 kick returners, 164 punt
+| returners and the 489 players who recorded an interception - and missed
+| the two biggest things on the prop board: anytime touchdown, priced for
+| 467 players, and NBA threes, priced for 157.
+|
+*/
+
+it('rates a kicker, a punter and a returner', function (string $group, array $stats) {
+    ratedConsistent('nfl', $group, 'specialist', $stats, 12);
+
+    $rated = collect(app(PlayerRatingCalculator::class)->forSport('nfl'))
+        ->firstWhere('player_external_id', 'specialist');
+
+    expect($rated)->not->toBeNull()
+        ->and($rated['peer_group'])->toBe($group)
+        ->and($rated['components'])->not->toBeEmpty();
+})->with([
+    'kicker' => ['kicking', [
+        'totalKickingPoints' => '9', 'fieldGoalPct' => '85.7',
+        'fieldGoalsMade/fieldGoalAttempts' => '2/3', 'longFieldGoalMade' => '47',
+    ]],
+    'punter' => ['punting', [
+        'grossAvgPuntYards' => '46.2', 'puntsInside20' => '3', 'longPunt' => '58', 'touchbacks' => '0',
+    ]],
+    'kick returner' => ['kickReturns', [
+        'kickReturnYards' => '72', 'yardsPerKickReturn' => '24.0',
+        'kickReturnTouchdowns' => '0', 'longKickReturn' => '38',
+    ]],
+    'punt returner' => ['puntReturns', [
+        'puntReturnYards' => '31', 'yardsPerPuntReturn' => '10.3',
+        'puntReturnTouchdowns' => '0', 'longPuntReturn' => '19',
+    ]],
+    'ball hawk' => ['interceptions', [
+        'interceptions' => '1', 'interceptionYards' => '22', 'interceptionTouchdowns' => '0',
+    ]],
+]);
+
+it('reads the made half of a compound rather than letting a cast pick it up', function () {
+    /*
+     * The feed writes threes as "made-attempted". A shooter at 5 of 12
+     * has made five; a cast would take five by accident and never know
+     * it had, and on "fieldGoalsMade/fieldGoalAttempts" it would take
+     * nothing at all.
+     */
+    ratedConsistent('nba', 'all', 'shooter', [
+        'points' => '24', 'rebounds' => '4', 'assists' => '3',
+        'threePointFieldGoalsMade-threePointFieldGoalsAttempted' => '5-12',
+        'steals' => '1', 'blocks' => '0', 'minutes' => '34', 'turnovers' => '2',
+    ], 12);
+
+    ratedConsistent('nba', 'all', 'nonshooter', [
+        'points' => '24', 'rebounds' => '4', 'assists' => '3',
+        'threePointFieldGoalsMade-threePointFieldGoalsAttempted' => '0-1',
+        'steals' => '1', 'blocks' => '0', 'minutes' => '34', 'turnovers' => '2',
+    ], 12, 900);
+
+    $rated = collect(app(PlayerRatingCalculator::class)->forSport('nba'))->keyBy('player_external_id');
+
+    expect($rated['shooter']['components']['three point shooting'])
+        ->toBeGreaterThan($rated['nonshooter']['components']['three point shooting']);
+});
+
+it('scores a cost the other way round', function () {
+    /*
+     * Turnovers, fumbles lost and goals conceded are things to have
+     * fewer of. Ranking them like points would put the most careless
+     * player at the top.
+     */
+    ratedConsistent('nba', 'all', 'careful', [
+        'points' => '20', 'rebounds' => '5', 'assists' => '5',
+        'threePointFieldGoalsMade-threePointFieldGoalsAttempted' => '2-5',
+        'steals' => '1', 'blocks' => '1', 'minutes' => '32', 'turnovers' => '1',
+    ], 12);
+
+    ratedConsistent('nba', 'all', 'careless', [
+        'points' => '20', 'rebounds' => '5', 'assists' => '5',
+        'threePointFieldGoalsMade-threePointFieldGoalsAttempted' => '2-5',
+        'steals' => '1', 'blocks' => '1', 'minutes' => '32', 'turnovers' => '7',
+    ], 12, 950);
+
+    $rated = collect(app(PlayerRatingCalculator::class)->forSport('nba'))->keyBy('player_external_id');
+
+    expect($rated['careful']['components']['ball security'])
+        ->toBeGreaterThan($rated['careless']['components']['ball security'])
+        ->and($rated['careful']['overall'])->toBeGreaterThan($rated['careless']['overall']);
+});
+
+it('covers every peer group the box scores actually file', function () {
+    /*
+     * Measured from the data: ten NFL groups, three in hockey, one each
+     * for basketball and baseball. A group the feed writes and the
+     * schema ignores is a population of players nobody can rate.
+     */
+    expect(RatingSchema::groups('nfl'))->toHaveCount(10)
+        ->and(RatingSchema::groups('nhl'))->toHaveCount(3)
+        ->and(RatingSchema::groups('nba'))->toHaveCount(1)
+        ->and(RatingSchema::groups('mlb'))->toHaveCount(1);
+});
+
+it('has a stat behind every prop market it prices', function (string $sport, string $market) {
+    /*
+     * A market with nothing behind it cannot be projected, and finding
+     * that out at projection time means finding it out per game forever.
+     */
+    $stats = RatingSchema::statsForProp($market);
+
+    expect($stats)->not->toBeEmpty();
+
+    foreach ($stats as $stat) {
+        expect(RatingSchema::groups($sport))->toContain($stat['group']);
+    }
+})->with([
+    ['nba', 'player_points'],
+    ['nba', 'player_rebounds'],
+    ['nba', 'player_assists'],
+    ['nba', 'player_threes'],
+    ['nfl', 'player_pass_yds'],
+    ['nfl', 'player_rush_yds'],
+    ['nfl', 'player_reception_yds'],
+    ['nfl', 'player_anytime_td'],
+]);
+
+it('knows a touchdown can be scored from six places', function () {
+    /*
+     * The largest prop market on the board. A mapping that looked only
+     * at rushing would be silent about receivers, returners and the
+     * defence.
+     */
+    $groups = array_column(RatingSchema::statsForProp('player_anytime_td'), 'group');
+
+    expect($groups)->toContain('rushing', 'receiving', 'kickReturns', 'puntReturns', 'interceptions', 'defensive');
+});
+
+it('prices every prop market the config asks for', function () {
+    /*
+     * The config decides which props are pulled; this decides which can
+     * be analysed. The second must not be a smaller list than the first.
+     */
+    foreach (['nfl', 'nba'] as $sport) {
+        foreach ((array) config("sports.{$sport}.prop_markets", []) as $market) {
+            expect(RatingSchema::statsForProp($market))
+                ->not->toBeEmpty("no stat mapped for {$market}");
+        }
+    }
 });

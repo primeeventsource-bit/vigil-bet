@@ -222,7 +222,7 @@ class PlayerRatingCalculator
             }
 
             foreach ($wanted as $key) {
-                $value = $this->numeric($stats[$key] ?? null);
+                $value = $this->value($stats[$key] ?? null, $kinds[$key]);
 
                 if ($value === null) {
                     continue;
@@ -247,6 +247,11 @@ class PlayerRatingCalculator
                     continue;
                 }
 
+                /*
+                 * A rate is averaged over the appearances it was quoted
+                 * in. Everything else - counting stats and the made half
+                 * of a compound - is per game played.
+                 */
                 $measured[$group.'|'.$key] = $kinds[$key] === 'rate'
                     ? $player['totals'][$key] / max($player['counts'][$key], 1)
                     : $player['totals'][$key] / $player['games'];
@@ -324,6 +329,48 @@ class PlayerRatingCalculator
      * shape as a yardage. Casting that gives 27, which is not wrong so
      * much as about a different thing.
      */
+    /**
+     * A stat as a number, read the way its kind says to read it.
+     *
+     * A `made` stat is a compound the feed writes as "5-12" or "5/12":
+     * five three-pointers from twelve attempts, three field goals from
+     * four. The first part is what happened and the second is what was
+     * tried, so the first is taken deliberately rather than by letting a
+     * cast pick it up by accident.
+     *
+     * Everything else must be wholly a number. A completion line of
+     * "27/44" cast as a yardage gives 27, which is not wrong so much as
+     * about a different thing.
+     */
+    private function value(mixed $value, string $kind): ?float
+    {
+        if ($kind === 'made') {
+            return $this->madePart($value);
+        }
+
+        return $this->numeric($value);
+    }
+
+    /** The first half of a "made-attempted" compound. */
+    private function madePart(mixed $value): ?float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $parts = preg_split('/[-\/]/', trim($value), 2);
+
+        if ($parts === false || $parts === []) {
+            return null;
+        }
+
+        return is_numeric(trim($parts[0])) ? (float) trim($parts[0]) : null;
+    }
+
     private function numeric(mixed $value): ?float
     {
         if (is_int($value) || is_float($value)) {
