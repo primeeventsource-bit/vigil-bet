@@ -324,18 +324,35 @@ Schedule::command('ingest:box-scores all --limit=120')
 /*
  * ESPN ids for events ingested from another source.
  *
- * Only the NFL needs this today - its events come from nflverse and ESPN
- * is the only source with its box scores - but a new fixture arrives
- * without an ESPN id every week, and a box score cannot attach until the
- * id does.
+ * A box score cannot attach to an event until that event carries an id
+ * the box score source recognises, so every sport whose schedule comes
+ * from one place and whose box scores come from ESPN needs this run for
+ * it. A new fixture arrives without an ESPN id every week.
+ *
+ * Derived from the source roles rather than named, because naming them
+ * went wrong: this said `nfl` and "only the NFL needs this today", which
+ * was true when written. Then MLB's team_stats role moved to ESPN and
+ * nothing here changed - 2,241 of 3,435 finished MLB games had no ESPN
+ * id, so the nightly box score run had nothing to ask about and the hole
+ * showed up as no error anywhere, just absent stats.
  *
  * Before the box scores, so a game linked this morning has its stats
  * pulled in the same cycle rather than the next one.
  */
-Schedule::command('ingest:link-espn nfl')
-    ->dailyAt('09:15')
-    ->name('link-espn-nfl')
-    ->withoutOverlapping();
+foreach (Sport::cases() as $sport) {
+    $sources = config("sports.{$sport->value}.sources", []);
+
+    // A sport whose schedule is already ESPN's carries ESPN's ids, and a
+    // sport whose box scores come from elsewhere does not need them.
+    if (($sources['team_stats'] ?? null) !== 'espn' || ($sources['schedules'] ?? null) === 'espn') {
+        continue;
+    }
+
+    Schedule::command("ingest:link-espn {$sport->value}")
+        ->dailyAt('09:15')
+        ->name("link-espn-{$sport->value}")
+        ->withoutOverlapping();
+}
 
 /*
  * Vigil Reads, including for the passes.
