@@ -13,6 +13,7 @@ use App\Models\Season;
 use App\Services\Ingestion\EventSynchronizer;
 use App\Services\Ingestion\SourceRegistry;
 use App\Services\Ops\JobRunRecorder;
+use App\Support\BatchMemory;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
@@ -47,6 +48,13 @@ class BackfillSeasonChunk implements ShouldQueue
 
     public function handle(SourceRegistry $registry, EventSynchronizer $sync, JobRunRecorder $recorder): void
     {
+        /*
+         * A season is thousands of games in one pass, which is what this
+         * ceiling exists for. Raised here rather than globally: a web
+         * request needing half a gigabyte is a bug.
+         */
+        BatchMemory::raise();
+
         $this->tracked(
             "backfill:{$this->sport->value}",
             function (JobRun $run) use ($registry, $sync, $recorder): array {

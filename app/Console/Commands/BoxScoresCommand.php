@@ -11,6 +11,7 @@ use App\Services\Ingestion\ProvidesPlayerGameStats;
 use App\Services\Ingestion\ProvidesTeamGameStats;
 use App\Services\Ingestion\SourceRegistry;
 use App\Services\Ingestion\TeamGameStatsWriter;
+use App\Support\BatchMemory;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -50,6 +51,14 @@ class BoxScoresCommand extends Command
         TeamGameStatsWriter $teamWriter,
         PlayerGameStatsWriter $playerWriter,
     ): int {
+        /*
+         * Raised before anything is fetched. This is the command that met
+         * the platform's 256M ceiling: the per-game path holds a batch of
+         * lines in memory, and `--limit=1200` died on it while the
+         * container had 768M spare.
+         */
+        BatchMemory::raise();
+
         $sports = $this->sports();
 
         if ($sports === []) {

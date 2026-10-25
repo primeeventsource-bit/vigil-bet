@@ -18,6 +18,7 @@ use App\Models\OddsSnapshot;
 use App\Services\Ingestion\ProvidesHistoricalLines;
 use App\Services\Ingestion\SourceRegistry;
 use App\Services\Ops\JobRunRecorder;
+use App\Support\BatchMemory;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
@@ -48,6 +49,9 @@ class ImportHistoricalLines implements ShouldQueue
 
     public function handle(SourceRegistry $registry, JobRunRecorder $recorder): void
     {
+        // A season of closing lines, in one pass, for the same reason.
+        BatchMemory::raise();
+
         $this->tracked(
             "backfill:lines:{$this->sport->value}",
             function (JobRun $run) use ($registry, $recorder): array {

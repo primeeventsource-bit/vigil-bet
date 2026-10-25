@@ -314,6 +314,26 @@ return [
         'open_meteo' => ['base_url' => 'https://api.open-meteo.com/v1'],
     ],
 
+    /*
+     * Memory ceiling for work that walks thousands of rows.
+     *
+     * Laravel Cloud's managed ini sets `memory_limit` to 256M inside a
+     * container the cgroup allows 1024M, so three quarters of the
+     * allowance was unreachable by any single process:
+     * `ingest:box-scores mlb --limit=1200` died on PHP's limit while the
+     * container had 768M spare, and every backfill since has run in
+     * chunks of 250 to stay under it.
+     *
+     * Applied by App\Support\BatchMemory at the start of the commands and
+     * jobs that need it, and nowhere else. A web request wanting half a
+     * gigabyte is a bug and should fail at 256M rather than quietly
+     * succeed at 512M.
+     *
+     * 512M leaves the container half its allowance for everything else,
+     * including the queue worker running something else at the time.
+     */
+    'batch_memory_limit' => env('EDGE_BATCH_MEMORY_LIMIT', '512M'),
+
     'http' => [
         /*
          * Read timeout, in seconds.
