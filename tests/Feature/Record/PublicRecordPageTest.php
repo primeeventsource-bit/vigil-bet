@@ -66,10 +66,12 @@ it('shows no rate at all with nothing settled', function () {
 it('says why the record is empty rather than showing zeros', function () {
     $this->get(route('record'))
         ->assertOk()
-        ->assertSee('Nothing published yet')
-        // The reason, which is a fact about the gate.
+        ->assertSee('No market has cleared the gate')
+        // The reason, which is a fact about the gate and not about the
+        // data: the figures come from real inputs, and what is missing
+        // is a market that has met a harder bar.
         ->assertSee('beaten the closing line')
-        ->assertSee('willing to make numbers up');
+        ->assertSee('comes from real data', false);
 });
 
 it('counts a push toward the sample but not toward the win rate', function () {

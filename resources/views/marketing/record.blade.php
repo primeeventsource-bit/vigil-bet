@@ -177,10 +177,20 @@
                     the closing line over a measured sample. None has, so this table is empty &mdash;
                     and it stays empty until one does.
                 </p>
+                {{--
+                    This used to end "...would mean we were willing to
+                    make numbers up". It was arguing for the product and
+                    read as an admission against it, which is a failure
+                    whatever it meant. The figures above come from odds,
+                    box scores, player availability and the engine's own
+                    measured history; what is missing here is not data,
+                    it is a market that has cleared a harder bar.
+                --}}
                 <p class="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-[var(--vg-slate)]">
-                    This is the state the product is designed to be honest about. A tier with numbers
-                    on it before any pick had been published would tell you nothing except that we
-                    were willing to make numbers up.
+                    Every figure {{ config('brand.name') }} publishes comes from real data &mdash;
+                    live odds, box scores, player availability and the engine's own measured history.
+                    That is what the picks above are built from. This tier is a harder bar on top of
+                    it, and nothing has met that bar yet.
                 </p>
                 <p class="mt-6">
                     <a class="text-[var(--vg-blue)] underline" href="{{ route('how-it-works') }}">
