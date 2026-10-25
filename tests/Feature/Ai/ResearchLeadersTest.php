@@ -91,16 +91,18 @@ it('names the leading passer, rusher and receiver from college box scores', func
         ->and($leaders['rec yds']['player'])->toBe('Star Receiver');
 });
 
-it('averages over the games a player appeared in, not the width of the window', function () {
+it('ranks on the total, so one big game does not outrank a season of carries', function () {
     /*
-     * The back played one of the two games. Dividing his 200 yards by the
-     * window would report 100 a game, describing a player with one game
-     * of form as a bad one - a different thing entirely.
+     * Ranking on the average put a receiver who had taken one carry for
+     * 65 yards at the top of the Vikings' rushing, which is the best
+     * yards per game in the squad and not a fact about their running
+     * game. Houston and the Jets came back the same way. The total is
+     * what "leading rusher" means.
      */
     $event = engineGame('Texas Longhorns', 'Ole Miss Rebels', ['sport' => 'ncaaf']);
 
     gameWithPlayerLines($event->homeTeam, $event->awayTeam, 7, [
-        ['One Game Back', 'rushing', ['YDS' => '200']],
+        ['One Carry Receiver', 'rushing', ['YDS' => '200']],
         ['Every Game Back', 'rushing', ['YDS' => '150']],
     ]);
     gameWithPlayerLines($event->homeTeam, $event->awayTeam, 14, [
@@ -110,9 +112,30 @@ it('averages over the games a player appeared in, not the width of the window', 
     $rush = collect(app(ResearchBrief::class)->forEvent($event->id)['home_leaders'])
         ->firstWhere('role', 'rush yds');
 
-    expect($rush['player'])->toBe('One Game Back')
-        ->and($rush['per_game'])->toBe(200.0)
-        ->and($rush['games'])->toBe(1);
+    expect($rush['player'])->toBe('Every Game Back')
+        ->and($rush['games'])->toBe(2);
+});
+
+it('reports the average over the games played, with the count beside it', function () {
+    /*
+     * Three games at 120 and five at 72 are different things, and the
+     * total alone hides which is which - so the figure is the average
+     * over the games the player actually appeared in, and the count of
+     * them goes on the line.
+     */
+    $event = engineGame('Tennessee Volunteers', 'Alabama Crimson Tide', ['sport' => 'ncaaf']);
+
+    foreach ([7, 14, 21] as $daysAgo) {
+        gameWithPlayerLines($event->homeTeam, $event->awayTeam, $daysAgo, [
+            ['Three Game Back', 'rushing', ['YDS' => '120']],
+        ]);
+    }
+
+    $rush = collect(app(ResearchBrief::class)->forEvent($event->id)['home_leaders'])
+        ->firstWhere('role', 'rush yds');
+
+    expect($rush['per_game'])->toBe(120.0)
+        ->and($rush['games'])->toBe(3);
 });
 
 it('uses points for basketball, which is what that sport measures a scorer by', function () {

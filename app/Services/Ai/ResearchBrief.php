@@ -172,13 +172,19 @@ class ResearchBrief
     }
 
     /**
-     * The best per-game average in one stat, among players who recorded
-     * it.
+     * Who leads one stat over the window.
      *
-     * Averaged over the games a player appeared in rather than the width
-     * of the window: dividing one big game by five would describe a
-     * player with one game of form as a bad one, which is a different
-     * thing and a worse answer than saying how many games it is over.
+     * Ranked on the total rather than the average, which is both what
+     * "leading rusher" means and the only ranking that survives real
+     * data. On the average, the Vikings' leading rusher came back as a
+     * receiver who had taken one carry for 65 yards - the best yards per
+     * game in the squad and not a fact about their running game. Houston
+     * and the Jets returned the same shape of answer.
+     *
+     * The figure reported is still the per-game average over the games
+     * the player appeared in, with that count beside it, because three
+     * games at 120 and five at 72 are different things and the total
+     * alone hides which is which.
      *
      * @param  Collection<int, object>  $rows
      * @return array{player: string, per_game: float, games: int}|null
@@ -216,13 +222,19 @@ class ResearchBrief
         }
 
         $best = null;
+        $bestTotal = null;
 
         foreach ($totals as $name => $tally) {
-            $perGame = round($tally['total'] / $tally['games'], 1);
-
-            if ($best === null || $perGame > $best['per_game']) {
-                $best = ['player' => $name, 'per_game' => $perGame, 'games' => $tally['games']];
+            if ($bestTotal !== null && $tally['total'] <= $bestTotal) {
+                continue;
             }
+
+            $bestTotal = $tally['total'];
+            $best = [
+                'player' => (string) $name,
+                'per_game' => round($tally['total'] / $tally['games'], 1),
+                'games' => $tally['games'],
+            ];
         }
 
         return $best;
