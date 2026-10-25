@@ -82,15 +82,39 @@ final class RatingSchema
             ['group' => 'goalies', 'key' => 'goalsAgainst', 'label' => 'goals conceded', 'kind' => 'total', 'weight' => 0.25, 'better' => 'low'],
         ],
 
+        /*
+         * Baseball files pitchers and batters under one group called
+         * `all`, and the same words mean opposite things in each. A
+         * pitcher's `hits` are hits he allowed; a batter's are hits he
+         * got. Rating them together produced a leaderboard with Aaron
+         * Nola at 98 for "hits 98, power 98" - he had been hit for five
+         * and taken deep twice.
+         *
+         * So the role is read off the line itself: a pitching line
+         * carries ERA and earned runs, a batting line carries at-bats
+         * and a slugging average. That is a fact in the data rather than
+         * a roster lookup, and it is the same distinction a box score
+         * makes on the page.
+         */
         'mlb' => [
-            ['group' => 'all', 'key' => 'hits', 'label' => 'hits', 'kind' => 'total', 'weight' => 0.20, 'better' => 'high'],
-            ['group' => 'all', 'key' => 'avg', 'label' => 'contact', 'kind' => 'rate', 'weight' => 0.15, 'better' => 'high'],
-            ['group' => 'all', 'key' => 'homeRuns', 'label' => 'power', 'kind' => 'total', 'weight' => 0.15, 'better' => 'high'],
-            ['group' => 'all', 'key' => 'RBIs', 'label' => 'run production', 'kind' => 'total', 'weight' => 0.15, 'better' => 'high'],
-            ['group' => 'all', 'key' => 'runs', 'label' => 'runs scored', 'kind' => 'total', 'weight' => 0.10, 'better' => 'high'],
-            ['group' => 'all', 'key' => 'onBasePct', 'label' => 'on base', 'kind' => 'rate', 'weight' => 0.10, 'better' => 'high'],
-            ['group' => 'all', 'key' => 'slugAvg', 'label' => 'slugging', 'kind' => 'rate', 'weight' => 0.10, 'better' => 'high'],
-            ['group' => 'all', 'key' => 'strikeouts', 'label' => 'strikeouts', 'kind' => 'total', 'weight' => 0.05, 'better' => 'high'],
+            ['group' => 'batting', 'key' => 'hits', 'label' => 'hits', 'kind' => 'total', 'weight' => 0.20, 'better' => 'high'],
+            ['group' => 'batting', 'key' => 'avg', 'label' => 'contact', 'kind' => 'rate', 'weight' => 0.15, 'better' => 'high'],
+            ['group' => 'batting', 'key' => 'homeRuns', 'label' => 'power', 'kind' => 'total', 'weight' => 0.15, 'better' => 'high'],
+            ['group' => 'batting', 'key' => 'RBIs', 'label' => 'run production', 'kind' => 'total', 'weight' => 0.15, 'better' => 'high'],
+            ['group' => 'batting', 'key' => 'slugAvg', 'label' => 'slugging', 'kind' => 'rate', 'weight' => 0.12, 'better' => 'high'],
+            ['group' => 'batting', 'key' => 'onBasePct', 'label' => 'on base', 'kind' => 'rate', 'weight' => 0.12, 'better' => 'high'],
+            ['group' => 'batting', 'key' => 'runs', 'label' => 'runs scored', 'kind' => 'total', 'weight' => 0.06, 'better' => 'high'],
+            // A batter striking out is a cost. The first version of this
+            // rewarded it.
+            ['group' => 'batting', 'key' => 'strikeouts', 'label' => 'strikeouts', 'kind' => 'total', 'weight' => 0.05, 'better' => 'low'],
+
+            ['group' => 'pitching', 'key' => 'ERA', 'label' => 'earned run average', 'kind' => 'rate', 'weight' => 0.30, 'better' => 'low'],
+            ['group' => 'pitching', 'key' => 'strikeouts', 'label' => 'strikeouts', 'kind' => 'total', 'weight' => 0.25, 'better' => 'high'],
+            // Allowed, every one of them.
+            ['group' => 'pitching', 'key' => 'hits', 'label' => 'hits allowed', 'kind' => 'total', 'weight' => 0.15, 'better' => 'low'],
+            ['group' => 'pitching', 'key' => 'earnedRuns', 'label' => 'runs allowed', 'kind' => 'total', 'weight' => 0.12, 'better' => 'low'],
+            ['group' => 'pitching', 'key' => 'homeRuns', 'label' => 'home runs allowed', 'kind' => 'total', 'weight' => 0.10, 'better' => 'low'],
+            ['group' => 'pitching', 'key' => 'walks', 'label' => 'walks allowed', 'kind' => 'total', 'weight' => 0.08, 'better' => 'low'],
         ],
 
         /*
@@ -156,6 +180,39 @@ final class RatingSchema
             ['group' => 'fumbles', 'key' => 'fumbles', 'label' => 'fumbles', 'kind' => 'total', 'weight' => 0.20, 'better' => 'low'],
         ],
     ];
+
+    /**
+     * Peer groups that are not the stat group the feed files.
+     *
+     * Baseball writes pitchers and batters into one group called `all`,
+     * and the same words mean opposite things in each: a pitcher's
+     * `hits` are hits he allowed. So the role is read off the line - a
+     * pitching line carries ERA, a batting line carries at-bats - which
+     * is a fact in the data rather than a roster lookup, and the same
+     * distinction a box score makes on the page.
+     *
+     * `requires` must all be present and `excludes` must all be absent.
+     * A line satisfying neither is rated in neither, which is right: a
+     * pinch runner's line says nothing about hitting or pitching.
+     *
+     * @var array<string, array<string, array{from: string, requires: array<int, string>, excludes: array<int, string>}>>
+     */
+    public const DERIVED_GROUPS = [
+        'mlb' => [
+            'batting' => ['from' => 'all', 'requires' => ['atBats'], 'excludes' => ['ERA']],
+            'pitching' => ['from' => 'all', 'requires' => ['ERA'], 'excludes' => []],
+        ],
+    ];
+
+    /**
+     * How a peer group is found in the data.
+     *
+     * @return array{from: string, requires: array<int, string>, excludes: array<int, string>}|null
+     */
+    public static function derivation(string $sport, string $group): ?array
+    {
+        return self::DERIVED_GROUPS[$sport][$group] ?? null;
+    }
 
     /**
      * The stats behind each prop market we see priced.

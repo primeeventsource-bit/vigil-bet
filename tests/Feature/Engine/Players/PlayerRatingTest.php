@@ -350,7 +350,12 @@ it('covers every peer group the box scores actually file', function () {
     expect(RatingSchema::groups('nfl'))->toHaveCount(10)
         ->and(RatingSchema::groups('nhl'))->toHaveCount(3)
         ->and(RatingSchema::groups('nba'))->toHaveCount(1)
-        ->and(RatingSchema::groups('mlb'))->toHaveCount(1);
+        /*
+         * Two for baseball, though the feed files one. Pitchers and
+         * batters share a group called `all` and the same words mean
+         * opposite things in each, so the role is read off the line.
+         */
+        ->and(RatingSchema::groups('mlb'))->toBe(['batting', 'pitching']);
 });
 
 it('has a stat behind every prop market it prices', function (string $sport, string $market) {
@@ -398,4 +403,81 @@ it('prices every prop market the config asks for', function () {
                 ->not->toBeEmpty("no stat mapped for {$market}");
         }
     }
+});
+
+it('does not rate a pitcher as a hitter', function () {
+    /*
+     * The bug this split exists for. Baseball files both under `all`,
+     * and a pitcher's `hits` are hits he allowed - so the first version
+     * of this put Aaron Nola top of the league at 98 for "hits 98, power
+     * 98" after being hit for five and taken deep twice.
+     */
+    ratedConsistent('mlb', 'all', 'pitcher', [
+        'ERA' => '5.40', 'hits' => '8', 'homeRuns' => '3', 'earnedRuns' => '5',
+        'walks' => '3', 'strikeouts' => '7',
+    ], 12);
+
+    ratedConsistent('mlb', 'all', 'slugger', [
+        'avg' => '.310', 'atBats' => '4', 'hits' => '2', 'homeRuns' => '1',
+        'RBIs' => '3', 'runs' => '2', 'slugAvg' => '.620', 'onBasePct' => '.390',
+        'strikeouts' => '1',
+    ], 12, 1100);
+
+    $rated = collect(app(PlayerRatingCalculator::class)->forSport('mlb'))->keyBy('player_external_id');
+
+    expect($rated['pitcher']['peer_group'])->toBe('pitching')
+        ->and($rated['slugger']['peer_group'])->toBe('batting')
+        // Hits allowed are a cost, and the label says which they are.
+        ->and($rated['pitcher']['components'])->toHaveKey('hits allowed')
+        ->and($rated['slugger']['components'])->toHaveKey('hits');
+});
+
+it('rewards the pitcher who gives up less', function () {
+    ratedConsistent('mlb', 'all', 'ace', [
+        'ERA' => '2.10', 'hits' => '3', 'homeRuns' => '0', 'earnedRuns' => '1',
+        'walks' => '1', 'strikeouts' => '9',
+    ], 12);
+
+    ratedConsistent('mlb', 'all', 'batted-around', [
+        'ERA' => '7.80', 'hits' => '11', 'homeRuns' => '3', 'earnedRuns' => '7',
+        'walks' => '5', 'strikeouts' => '2',
+    ], 12, 1200);
+
+    $rated = collect(app(PlayerRatingCalculator::class)->forSport('mlb'))->keyBy('player_external_id');
+
+    expect($rated['ace']['overall'])->toBeGreaterThan($rated['batted-around']['overall']);
+});
+
+it('treats a batter striking out as the cost it is', function () {
+    /*
+     * The first version weighted batter strikeouts as higher-is-better,
+     * which rewarded the worst contact hitter in the sample.
+     */
+    ratedConsistent('mlb', 'all', 'contact', [
+        'avg' => '.300', 'atBats' => '4', 'hits' => '2', 'homeRuns' => '1',
+        'RBIs' => '2', 'runs' => '1', 'slugAvg' => '.550', 'onBasePct' => '.360',
+        'strikeouts' => '0',
+    ], 12);
+
+    ratedConsistent('mlb', 'all', 'whiffer', [
+        'avg' => '.300', 'atBats' => '4', 'hits' => '2', 'homeRuns' => '1',
+        'RBIs' => '2', 'runs' => '1', 'slugAvg' => '.550', 'onBasePct' => '.360',
+        'strikeouts' => '4',
+    ], 12, 1300);
+
+    $rated = collect(app(PlayerRatingCalculator::class)->forSport('mlb'))->keyBy('player_external_id');
+
+    expect($rated['contact']['overall'])->toBeGreaterThan($rated['whiffer']['overall']);
+});
+
+it('rates a line that is neither in neither', function () {
+    /*
+     * A pinch runner's line carries no at-bats and no ERA. It says
+     * nothing about hitting or pitching, and forcing it into one would
+     * invent a player.
+     */
+    ratedConsistent('mlb', 'all', 'runner', ['runs' => '1'], 12);
+
+    expect(collect(app(PlayerRatingCalculator::class)->forSport('mlb'))
+        ->firstWhere('player_external_id', 'runner'))->toBeNull();
 });

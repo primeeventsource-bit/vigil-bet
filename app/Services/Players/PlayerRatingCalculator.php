@@ -180,9 +180,16 @@ class PlayerRatingCalculator
         $wanted = array_column($measures, 'key');
         $kinds = array_combine($wanted, array_column($measures, 'kind'));
 
+        /*
+         * Most peer groups are the stat group the feed files. Baseball's
+         * are not: pitchers and batters share a group called `all`, and
+         * which one a line belongs to is read off the line itself.
+         */
+        $derivation = RatingSchema::derivation($sport, $group);
+
         $rows = DB::table('player_game_stats')
             ->where('sport', $sport)
-            ->where('stat_group', $group)
+            ->where('stat_group', $derivation['from'] ?? $group)
             ->orderBy('id')
             ->get(['player_external_id', 'player_name', 'team_id', 'event_id', 'stats', 'as_of']);
 
@@ -198,6 +205,10 @@ class PlayerRatingCalculator
             $stats = json_decode((string) $row->stats, true);
 
             if (! is_array($stats)) {
+                continue;
+            }
+
+            if ($derivation !== null && ! $this->belongsTo($stats, $derivation)) {
                 continue;
             }
 
@@ -272,6 +283,34 @@ class PlayerRatingCalculator
         }
 
         return $out;
+    }
+
+    /**
+     * Whether a line belongs to a derived peer group.
+     *
+     * A pitching line carries ERA; a batting line carries at-bats and no
+     * ERA. A line answering to neither is counted in neither rather than
+     * forced into one - a pinch runner's line says nothing about hitting
+     * or pitching, and rating him on it would invent a player.
+     *
+     * @param  array<string, mixed>  $stats
+     * @param  array{from: string, requires: array<int, string>, excludes: array<int, string>}  $derivation
+     */
+    private function belongsTo(array $stats, array $derivation): bool
+    {
+        foreach ($derivation['requires'] as $key) {
+            if (! array_key_exists($key, $stats)) {
+                return false;
+            }
+        }
+
+        foreach ($derivation['excludes'] as $key) {
+            if (array_key_exists($key, $stats)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
