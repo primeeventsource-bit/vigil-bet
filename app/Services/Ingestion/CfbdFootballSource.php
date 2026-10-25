@@ -11,7 +11,9 @@ use App\Enums\SeasonType;
 use App\Enums\Sport;
 use Carbon\CarbonImmutable;
 use Generator;
+use Illuminate\Support\Facades\Cache;
 use RuntimeException;
+use Throwable;
 
 /**
  * CollegeFootballData API for NCAAF. Documented and reliable, but needs a
@@ -61,12 +63,143 @@ class CfbdFootballSource implements ProvidesTeamGameStats, SportDataSource
         ], $seasonType);
     }
 
+    /**
+     * Games that started inside a window.
+     *
+     * The hourly results pull asks about the last few days. Doing that by
+     * downloading a whole season and filtering in PHP measured at 442
+     * seconds a run in production, with 8 of 19 runs dying on max
+     * attempts - the games the job existed to read were the ones it could
+     * not finish reading.
+     *
+     * So the calendar narrows it first. Sixteen rows describe a season,
+     * one per week with a start and an end, and only the weeks the window
+     * touches get fetched. A whole-season query remains as the fallback,
+     * because a calendar that cannot be read is a reason to be slow and
+     * not a reason to return nothing.
+     */
     public function games(CarbonImmutable $from, CarbonImmutable $to): iterable
     {
-        foreach ($this->streamGames(['year' => (int) $from->year], SeasonType::Regular) as $game) {
-            if ($game->startsAt->betweenIncluded($from, $to)) {
-                yield $game;
+        $weeks = $this->weeksCovering($from, $to);
+
+        $queries = $weeks === []
+            ? [[(int) $from->year, null, SeasonType::Regular]]
+            : $weeks;
+
+        foreach ($queries as [$season, $week, $seasonType]) {
+            $query = ['year' => $season];
+
+            if ($week !== null) {
+                $query['week'] = $week;
+                $query['seasonType'] = $this->seasonTypeParam($seasonType);
             }
+
+            foreach ($this->streamGames($query, $seasonType) as $game) {
+                if ($game->startsAt->betweenIncluded($from, $to)) {
+                    yield $game;
+                }
+            }
+        }
+    }
+
+    /**
+     * The season weeks a window overlaps, from CFBD's calendar.
+     *
+     * Cached for six hours. A season's week boundaries are fixed once the
+     * schedule is published, so re-reading them every hourly pull would
+     * spend a request to be told the same sixteen rows.
+     *
+     * Returns an empty array when the calendar cannot be read or covers
+     * none of the window, which the caller treats as "fall back".
+     *
+     * @return array<int, array{0: int, 1: int, 2: SeasonType}>
+     */
+    private function weeksCovering(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $weeks = [];
+
+        /*
+         * A window can straddle New Year, where a January bowl game
+         * belongs to the previous season. Both years are asked.
+         */
+        foreach (range((int) $from->year, (int) $to->year) as $year) {
+            foreach ($this->calendar($year) as $row) {
+                $start = $row['start'] ?? null;
+                $end = $row['end'] ?? null;
+
+                if ($start === null || $end === null) {
+                    continue;
+                }
+
+                if ($start->lessThanOrEqualTo($to) && $end->greaterThanOrEqualTo($from)) {
+                    $weeks[$year.':'.$row['seasonType']->value.':'.$row['week']]
+                        = [$row['season'], $row['week'], $row['seasonType']];
+                }
+            }
+        }
+
+        return array_values($weeks);
+    }
+
+    /**
+     * One season's week boundaries.
+     *
+     * @return array<int, array{season: int, week: int, seasonType: SeasonType, start: ?CarbonImmutable, end: ?CarbonImmutable}>
+     */
+    private function calendar(int $year): array
+    {
+        return Cache::remember(
+            "cfbd:calendar:{$year}",
+            now()->addHours(6),
+            function () use ($year): array {
+                try {
+                    $rows = $this->getJson($this->url('calendar'), ['year' => $year], [
+                        'Authorization' => 'Bearer '.config('edge.sources.cfbd.key'),
+                    ]);
+                } catch (Throwable) {
+                    /*
+                     * Not cached as a failure for six hours: an empty
+                     * array is what Cache::remember declines to store, so
+                     * the next pull tries the calendar again rather than
+                     * being stuck on the slow path until the key expires.
+                     */
+                    return [];
+                }
+
+                $weeks = [];
+
+                foreach ($rows as $row) {
+                    if (! is_array($row) || ! isset($row['week'])) {
+                        continue;
+                    }
+
+                    $weeks[] = [
+                        'season' => (int) ($this->field($row, 'season', 'season') ?? $year),
+                        'week' => (int) $row['week'],
+                        'seasonType' => $this->seasonTypeFrom(
+                            $this->field($row, 'season_type', 'seasonType'),
+                            SeasonType::Regular,
+                        ),
+                        'start' => $this->date($this->field($row, 'start_date', 'startDate')),
+                        'end' => $this->date($this->field($row, 'end_date', 'endDate')),
+                    ];
+                }
+
+                return $weeks;
+            },
+        );
+    }
+
+    private function date(mixed $value): ?CarbonImmutable
+    {
+        if (! is_string($value) || $value === '') {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse($value);
+        } catch (Throwable) {
+            return null;
         }
     }
 
