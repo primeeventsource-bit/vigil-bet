@@ -274,56 +274,76 @@
         </section>
     </div>
 
-    {{-- Picks you can add --}}
-    <section class="panel mt-5 overflow-hidden">
-        <h2 class="border-b border-[var(--vg-line)] px-5 py-3.5 font-[family-name:var(--font-display)] font-semibold">
-            VIGIL's own recommendations
-        </h2>
+    {{--
+        Games to add, from what the books are pricing.
 
-        @if ($candidates->isEmpty())
-            {{--
-                A shortcut, not the way in. The engine publishes a pick
-                only from a market it has proven against closing lines,
-                and it has proven none - so this list is empty and will be
-                until one clears. That used to be the only source of legs,
-                which is why the builder had nothing to click; games to bet
-                on now come from Today's Games regardless of what the
-                engine thinks of them.
-            --}}
+        This panel used to list the engine's recommendations, and the
+        engine has proven no market - so it was permanently empty and the
+        builder had nothing to build from. Reading the board here at all
+        was the mistake: what belongs on a betting surface is what you can
+        bet on.
+    --}}
+    <section class="panel mt-5 overflow-hidden">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--vg-line)] px-5 py-3.5">
+            <h2 class="font-[family-name:var(--font-display)] font-semibold">Add a leg</h2>
+            <a class="text-xs text-[var(--vg-blue)] underline" href="{{ route('games') }}">All of today's games</a>
+        </div>
+
+        @if ($addable->isEmpty())
             <p class="px-5 py-8 text-center text-sm text-[var(--vg-slate)]">
-                VIGIL is not recommending anything right now — no market has proven itself
-                against the closing line yet, and it will not publish a pick it cannot stand
-                behind. Your own selections are unaffected:
-                <a class="text-[var(--vg-blue)] underline" href="{{ route('games') }}">browse today's games</a>.
+                No priced markets in the next two days. Games appear here once a sportsbook is
+                quoting them.
             </p>
         @else
-            <ul class="divide-y divide-[var(--vg-line)]">
-                @foreach ($candidates as $candidate)
-                    <li class="flex items-center justify-between gap-3 px-5 py-3">
-                        <div class="min-w-0">
-                            <p class="font-medium">{{ $candidate->selection }}</p>
-                            <p class="mt-0.5 text-xs uppercase text-[var(--vg-slate)]">
-                                {{ $candidate->sport }} &middot; {{ $candidate->market }}
-                                @if ($candidate->model_prob !== null)
-                                    &middot; <span data-numeric>{{ round($candidate->model_prob * 100) }}%</span>
-                                @endif
-                            </p>
-                        </div>
+            @foreach ($addable as $game)
+                <div class="border-b border-[var(--vg-line)] px-5 py-3 last:border-b-0">
+                    <p class="text-xs uppercase tracking-wide text-[var(--vg-slate)]">
+                        {{ $game['away'] }} at {{ $game['home'] }}
+                        &middot; {{ $game['starts_at']->format('D H:i') }}
+                    </p>
 
-                        <form method="POST" action="{{ route('parlays.add') }}">
-                            @csrf
-                            <input type="hidden" name="event_id" value="{{ $candidate->edge_lab_event_id }}">
-                            <input type="hidden" name="market" value="{{ $candidate->market }}">
-                            <input type="hidden" name="side" value="{{ $candidate->side }}">
-                            <input type="hidden" name="line" value="{{ $candidate->line }}">
-                            <button type="submit"
-                                    class="rounded-md border border-[var(--vg-line)] px-3 py-1 text-xs font-semibold text-[var(--vg-slate)] hover:text-[var(--vg-paper)]">
-                                Add
-                            </button>
-                        </form>
-                    </li>
-                @endforeach
-            </ul>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        @foreach ($game['markets'] as $market => $options)
+                            @foreach ($options as $option)
+                                @php($taken = in_array($option['key'], $onSlip, true))
+
+                                <form method="POST"
+                                      action="{{ $taken ? route('parlays.remove') : route('parlays.add') }}">
+                                    @csrf
+                                    @if ($taken)
+                                        @method('DELETE')
+                                        <input type="hidden" name="key" value="{{ $option['key'] }}">
+                                    @else
+                                        <input type="hidden" name="event_id" value="{{ $option['event_id'] }}">
+                                        <input type="hidden" name="market" value="{{ $option['market'] }}">
+                                        <input type="hidden" name="side" value="{{ $option['side'] }}">
+                                        <input type="hidden" name="line" value="{{ $option['line'] }}">
+                                    @endif
+
+                                    <button type="submit"
+                                            aria-pressed="{{ $taken ? 'true' : 'false' }}"
+                                            @class([
+                                                'flex min-h-12 items-center gap-2 rounded-lg border px-3 py-2 text-xs',
+                                                'border-[var(--vg-paper)] bg-[var(--vg-slate-dark)]' => $taken,
+                                                'border-[var(--vg-line)] hover:border-[var(--vg-paper)]' => ! $taken,
+                                            ])>
+                                        <span class="font-medium">
+                                            {{ $market === 'totals'
+                                                ? ucfirst($option['side']).' '.rtrim(rtrim(number_format((float) $option['line'], 1, '.', ''), '0'), '.')
+                                                : ($market === 'spreads'
+                                                    ? ($option['side'] === 'home' ? $game['home'] : $game['away']).' '.($option['line'] > 0 ? '+' : '').rtrim(rtrim(number_format((float) $option['line'], 1, '.', ''), '0'), '.')
+                                                    : ($option['side'] === 'home' ? $game['home'] : $game['away'])) }}
+                                        </span>
+                                        <span class="font-[family-name:var(--font-mono)] tabular-nums text-[var(--vg-slate)]">
+                                            {{ $option['price_american'] > 0 ? '+' : '' }}{{ $option['price_american'] }}
+                                        </span>
+                                    </button>
+                                </form>
+                            @endforeach
+                        @endforeach
+                    </div>
+                </div>
+            @endforeach
         @endif
     </section>
 </x-layouts.app>

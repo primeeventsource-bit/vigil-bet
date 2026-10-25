@@ -8,7 +8,6 @@ use App\Models\ParlayGrade;
 use App\Models\User;
 use App\Models\UserParlay;
 use App\Models\VigilRead;
-use App\Models\VlBoardEntry;
 use App\Services\Ai\ReadWriter;
 use App\Services\Entitlements\Entitlements;
 use App\Services\Odds\GameMarkets;
@@ -37,8 +36,12 @@ use RuntimeException;
  */
 class ParlayController extends Controller
 {
-    public function index(Request $request, ParlaySlip $slip, Entitlements $entitlements): View
-    {
+    public function index(
+        Request $request,
+        ParlaySlip $slip,
+        Entitlements $entitlements,
+        GameMarkets $markets,
+    ): View {
         $user = $request->user();
 
         $latest = ParlayGrade::query()
@@ -59,23 +62,21 @@ class ParlayController extends Controller
             'gradesToday' => $this->gradesToday($user),
             'gradeLimit' => $entitlements->limit($user, 'parlays_per_day'),
             /*
-             * The engine's own recommendations, where it has any. These
-             * are a shortcut and not the way in: with no market proven
-             * this list is empty, and it used to be the only source of
-             * legs - which is why the builder had nothing to click. Games
-             * to bet on now come from Today's Games.
+             * Games to add, straight from what the books are pricing.
+             *
+             * This panel used to query `sellablePicks()` - the engine's
+             * recommendations - and the engine has proven no market, so
+             * it was permanently empty and the builder had nothing to
+             * build from. Reading the board here at all was the mistake:
+             * what belongs on a betting surface is what you can bet on.
+             *
+             * Capped, because this is the builder and not the full
+             * fixture list; Today's Games is where the rest lives. The
+             * window is the same one Today's Games uses, so a game can
+             * never appear on one and not the other.
              */
-            'candidates' => VlBoardEntry::query()->current()->sellablePicks()
-                ->orderByDesc('edge_at_price')
-                ->limit(20)
-                ->get()
-                ->reject(fn (VlBoardEntry $e) => $slip->has(ParlaySlip::keyFor(
-                    (int) $e->edge_lab_event_id,
-                    (string) $e->market,
-                    $e->side,
-                    $e->line,
-                )))
-                ->values(),
+            'addable' => $markets->upcoming()->take(6),
+            'onSlip' => $slip->keys(),
         ]);
     }
 

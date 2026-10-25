@@ -187,3 +187,31 @@ it('offers a totals market with its line, since Over 44.5 is not Over 47.5', fun
 it('requires a login, because a slip belongs to somebody', function () {
     $this->get(route('games'))->assertRedirect();
 });
+
+it('offers games to add on the builder itself, not only the engine’s picks', function () {
+    /*
+     * The builder's own "Add a leg" panel queried `sellablePicks()`, and
+     * the engine has proven no market - so it was permanently empty and
+     * the page it belonged to had nothing to build from. Reading the
+     * board there at all was the mistake: a betting surface lists what
+     * you can bet on.
+     */
+    pricedSelection(['home' => 'Addable From Builder']);
+
+    $this->actingAs(betUser())->get(route('parlays'))
+        ->assertOk()
+        ->assertSee('Addable From Builder')
+        ->assertDontSee('No picks from proven markets');
+});
+
+it('adds a leg from the builder page without going anywhere else', function () {
+    $user = betUser();
+    $selection = pricedSelection();
+
+    $this->actingAs($user)->get(route('parlays'))->assertOk();
+    $this->actingAs($user)->post(route('parlays.add'), $selection)->assertSessionHasNoErrors();
+
+    $this->actingAs($user)->get(route('parlays'))
+        ->assertOk()
+        ->assertSee('aria-pressed="true"', false);
+});
