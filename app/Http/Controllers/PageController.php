@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Opinion;
 use App\Models\VlBoardEntry;
 use App\Services\EdgeLab\SyncHealth;
+use App\Services\Record\OpinionRecord;
 use App\Services\Record\PublicRecord;
 use Illuminate\View\View;
 
@@ -18,7 +20,7 @@ use Illuminate\View\View;
  */
 class PageController extends Controller
 {
-    public function home(): View
+    public function home(OpinionRecord $opinions): View
     {
         /*
          * The three steps live here rather than in the template because
@@ -27,6 +29,23 @@ class PageController extends Controller
          */
         return view('marketing.home', [
             'record' => $this->publicRecord(),
+
+            /*
+             * Today's published opinions, on the front page.
+             *
+             * The brief asks for the daily picks to be the first thing a
+             * visitor sees, and until now the front page described the
+             * product at length without ever showing it. Live only: a
+             * game that has started is not a pick anybody can act on.
+             */
+            'opinions' => Opinion::query()->live()->limit(5)->get(),
+
+            /*
+             * And how the published ones have done, in the same breath.
+             * A picks list on a marketing page with no record beside it
+             * is the shape of every tout site there has ever been.
+             */
+            'opinionRecord' => $opinions->summary(),
             'steps' => [
                 [
                     'heading' => 'We read the whole market',

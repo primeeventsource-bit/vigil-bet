@@ -11,22 +11,32 @@
      * product has the feature at all. The route behind it is gated
      * separately, by middleware, because this list is decoration.
      */
+    /*
+     * The first nine are the reference design's nav, in its order.
+     * "Results" there is this product's opinion record: every published
+     * opinion and how it turned out, which is the page that makes the
+     * picks worth reading.
+     *
+     * The rest follow because the product has them and the reference
+     * simply did not draw them. Dropping a working feature to match a
+     * mockup would be matching the picture rather than the design.
+     */
     $items = [
         ['route' => 'today', 'label' => 'Dashboard', 'icon' => 'grid'],
         ['route' => 'live-odds', 'label' => 'Live Odds', 'icon' => 'activity', 'feature' => 'board.full'],
         ['route' => 'picks', 'label' => 'AI Picks', 'icon' => 'target', 'feature' => 'board.full'],
         ['route' => 'parlays', 'label' => 'Parlays', 'icon' => 'layers', 'feature' => 'parlay.grade'],
+        ['route' => 'bankroll', 'label' => 'Bankroll', 'icon' => 'chart', 'feature' => 'bankroll'],
         ['route' => 'analytics', 'label' => 'Analytics', 'icon' => 'chart', 'feature' => 'bets.clv'],
+        ['route' => 'models', 'label' => 'Models', 'icon' => 'cpu', 'feature' => 'modellab'],
+        ['route' => 'opinions', 'label' => 'Results', 'icon' => 'file'],
+        ['route' => 'account', 'label' => 'Settings', 'icon' => 'cog'],
+
         ['route' => 'props', 'label' => 'Props', 'icon' => 'target', 'feature' => 'props'],
         ['route' => 'tools', 'label' => 'Tools', 'icon' => 'search', 'feature' => 'tools.crossbook'],
-        ['route' => 'models', 'label' => 'Model Lab', 'icon' => 'cpu', 'feature' => 'modellab'],
-
         ['route' => 'bets', 'label' => 'My Bets', 'icon' => 'file'],
-        ['route' => 'bankroll', 'label' => 'Bankroll', 'icon' => 'chart', 'feature' => 'bankroll'],
-
         ['route' => 'alerts', 'label' => 'Alerts', 'icon' => 'bell', 'feature' => 'alerts'],
         ['route' => 'reports', 'label' => 'Reports', 'icon' => 'file'],
-        ['route' => 'account', 'label' => 'Settings', 'icon' => 'cog'],
     ];
 
     /*
