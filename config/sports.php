@@ -93,7 +93,10 @@ return [
         'sources' => [
             'schedules' => 'mlb_statsapi',
             'results' => 'mlb_statsapi',
-            'team_stats' => 'mlb_statsapi',
+            // Box scores only: the league API gives schedules and
+            // results, not what happened inside the game. ESPN event ids
+            // are linked onto these events by ingest:link-espn.
+            'team_stats' => 'espn',
             'starters' => 'mlb_statsapi',
             'injuries' => 'espn',
             'weather' => 'open_meteo',
@@ -116,7 +119,10 @@ return [
         'sources' => [
             'schedules' => 'nhl',
             'results' => 'nhl',
-            'team_stats' => 'nhl',
+            // Box scores only: the league API gives schedules and
+            // results, not what happened inside the game. ESPN event ids
+            // are linked onto these events by ingest:link-espn.
+            'team_stats' => 'espn',
             'starters' => 'nhl',
             'injuries' => 'espn',
         ],
