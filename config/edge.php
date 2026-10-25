@@ -163,6 +163,30 @@ return [
     */
     'value' => [
         'edge_threshold' => 0.03,
+
+        /*
+         * How far a market that has not beaten the closing line may be
+         * published as disagreeing with it.
+         *
+         * Measured on 25 October 2026, with the calibrated tier live: the
+         * model put Philadelphia at 62.3% where the no-vig market had
+         * 33.6%, and the board offered that as a 27.8% edge. Professional
+         * edges run one to three points. A model that loses to the close
+         * - which every market here does - claiming the book is twenty-
+         * eight points wrong is the model being wrong, published as a
+         * recommendation.
+         *
+         * So the deviation from the market is shrunk toward it before any
+         * edge is taken: published = market + k x (model - market). At
+         * 0.25 the Philadelphia number becomes 40.8% and a 7.2% edge,
+         * which is a claim the evidence can carry.
+         *
+         * This is a policy ceiling, not a measured coefficient, and it is
+         * named as one. A market that does beat the close has earned the
+         * right to disagree and is not shrunk at all - see
+         * Verdict::claimsEdge().
+         */
+        'unproven_edge_shrink' => 0.25,
         // A pick must also win often enough to be worth showing. This is a
         // display preference, not a profitability test: a 52% bet at a good
         // price is profitable, it just is not what was asked for.

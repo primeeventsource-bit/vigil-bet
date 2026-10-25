@@ -163,6 +163,15 @@ class ValueScanner
         $verdict = $this->verdictFor($prediction);
 
         $fairProb = $consensus?->fairProbability;
+
+        /*
+         * A market that has not beaten the closing line is shrunk toward
+         * it before any edge is taken. Everything downstream - the edge,
+         * the edge at the price, expected value, the Kelly stake - is
+         * measured from this number rather than the raw model one.
+         */
+        $modelProb = $this->shrinkToMarket($modelProb, $fairProb, $verdict);
+
         $edge = $fairProb === null ? null : $modelProb - $fairProb;
 
         $price = $shopped->pricingBookPriceAmerican;
@@ -460,6 +469,36 @@ class ValueScanner
         $stored = $prediction->modelVersion?->holdout_metrics['verdict'] ?? null;
 
         return $stored === null ? Verdict::Insufficient : (Verdict::tryFrom($stored) ?? Verdict::Insufficient);
+    }
+
+    /**
+     * Pull a model's probability toward the market's, unless it has
+     * earned the right to disagree.
+     *
+     * Only a market that beats the closing line has earned that, and none
+     * currently does. Left unshrunk, the calibrated tier put Philadelphia
+     * at 62.3% against a no-vig market of 33.6% and the board offered it
+     * as a 27.8% edge. Real edges run one to three points; a model that
+     * loses to the close saying the book is twenty-eight points wrong is
+     * the model being wrong, dressed as a recommendation.
+     *
+     * Calibration does not protect against this. It says the stated
+     * probabilities are right on average, and the biggest disagreements
+     * with a sharper source are exactly where an average is least
+     * comforting.
+     *
+     * With no market price there is nothing to shrink toward, so the
+     * model's own number stands and the edge is null anyway.
+     */
+    private function shrinkToMarket(float $modelProb, ?float $fairProb, Verdict $verdict): float
+    {
+        if ($fairProb === null || $verdict->claimsEdge()) {
+            return $modelProb;
+        }
+
+        $shrink = (float) config('edge.value.unproven_edge_shrink', 0.25);
+
+        return $fairProb + ($shrink * ($modelProb - $fairProb));
     }
 
     private function minimumAcceptable(float $modelProb, float $threshold): ?int

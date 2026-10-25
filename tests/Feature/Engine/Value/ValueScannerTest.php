@@ -216,7 +216,14 @@ it('bets an unproven market when the owner turns the gate off', function () {
     $relaxed->created_at = now();
     $relaxed->save();
 
-    $event = board(0.65, Verdict::Unproven);
+    /*
+     * 0.80 rather than 0.65, because an unproven market is now shrunk
+     * toward the book before any edge is taken: 0.65 comes back as 0.538
+     * against a break-even of 0.524, which is a 1.4 point edge and under
+     * the threshold. The gate being off is still what this test is about
+     * - it just needs a disagreement big enough to survive the shrink.
+     */
+    $event = board(0.80, Verdict::Unproven);
     wholeBoard($event, -110);
 
     expect($this->scanner->scan(Sport::Nfl)->picks)->toBe(1);
