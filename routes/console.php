@@ -418,3 +418,40 @@ Schedule::command('vigil:settle-opinions')
     ->hourlyAt(20)
     ->name('settle-opinions')
     ->withoutOverlapping();
+
+/*
+ * Write down what the prop model thinks, before the games.
+ *
+ * The only route by which player props could ever become publishable.
+ * A model cannot be assessed retrospectively - the thing being tested
+ * is whether it knew beforehand - so the record has to accrue while the
+ * model is still not good enough to show anybody, and it starts now
+ * rather than when somebody remembers.
+ *
+ * Nothing it writes reaches a customer. The `odds_snapshots` schema
+ * forbids a prop becoming a prediction or a pick, and that has not
+ * changed.
+ *
+ * Hourly because lines move and a player priced at 7.5 rebounds this
+ * afternoon may be at 8.5 by evening, and those are two different
+ * selections both worth having an opinion on. Safe to re-run: the
+ * database refuses a second projection on the same selection from the
+ * same model, so a repeated pass records nothing.
+ */
+Schedule::command('edge:props:project --record --limit=0')
+    ->hourlyAt(38)
+    ->name('record-prop-projections')
+    ->withoutOverlapping();
+
+/*
+ * Mark them once the box scores land.
+ *
+ * After the box score pull rather than before it, since that is where
+ * the numbers it grades against come from. A projection whose game has
+ * no final box score yet is left alone rather than guessed at, so
+ * running early costs a pass and nothing else.
+ */
+Schedule::command('edge:props:settle')
+    ->dailyAt('10:15')
+    ->name('settle-prop-projections')
+    ->withoutOverlapping();

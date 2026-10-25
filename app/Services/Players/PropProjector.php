@@ -306,6 +306,69 @@ class PropProjector
     }
 
     /**
+     * What a player actually did in one game, for grading.
+     *
+     * Reads the box score through the same schema and the same reader
+     * the projection was built with, which is the point of it being
+     * here rather than in the settler: a projection that took 5 from
+     * "5-12" and a grade that took 512 would disagree about what
+     * happened, and the calibration figure would be about neither.
+     *
+     * Null means he has no line in this game's box score, which is a
+     * void rather than a zero. Most books void a prop on a player who
+     * did not take the field, and scoring it as an under would flatter
+     * this model in particular, since it leans under.
+     */
+    public function actualFor(int $eventId, string $sport, string $marketKey, string $playerKey): ?float
+    {
+        $propStats = RatingSchema::statsForProp($marketKey);
+
+        if ($propStats === []) {
+            return null;
+        }
+
+        $wanted = [];
+
+        foreach ($propStats as $stat) {
+            $wanted[$stat['group']][$stat['key']] = RatingSchema::kindOf($sport, $stat['group'], $stat['key']);
+        }
+
+        $rows = DB::table('player_game_stats')
+            ->where('event_id', $eventId)
+            ->where('sport', $sport)
+            ->whereIn('stat_group', array_keys($wanted))
+            ->get(['player_name', 'stat_group', 'stats']);
+
+        $total = null;
+
+        foreach ($rows as $row) {
+            $name = (string) $row->player_name;
+
+            if ($name === '' || PlayerNameKey::for($name) !== $playerKey) {
+                continue;
+            }
+
+            $stats = json_decode((string) $row->stats, true);
+
+            if (! is_array($stats)) {
+                continue;
+            }
+
+            // Summed across groups, so a player who ran one in and
+            // caught one has two touchdowns in this game.
+            foreach ($wanted[$row->stat_group] ?? [] as $statKey => $kind) {
+                $read = StatValue::read($stats[$statKey] ?? null, $kind);
+
+                if ($read !== null) {
+                    $total = ($total ?? 0.0) + $read;
+                }
+            }
+        }
+
+        return $total;
+    }
+
+    /**
      * One projection from one log.
      *
      * @param  array<string, mixed>  $log
