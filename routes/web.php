@@ -16,6 +16,7 @@ use App\Http\Controllers\BetController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\LearningCenterController;
 use App\Http\Controllers\ModelLabController;
 use App\Http\Controllers\OpinionRecordController;
@@ -37,6 +38,14 @@ use Illuminate\Support\Facades\Route;
 | Marketing and legal. Public, indexable, no Livewire.
 |--------------------------------------------------------------------------
 */
+
+/*
+ * Health, ahead of everything else and outside every middleware group
+ * that could keep it from answering. Laravel's `/up` already reports that
+ * the framework booted; this reports whether the database it needs is
+ * there, which is the failure that otherwise goes unnoticed.
+ */
+Route::get('health', HealthController::class)->name('health');
 
 Route::get('/', [PageController::class, 'home'])->name('home');
 Route::get('/pricing', [PageController::class, 'pricing'])->name('pricing');

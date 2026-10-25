@@ -62,9 +62,28 @@ composer install --no-dev --optimize-autoloader && npm ci && npm run build
 php artisan migrate --force
 ```
 
-Health check path: `/health`. It returns 200 when the database answers and
-migrations have run, and 503 otherwise. It reports whether any job failed in
-the last six hours, and nothing else - no counts, no data.
+## Health checks
+
+There are two, and they answer different questions.
+
+| Path | Answers |
+| --- | --- |
+| `/up` | Laravel's own. The framework booted. Registered by `health: '/up'` in `bootstrap/app.php` |
+| `/health` | The database answers and migrations have run: 200, or 503 |
+
+`/health` also reports whether any job failed in the last six hours, and
+nothing else - no counts, no data, because a public endpoint that says how
+many jobs failed is telling strangers about the business.
+
+The second one exists because the first cannot fail in the way that
+matters. `/up` returns 200 as soon as the framework boots, which it will do
+perfectly well while the database is unreachable - a container answering
+every request and reading nothing, with nothing upstream noticing.
+
+This table used to name `/health` as the platform health check while no
+such route existed; it returned 404 in production for days. The route is
+now real and `tests/Feature/HealthEndpointTest.php` is there so it cannot
+go missing again quietly.
 
 ## Environment variables
 
@@ -75,8 +94,8 @@ APP_ENV=production
 APP_DEBUG=false
 DB_CONNECTION=pgsql          # Cloud injects the rest
 
-CACHE_STORE=redis            # the Cloud key-value store
-QUEUE_CONNECTION=redis
+CACHE_STORE=database         # Postgres; there is no key-value store
+QUEUE_CONNECTION=database
 SESSION_DRIVER=database
 
 ADMIN_EMAIL=you@example.com
@@ -87,6 +106,27 @@ ODDS_API_KEY=
 ODDS_API_MONTHLY_QUOTA=      # set to your actual plan size
 CFBD_API_KEY=
 ```
+
+These three were verified against the running environment on 25 October
+2026 and match: `cache.default`, `queue.default` and `session.driver` all
+read `database`, and `database.default` reads `pgsql`. The block used to
+say `redis` for the first two and call it "the Cloud key-value store",
+which contradicted the resources table three sections up - a reader
+following the env block would have configured the app for a service that
+was never provisioned.
+
+## What is not wired up yet
+
+Written down because a missing integration is invisible until somebody
+needs it, and then it is urgent.
+
+| | State |
+| --- | --- |
+| Mail | `MAIL_MAILER=log`. Nothing is delivered - password resets and verification emails are written to the log and go nowhere |
+| Web push | `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` unset, so push alerts cannot be sent |
+| Payments | No NMI merchant account, so the billing flow cannot take money |
+
+Each needs a credential this repository cannot create for itself.
 
 `EDGE_DEMO_MODE=false` matters. With it on, seeded fixture rows render behind a
 DEMO badge; with it off, the app shows only real data and says so when there is
