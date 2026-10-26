@@ -8,6 +8,7 @@ use App\Jobs\Bets\SettleBets;
 use App\Jobs\EdgeLab\SyncBoard;
 use App\Jobs\EdgeLab\SyncEvents;
 use App\Jobs\EdgeLab\SyncModels;
+use App\Jobs\Ingest\SyncDepthCharts;
 use App\Jobs\Ingest\SyncInjuries;
 use App\Jobs\Ingest\SyncProbableStarters;
 use App\Jobs\Ingest\SyncResults;
@@ -204,6 +205,19 @@ foreach (Sport::enabled() as $sport) {
         ->name("results-{$sport->value}")
         ->withoutOverlapping()
         ->when(fn (): bool => app(ResultsCadence::class)->isDue($sport));
+
+    /*
+     * Depth charts. Daily, and early: a chart moves when a coach says
+     * so rather than continuously, and all the absence weighting needs
+     * from it is first choice against fourth.
+     *
+     * A sport not configured for charts records a skip and spends
+     * nothing - see edge.value.depth_chart_sports.
+     */
+    Schedule::job(new SyncDepthCharts($sport))
+        ->dailyAt('05:50')
+        ->name("depth-charts-{$sport->value}")
+        ->withoutOverlapping();
 
     // Availability moves on practice reports and warmups, not
     // continuously, and one request covers a whole league. What matters is

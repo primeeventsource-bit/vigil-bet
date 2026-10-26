@@ -348,3 +348,107 @@ it('counts a position it has never heard of as an ordinary one', function () {
     expect(shrink(0.623, 0.336, Verdict::Calibrated, $blank))
         ->toBe(shrink(0.623, 0.336, Verdict::Calibrated, $known));
 });
+
+/*
+ * What the position weight alone gets wrong.
+ *
+ * Philadelphia on 26 October: Jalen Hurts out since the 11th, by which
+ * point the provider had him fourth on its own chart and Tanner McKee
+ * had started the game in between. An absence the team has already
+ * played around twice is in the price and largely in the rating, and
+ * shrinking again for it answers news a fortnight old.
+ */
+
+function chartRank(Event $event, string $side, string $playerExternalId, int $rank, string $position = 'QB'): void
+{
+    DB::table('depth_chart_entries')->insert([
+        'sport' => 'nfl',
+        'team_id' => $side === 'home' ? $event->home_team_id : $event->away_team_id,
+        'player_external_id' => $playerExternalId,
+        'position' => $position,
+        'formation' => '3WR 1TE',
+        'rank' => $rank,
+        'source' => 'test',
+        'as_of' => now()->subDay(),
+        'created_at' => now()->subDay(),
+    ]);
+}
+
+function ruleOutPlayer(Event $event, string $side, string $playerExternalId, string $position = 'QB'): void
+{
+    DB::table('injury_reports')->insert([
+        'sport' => 'nfl',
+        'team_id' => $side === 'home' ? $event->home_team_id : $event->away_team_id,
+        'player_external_id' => $playerExternalId,
+        'player_name' => 'Player '.$playerExternalId,
+        'position' => $position,
+        'status' => 'out',
+        'source' => 'test',
+        'reported_at' => now()->addDay(),
+        'created_at' => now(),
+    ]);
+}
+
+it('shrinks less for a fourth-choice quarterback than a first-choice one', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+
+    $first = cleanGame();
+    chartRank($first, 'home', '1001', 1);
+    ruleOutPlayer($first, 'home', '1001');
+
+    $fourth = cleanGame();
+    chartRank($fourth, 'home', '2002', 4);
+    ruleOutPlayer($fourth, 'home', '2002');
+
+    // Both are a quarterback out. Only one of them is the team's
+    // quarterback.
+    expect(shrink(0.623, 0.336, Verdict::Calibrated, $fourth))
+        ->toBeGreaterThan(shrink(0.623, 0.336, Verdict::Calibrated, $first));
+});
+
+it('counts a player it has no chart for in full', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+
+    $charted = cleanGame();
+    chartRank($charted, 'home', '1001', 1);
+    ruleOutPlayer($charted, 'home', '1001');
+
+    $unknown = cleanGame();
+    ruleOutPlayer($unknown, 'home', '3003');
+
+    /*
+     * A chart we have not fetched is not evidence that an absence is
+     * cheap. Guessing cheap is the one direction that could talk the
+     * shrink out of firing when it should.
+     */
+    expect(shrink(0.623, 0.336, Verdict::Calibrated, $unknown))
+        ->toBe(shrink(0.623, 0.336, Verdict::Calibrated, $charted));
+});
+
+it('ignores a chart published after kickoff', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+
+    $game = cleanGame();
+    ruleOutPlayer($game, 'home', '1001');
+
+    DB::table('depth_chart_entries')->insert([
+        'sport' => 'nfl',
+        'team_id' => $game->home_team_id,
+        'player_external_id' => '1001',
+        'position' => 'QB',
+        'formation' => '3WR 1TE',
+        'rank' => 4,
+        'source' => 'test',
+        // After the game. A team sheet published then was partly chosen
+        // because of how the game went.
+        'as_of' => now()->addDays(3),
+        'created_at' => now()->addDays(3),
+    ]);
+
+    $unknown = cleanGame();
+    ruleOutPlayer($unknown, 'home', '4004');
+
+    // The late chart is not read, so this is the unknown-player case.
+    expect(shrink(0.623, 0.336, Verdict::Calibrated, $game))
+        ->toBe(shrink(0.623, 0.336, Verdict::Calibrated, $unknown));
+});

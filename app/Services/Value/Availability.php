@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Value;
 
+use App\Models\DepthChartEntry;
 use App\Models\Event;
 use Illuminate\Support\Facades\DB;
 
@@ -48,6 +49,9 @@ class Availability
     /** @var array<int, array{home: float, away: float}> */
     private array $weighted = [];
 
+    /** @var array<string, ?int> */
+    private array $ranks = [];
+
     /**
      * Players ruled out per side.
      *
@@ -86,14 +90,15 @@ class Availability
                     ->whereColumn('later.reported_at', '>', 'i.reported_at');
             })
             ->whereIn('i.status', self::ABSENT)
-            ->get(['i.team_id', 'i.position']);
+            ->get(['i.team_id', 'i.position', 'i.player_external_id']);
 
         $weighted = ['home' => 0.0, 'away' => 0.0];
 
         foreach ($rows as $row) {
             $side = (int) $row->team_id === (int) $event->home_team_id ? 'home' : 'away';
             $counts[$side]++;
-            $weighted[$side] += self::weightFor($row->position);
+            $weighted[$side] += self::weightFor($row->position)
+                * $this->depthFactor($event, $row->player_external_id);
         }
 
         $this->weighted[$event->id] = $weighted;
@@ -137,6 +142,60 @@ class Availability
         $weighted = $this->weighted[$event->id] ?? ['home' => 0.0, 'away' => 0.0];
 
         return abs($weighted['home'] - $weighted['away']);
+    }
+
+    /**
+     * How much of the position's weight this particular player carried.
+     *
+     * A side losing its first choice loses something a fourth choice
+     * was never providing, and the difference is not small at the one
+     * position that decides games. Philadelphia on 26 October is the
+     * case: Jalen Hurts had been out since the 11th, the provider had
+     * already moved him to fourth, and Tanner McKee had started the
+     * game in between. An absence the team has played around twice is
+     * in the price and largely in the rating, and shrinking for it
+     * again would be answering news that is a fortnight old.
+     *
+     * Unknown players count in full. A chart we have not fetched, a
+     * player it does not list, a sport with no charts at all - none of
+     * those are evidence that an absence is cheap, and guessing cheap
+     * is the one direction that could talk the shrink out of firing.
+     */
+    private function depthFactor(Event $event, ?string $playerExternalId): float
+    {
+        if ($playerExternalId === null || $playerExternalId === '') {
+            return 1.0;
+        }
+
+        $rank = $this->rankFor($event, $playerExternalId);
+
+        if ($rank === null) {
+            return 1.0;
+        }
+
+        $factors = (array) config('edge.value.absence_depth_factors', []);
+
+        return (float) ($factors[$rank] ?? $factors['deeper'] ?? 0.2);
+    }
+
+    /** The best rank this player held on any chart on file before kickoff. */
+    private function rankFor(Event $event, string $playerExternalId): ?int
+    {
+        $key = $event->id.'|'.$playerExternalId;
+
+        if (array_key_exists($key, $this->ranks)) {
+            return $this->ranks[$key];
+        }
+
+        $rank = DepthChartEntry::query()
+            ->where('sport', $event->sport->value)
+            ->where('player_external_id', $playerExternalId)
+            ->asKnownBefore($event->starts_at)
+            ->orderByDesc('as_of')
+            ->orderBy('rank')
+            ->value('rank');
+
+        return $this->ranks[$key] = $rank === null ? null : (int) $rank;
     }
 
     /**

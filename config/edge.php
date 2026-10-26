@@ -279,6 +279,36 @@ return [
         | than more.
         |
         */
+        /*
+        |------------------------------------------------------------------
+        | What a place on the depth chart is worth
+        |------------------------------------------------------------------
+        |
+        | The position says what is being lost; the rank says how much of
+        | it this player was providing. A side losing its first choice
+        | loses something a fourth choice was never giving it.
+        |
+        | `deeper` covers everything below the listed ranks. A player not
+        | on any chart we hold counts in full rather than falling to this,
+        | because a missing chart is not evidence that an absence is
+        | cheap - and guessing cheap is the one direction that could talk
+        | the shrink out of firing when it should.
+        |
+        */
+        /*
+        | Which sports read a depth chart. The endpoint is American
+        | football's shape and nothing has been checked against the rest,
+        | so they are listed rather than assumed.
+        */
+        'depth_chart_sports' => ['nfl'],
+
+        'absence_depth_factors' => [
+            1 => 1.0,
+            2 => 0.5,
+            3 => 0.3,
+            'deeper' => 0.2,
+        ],
+
         'absence_position_weights' => [
             '*' => 1.0,
 
