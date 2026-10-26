@@ -326,3 +326,82 @@ it('tells one moneyline from the same moneyline on another game', function () {
 
     expect(PublishedPick::count())->toBe(2);
 });
+
+/*
+ * The half the publisher cannot do.
+ *
+ * Checking the table before writing is not a constraint: two publishers
+ * can pass that check in the same instant and both write. §7 calls the
+ * record the product's most important trust asset, and the kickoff rule
+ * is already defended by the database rather than by a caller - this is
+ * the same promise kept the same way.
+ */
+it('refuses a second pick on the same selection, at the database', function () {
+    $write = fn () => PublishedPick::create([
+        'edge_lab_event_id' => 42,
+        'sport' => 'nfl', 'market' => 'h2h', 'side' => 'home', 'selection' => 'Chiefs',
+        'price_american' => -110,
+        'kickoff_at' => now()->addHour(),
+        'published_at' => now(),
+        'created_at' => now(),
+    ]);
+
+    $write();
+
+    // A moneyline has no line, and a unique index treats two NULLs as
+    // distinct - so the index alone waves this straight through. The
+    // null-aware trigger is what actually refuses it.
+    expect(rejectedByDatabase($write))->toThrow(QueryException::class);
+
+    expect(PublishedPick::count())->toBe(1);
+});
+
+it('still allows the other side of the same market', function () {
+    $write = fn (string $side, string $selection) => PublishedPick::create([
+        'edge_lab_event_id' => 42,
+        'sport' => 'nfl', 'market' => 'h2h', 'side' => $side, 'selection' => $selection,
+        'price_american' => -110,
+        'kickoff_at' => now()->addHour(),
+        'published_at' => now(),
+        'created_at' => now(),
+    ]);
+
+    $write('home', 'Chiefs');
+    $write('away', 'Bills');
+
+    // Never both at once in practice, but the constraint should be
+    // refusing a repeat of one claim, not every claim about one game.
+    expect(PublishedPick::count())->toBe(2);
+});
+
+it('tells two spread lines on one game apart', function () {
+    $write = fn (float $line) => PublishedPick::create([
+        'edge_lab_event_id' => 42,
+        'sport' => 'nfl', 'market' => 'spreads', 'side' => 'home', 'line' => $line,
+        'selection' => 'Chiefs', 'price_american' => -110,
+        'kickoff_at' => now()->addHour(),
+        'published_at' => now(),
+        'created_at' => now(),
+    ]);
+
+    $write(-3.5);
+    $write(-2.5);
+
+    expect(PublishedPick::count())->toBe(2);
+});
+
+it('keeps publishing the rest of the board when one selection is refused', function () {
+    publishableBoard();
+    app(PickPublisher::class)->run();
+
+    // The publisher re-checks before writing, so this only happens on a
+    // race - but when it does, the one that lost must not take the other
+    // nine picks of that run down with it.
+    publishableBoard(['id' => 2, 'best_price_american' => -135]);
+    publishableBoard(['id' => 3, 'edge_lab_event_id' => 902]);
+
+    $result = app(PickPublisher::class)->run();
+
+    expect($result['published'])->toBe(1)
+        ->and(PublishedPick::count())->toBe(2);
+});

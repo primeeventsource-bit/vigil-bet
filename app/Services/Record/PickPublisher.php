@@ -8,6 +8,8 @@ use App\Models\PublishedPick;
 use App\Models\VlBoardEntry;
 use App\Models\VlEvent;
 use App\Models\VlModel;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -105,32 +107,57 @@ class PickPublisher
             ->orderByDesc('trained_at')
             ->first();
 
-        PublishedPick::create([
-            'board_entry_id' => $entry->id,
-            'edge_lab_event_id' => $entry->edge_lab_event_id,
-            'sport' => $entry->sport,
-            'market' => $entry->market,
-            'side' => $entry->side,
-            'line' => $entry->line,
-            'selection' => $entry->selection,
-            'matchup' => $event->matchup(),
-            // The price as it was. Looking it up later would turn the
-            // record into a claim about a price nobody was offered.
-            'price_american' => (int) $entry->best_price_american,
-            'book' => $entry->best_book,
-            'book_title' => $entry->best_book_title,
-            'model_prob' => $entry->model_prob,
-            'fair_prob' => $entry->fair_prob,
-            'edge_at_price' => $entry->edge_at_price,
-            'stake_fraction' => $entry->kelly_fraction,
-            'model_version' => $model?->version,
-            'kickoff_at' => $event->starts_at,
-            'published_at' => now(),
-            'payload' => $entry->payload,
-            'created_at' => now(),
-        ]);
+        try {
+            // Nested, so a duplicate cannot abort a surrounding
+            // transaction and take the rest of the batch with it.
+            DB::transaction(fn () => PublishedPick::create([
+                'board_entry_id' => $entry->id,
+                'edge_lab_event_id' => $entry->edge_lab_event_id,
+                'sport' => $entry->sport,
+                'market' => $entry->market,
+                'side' => $entry->side,
+                'line' => $entry->line,
+                'selection' => $entry->selection,
+                'matchup' => $event->matchup(),
+                // The price as it was. Looking it up later would turn the
+                // record into a claim about a price nobody was offered.
+                'price_american' => (int) $entry->best_price_american,
+                'book' => $entry->best_book,
+                'book_title' => $entry->best_book_title,
+                'model_prob' => $entry->model_prob,
+                'fair_prob' => $entry->fair_prob,
+                'edge_at_price' => $entry->edge_at_price,
+                'stake_fraction' => $entry->kelly_fraction,
+                'model_version' => $model?->version,
+                'kickoff_at' => $event->starts_at,
+                'published_at' => now(),
+                'payload' => $entry->payload,
+                'created_at' => now(),
+            ]));
+        } catch (QueryException $e) {
+            /*
+             * The database refusing a selection it already holds. The
+             * check at the top of this method catches the ordinary case;
+             * this catches the one it cannot - two publishers passing
+             * that check in the same instant, both believing they are
+             * first. Losing that race is a normal outcome, not a failure.
+             */
+            if (! $this->refusedAsDuplicate($e)) {
+                throw $e;
+            }
+
+            return 'already_published';
+        }
 
         return null;
+    }
+
+    private function refusedAsDuplicate(QueryException $e): bool
+    {
+        $message = mb_strtolower($e->getMessage());
+
+        return str_contains($message, 'already published')
+            || str_contains($message, 'unique');
     }
 
     /**
