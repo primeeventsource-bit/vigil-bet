@@ -474,11 +474,15 @@ class ValueScanner
     }
 
     /**
-     * Pull a model's probability toward the market's, unless it has
-     * earned the right to disagree.
+     * Pull a model's probability toward the market's, by as much as
+     * it has not earned the right to disagree.
      *
-     * Only a market that beats the closing line has earned that, and none
-     * currently does. Left unshrunk, the calibrated tier put Philadelphia
+     * Two things reduce that right, and they are different. The tier is
+     * about the model: only a market that beats the closing line may
+     * claim an edge, and none currently does. The team sheet is about
+     * this particular game: a rating that beats the close across ordinary
+     * fixtures was never measured on one missing a quarterback, so a
+     * lopsided absence list shrinks even a proven market. Left unshrunk, the calibrated tier put Philadelphia
      * at 62.3% against a no-vig market of 33.6% and the board offered it
      * as a 27.8% edge. Real edges run one to three points; a model that
      * loses to the close saying the book is twenty-eight points wrong is
@@ -494,11 +498,20 @@ class ValueScanner
      */
     private function shrinkToMarket(float $modelProb, ?float $fairProb, Verdict $verdict, Event $event): float
     {
-        if ($fairProb === null || $verdict->claimsEdge()) {
+        if ($fairProb === null) {
             return $modelProb;
         }
 
-        $shrink = (float) config('edge.value.unproven_edge_shrink', 0.25);
+        /*
+         * A market that beats the close has earned the right to its own
+         * number, so it starts at full trust and is not shrunk by the
+         * tier at all. What it has not earned is an exemption from the
+         * team sheet: it was measured across ordinary games, and a game
+         * missing a quarterback is not one of those.
+         */
+        $shrink = $verdict->claimsEdge()
+            ? 1.0
+            : (float) config('edge.value.unproven_edge_shrink', 0.25);
 
         /*
          * And further still when one side is missing more players than
@@ -515,7 +528,7 @@ class ValueScanner
          * NFL game has players out, and treating ordinary attrition as a
          * crisis would shrink every pick to nothing.
          */
-        $imbalance = $this->availability->imbalance($event);
+        $imbalance = $this->availability->weightedImbalance($event);
 
         if ($imbalance > 0) {
             $weight = (float) config('edge.value.absence_imbalance_weight', 0.25);

@@ -225,8 +225,11 @@ return [
          *
          * This is a policy ceiling, not a measured coefficient, and it is
          * named as one. A market that does beat the close has earned the
-         * right to disagree and is not shrunk at all - see
-         * Verdict::claimsEdge().
+         * right to disagree and is not shrunk by this at all - see
+         * Verdict::claimsEdge(). It is still subject to the absence
+         * imbalance below, which asks a different question: not whether
+         * the model is good, but whether this game is one of the games it
+         * was measured on.
          */
         'unproven_edge_shrink' => 0.25,
 
@@ -251,6 +254,48 @@ return [
          * the published number most of the way back to the book.
          */
         'absence_imbalance_weight' => 0.25,
+
+        /*
+        |------------------------------------------------------------------
+        | What an absence is worth, by position
+        |------------------------------------------------------------------
+        |
+        | A head count treats a quarterback and a third tight end as the
+        | same event. No market prices them alike, and since the whole
+        | job of the imbalance figure is to say how much the book knows
+        | that a power rating does not, counting them alike understates
+        | the one case that matters most.
+        |
+        | These are a policy, not a measurement, and they are deliberately
+        | coarse - there is no evidence here for a third decimal place.
+        | They never become a points-per-injury coefficient: the only
+        | thing they do is pull the published number toward the book,
+        | which is a statement about our own ignorance rather than a claim
+        | about the game.
+        |
+        | `*` is the fallback, and applies to any position not listed and
+        | to a report that carries no position at all. It is 1.0 so that a
+        | feed going quiet about positions makes this less certain rather
+        | than more.
+        |
+        */
+        'absence_position_weights' => [
+            '*' => 1.0,
+
+            // The one position no other player substitutes for.
+            'QB' => 6.0,
+
+            // Touch the ball on most downs, and the market moves on them.
+            'RB' => 2.0,
+            'WR' => 2.0,
+            'TE' => 1.5,
+
+            // Basketball has no quarterback, so nothing is weighted like
+            // one; a starter is a fifth of the side rather than a tenth.
+            'G' => 1.0,
+            'F' => 1.0,
+            'C' => 1.0,
+        ],
         // A pick must also win often enough to be worth showing. This is a
         // display preference, not a profitability test: a 52% bet at a good
         // price is profitable, it just is not what was asked for.

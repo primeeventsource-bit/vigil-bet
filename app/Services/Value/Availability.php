@@ -45,6 +45,9 @@ class Availability
     /** @var array<int, array{home: int, away: int}> */
     private array $memo = [];
 
+    /** @var array<int, array{home: float, away: float}> */
+    private array $weighted = [];
+
     /**
      * Players ruled out per side.
      *
@@ -83,12 +86,17 @@ class Availability
                     ->whereColumn('later.reported_at', '>', 'i.reported_at');
             })
             ->whereIn('i.status', self::ABSENT)
-            ->get(['i.team_id']);
+            ->get(['i.team_id', 'i.position']);
+
+        $weighted = ['home' => 0.0, 'away' => 0.0];
 
         foreach ($rows as $row) {
             $side = (int) $row->team_id === (int) $event->home_team_id ? 'home' : 'away';
             $counts[$side]++;
+            $weighted[$side] += self::weightFor($row->position);
         }
+
+        $this->weighted[$event->id] = $weighted;
 
         return $this->memo[$event->id] = $counts;
     }
@@ -105,5 +113,48 @@ class Availability
         $counts = $this->absences($event);
 
         return abs($counts['home'] - $counts['away']);
+    }
+
+    /**
+     * The same, counting what the position is worth rather than bodies.
+     *
+     * A head count says a quarterback and a third tight end are the
+     * same event. The market does not price them the same way, and the
+     * whole purpose of this number is to say how much the market knows
+     * that the rating does not - so counting them alike understates the
+     * one case that matters most and overstates the ordinary ones.
+     *
+     * The weights are a policy, not a measurement, and are named as one
+     * in config. They never become a points-per-injury coefficient: the
+     * only thing they do is pull the published number toward the book,
+     * which is a statement about our own ignorance rather than a claim
+     * about the game.
+     */
+    public function weightedImbalance(Event $event): float
+    {
+        $this->absences($event);
+
+        $weighted = $this->weighted[$event->id] ?? ['home' => 0.0, 'away' => 0.0];
+
+        return abs($weighted['home'] - $weighted['away']);
+    }
+
+    /**
+     * What one absence at this position counts for.
+     *
+     * Unknown and unlisted positions fall back to the ordinary weight
+     * rather than to zero: a feed that stops sending a position should
+     * make this less certain, not more.
+     */
+    private static function weightFor(?string $position): float
+    {
+        $weights = (array) config('edge.value.absence_position_weights', []);
+        $default = (float) ($weights['*'] ?? 1.0);
+
+        if ($position === null || $position === '') {
+            return $default;
+        }
+
+        return (float) ($weights[mb_strtoupper($position)] ?? $default);
     }
 }

@@ -55,8 +55,14 @@ function cleanGame(): Event
 }
 
 /** Rule a number of players out for one side. */
-function ruleOut(Event $event, string $side, int $count): void
+function ruleOut(Event $event, string $side, int $count, string $position = 'LB'): void
 {
+    /*
+     * The default is an ordinary position. Every test above this was
+     * written to measure the size of an imbalance rather than the weight
+     * of a position, and giving them a quarterback apiece would have them
+     * measure something else while still passing.
+     */
     $teamId = $side === 'home' ? $event->home_team_id : $event->away_team_id;
 
     foreach (range(1, max($count, 0)) as $i) {
@@ -68,7 +74,7 @@ function ruleOut(Event $event, string $side, int $count): void
             'sport' => 'nfl',
             'team_id' => $teamId,
             'player_name' => $side.' Player '.$i.' '.Str::random(4),
-            'position' => 'WR',
+            'position' => $position,
             'status' => 'out',
             'source' => 'test',
             'reported_at' => now()->addDay(),
@@ -243,11 +249,102 @@ it('ignores a report filed after kickoff, which is the leakage rule', function (
         ->toBe(round(shrink(0.623, 0.336, Verdict::Calibrated, cleanGame()), 3));
 });
 
-it('leaves a proven market unshrunk however lopsided the game is', function () {
+it('leaves a proven market alone when both teams are whole', function () {
     config()->set('edge.value.unproven_edge_shrink', 0.25);
 
     $game = cleanGame();
-    ruleOut($game, 'home', 6);
+    ruleOut($game, 'home', 3);
+    ruleOut($game, 'away', 3);
 
+    // Ordinary attrition, evenly spread. Nothing here is information the
+    // book has and the rating does not.
     expect(shrink(0.623, 0.336, Verdict::Proven, $game))->toBe(0.623);
+});
+
+/*
+ * This file used to assert the opposite: that a proven market is never
+ * shrunk, however lopsided the game. That was one decision doing two
+ * jobs, and they come apart.
+ *
+ * Beating the closing line is a fact about the model across ordinary
+ * fixtures. It says nothing about a fixture missing a quarterback,
+ * because the rating has never seen a team sheet and the measurement
+ * that proved it contains almost no such games. So the tier still buys
+ * exemption from the tier shrink, and buys nothing at all from the
+ * absence shrink - which asks a different question.
+ */
+it('shrinks even a proven market when one side is missing more players', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+
+    $game = cleanGame();
+    ruleOut($game, 'home', 4);
+
+    $published = shrink(0.623, 0.336, Verdict::Proven, $game);
+
+    expect($published)->toBeLessThan(0.623)
+        ->and($published)->toBeGreaterThan(0.336);
+});
+
+it('counts a quarterback for more than a linebacker', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+
+    $withQb = cleanGame();
+    ruleOut($withQb, 'home', 1, 'QB');
+
+    $withLb = cleanGame();
+    ruleOut($withLb, 'home', 1, 'LB');
+
+    /*
+     * One absence either way, so a head count cannot tell these apart.
+     * The market certainly can, and this number exists to say how much
+     * the market knows that the rating does not.
+     */
+    expect(shrink(0.623, 0.336, Verdict::Calibrated, $withQb))
+        ->toBeLessThan(shrink(0.623, 0.336, Verdict::Calibrated, $withLb));
+});
+
+it('treats a missing quarterback as worse than several missing linebackers', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+
+    $qb = cleanGame();
+    ruleOut($qb, 'home', 1, 'QB');
+
+    $four = cleanGame();
+    ruleOut($four, 'home', 4, 'LB');
+
+    expect(shrink(0.623, 0.336, Verdict::Calibrated, $qb))
+        ->toBeLessThan(shrink(0.623, 0.336, Verdict::Calibrated, $four));
+});
+
+it('reads the weights from configuration rather than from code', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+    config()->set('edge.value.absence_position_weights', ['*' => 1.0, 'QB' => 1.0]);
+
+    $qb = cleanGame();
+    ruleOut($qb, 'home', 1, 'QB');
+
+    $lb = cleanGame();
+    ruleOut($lb, 'home', 1, 'LB');
+
+    // Flattened on purpose: these are a policy, and a policy that cannot
+    // be changed without a deploy is a constant wearing a disguise.
+    expect(shrink(0.623, 0.336, Verdict::Calibrated, $qb))
+        ->toBe(shrink(0.623, 0.336, Verdict::Calibrated, $lb));
+});
+
+it('counts a position it has never heard of as an ordinary one', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+
+    $known = cleanGame();
+    ruleOut($known, 'home', 1, 'LB');
+
+    $blank = cleanGame();
+    ruleOut($blank, 'home', 1, '');
+
+    /*
+     * Not zero. A feed that stops sending positions should make this
+     * number less certain, not quietly stop shrinking anything.
+     */
+    expect(shrink(0.623, 0.336, Verdict::Calibrated, $blank))
+        ->toBe(shrink(0.623, 0.336, Verdict::Calibrated, $known));
 });
