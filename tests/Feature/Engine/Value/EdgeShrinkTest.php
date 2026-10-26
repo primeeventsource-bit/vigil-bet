@@ -452,3 +452,56 @@ it('ignores a chart published after kickoff', function () {
     expect(shrink(0.623, 0.336, Verdict::Calibrated, $game))
         ->toBe(shrink(0.623, 0.336, Verdict::Calibrated, $unknown));
 });
+
+/*
+ * The stricter half of the leakage rule.
+ *
+ * The feed publishes availability only as it stands now, so the date on
+ * a row is not when we could have known it. A report dated last week but
+ * fetched tonight is tonight's knowledge, and reading it for a game that
+ * has already kicked off is reading the list of injuries that turned out
+ * to last - a fact from after the game.
+ */
+it('ignores a report fetched after kickoff, however it is dated', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+
+    $game = cleanGame();
+
+    DB::table('injury_reports')->insert([
+        'sport' => 'nfl',
+        'team_id' => $game->home_team_id,
+        'player_name' => 'Backdated '.Str::random(4),
+        'position' => 'QB',
+        'status' => 'out',
+        'source' => 'test',
+        // Dated before the game and fetched long after it.
+        'reported_at' => now()->addHours(1),
+        'created_at' => now()->addDays(5),
+    ]);
+
+    // Nothing was knowable, so nothing is shrunk beyond the tier.
+    expect(shrink(0.623, 0.336, Verdict::Calibrated, $game))
+        ->toBe(shrink(0.623, 0.336, Verdict::Calibrated, cleanGame()));
+});
+
+it('ignores a report with no fetch time at all', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+
+    $game = cleanGame();
+
+    DB::table('injury_reports')->insert([
+        'sport' => 'nfl',
+        'team_id' => $game->home_team_id,
+        'player_name' => 'Undated '.Str::random(4),
+        'position' => 'QB',
+        'status' => 'out',
+        'source' => 'test',
+        'reported_at' => now()->addHours(1),
+        // A row that cannot say when it was known is not evidence of
+        // what was known.
+        'created_at' => null,
+    ]);
+
+    expect(shrink(0.623, 0.336, Verdict::Calibrated, $game))
+        ->toBe(shrink(0.623, 0.336, Verdict::Calibrated, cleanGame()));
+});

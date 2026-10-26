@@ -6,7 +6,7 @@ namespace App\Services\Value;
 
 use App\Models\DepthChartEntry;
 use App\Models\Event;
-use Illuminate\Support\Facades\DB;
+use App\Models\InjuryReport;
 
 /**
  * Who is unavailable for a game, from the live injury reports.
@@ -70,15 +70,24 @@ class Availability
         }
 
         /*
-         * `reported_at < starts_at` is the leakage rule, and it is not
-         * decoration: a scan re-run over a finished game would otherwise
-         * count the injury report filed at half time and look
-         * clairvoyant.
+         * The leakage rule, and it is not decoration: a scan re-run over
+         * a finished game would otherwise count the report filed at half
+         * time and look clairvoyant.
+         *
+         * Taken from `InjuryReport::availableBefore()` rather than
+         * written out again. This used to check `reported_at` alone,
+         * which is the weaker half of the rule and looks like the whole
+         * of it: the feed only ever publishes availability as it stands
+         * now, so a row dated last February that we fetched in October
+         * is October's knowledge. Reading it for a March game is reading
+         * the list of injuries that turned out to last, which is a fact
+         * from after the game.
          */
-        $rows = DB::table('injury_reports as i')
+        $rows = InjuryReport::query()
+            ->from('injury_reports as i')
+            ->availableBefore($event->starts_at)
             ->whereIn('i.team_id', [$event->home_team_id, $event->away_team_id])
             ->where('i.sport', $event->sport->value)
-            ->where('i.reported_at', '<', $event->starts_at)
             ->where('i.reported_at', '>', $event->starts_at->copy()->subDays(self::WINDOW_DAYS))
             ->whereNotExists(function ($query): void {
                 // The latest report for this player wins, so a player
