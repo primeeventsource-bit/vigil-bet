@@ -15,10 +15,16 @@ use Illuminate\Console\Command;
  * promise: a pick goes on the public record before the game, and its
  * result goes on afterwards, and neither is ever edited.
  *
- * Re-running it is safe. Publishing is one row per board entry for ever
- * and settling is one result per pick, both enforced in the database -
- * which matters, because a track record that can be padded by running a
- * command twice is not a track record.
+ * Re-running it is safe. Publishing is one row per selection for ever,
+ * and settling one result per pick.
+ *
+ * The two are not guarded equally, and the difference is worth knowing.
+ * A second result is refused by a unique key in the database. A second
+ * pick is refused by the publisher reading the table first, which is a
+ * check and not a constraint - so it holds for a re-run and would not
+ * hold against two of these running at the same instant. The schedule
+ * keeps them apart with a lock; the record is not yet defended by the
+ * database the way the kickoff rule is.
  */
 class PublishPicksCommand extends Command
 {

@@ -23,9 +23,12 @@ use Illuminate\Support\Facades\Log;
  *  - **The clock.** A pick published at or after kickoff is rejected by
  *    the database, and this refuses before it gets there so the refusal
  *    is loggable rather than an exception.
- *  - **Duplication.** One pick per board entry, for ever. Re-running the
- *    command must not pad the record, which is exactly how a track
- *    record stops being one.
+ *  - **Duplication.** One pick per selection, for ever. Keyed on the
+ *    game and the market rather than on the board row that proposed it:
+ *    the board is rescanned hourly and mints a fresh row for the same
+ *    game each time, so a board-row key let the same pick back onto the
+ *    record once an hour. Re-running must not pad the record, which is
+ *    exactly how a track record stops being one.
  */
 class PickPublisher
 {
@@ -64,7 +67,7 @@ class PickPublisher
     /** Returns null on success, or the reason it was skipped. */
     public function publish(VlBoardEntry $entry): ?string
     {
-        if (PublishedPick::where('board_entry_id', $entry->id)->exists()) {
+        if ($this->alreadyPublished($entry)) {
             return 'already_published';
         }
 
@@ -128,5 +131,31 @@ class PickPublisher
         ]);
 
         return null;
+    }
+
+    /**
+     * Whether this selection is already on the record.
+     *
+     * The game, the market and the exact line - not the board entry id.
+     * A board entry is one observation of a price; the claim being
+     * published is "we like this side of this game", and that can only
+     * honestly appear once however many times the board is rescanned.
+     */
+    private function alreadyPublished(VlBoardEntry $entry): bool
+    {
+        $query = PublishedPick::query()
+            ->where('edge_lab_event_id', $entry->edge_lab_event_id)
+            ->where('sport', $entry->sport)
+            ->where('market', $entry->market);
+
+        // Null is a real value here - a moneyline has no line - and
+        // `where($column, null)` matches nothing at all in SQL.
+        foreach (['side' => $entry->side, 'line' => $entry->line] as $column => $value) {
+            $query = $value === null
+                ? $query->whereNull($column)
+                : $query->where($column, $value);
+        }
+
+        return $query->exists();
     }
 }

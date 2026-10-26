@@ -280,3 +280,49 @@ it('leaves closing line value unmeasured rather than estimating it', function ()
     // point of this column is that it was.
     expect(PickResult::sole()->clv)->toBeNull();
 });
+
+/* ----------------------------------------------------------------------
+ | One pick per selection
+ ---------------------------------------------------------------------- */
+
+/*
+ * A rescan is a new engine row, not an edited one. The board is scanned
+ * hourly and each scan writes a fresh value bet with a fresh id for the
+ * same game, so a guard keyed on the board row let the identical claim
+ * back onto the record every hour: in production one NBA moneyline was
+ * published three times in a day and eight more appeared twice, which
+ * turned "17 published picks" into about nine real ones.
+ */
+it('does not publish the same selection again when the board is rescanned', function () {
+    publishableBoard();
+    app(PickPublisher::class)->run();
+
+    // An hour later, same game and market, new row, drifted price.
+    publishableBoard(['id' => 2, 'best_price_american' => -135]);
+    $result = app(PickPublisher::class)->run();
+
+    expect(PublishedPick::count())->toBe(1)
+        ->and($result['published'])->toBe(0);
+});
+
+it('still publishes a second market on the same game', function () {
+    publishableBoard();
+    app(PickPublisher::class)->run();
+
+    // Not a duplicate. A total and a moneyline on one game are two
+    // separate claims and the record should carry both.
+    publishableBoard(['id' => 2, 'market' => 'totals', 'side' => 'over', 'line' => 47.5]);
+    app(PickPublisher::class)->run();
+
+    expect(PublishedPick::count())->toBe(2);
+});
+
+it('tells one moneyline from the same moneyline on another game', function () {
+    publishableBoard();
+    app(PickPublisher::class)->run();
+
+    publishableBoard(['id' => 3, 'edge_lab_event_id' => 901]);
+    app(PickPublisher::class)->run();
+
+    expect(PublishedPick::count())->toBe(2);
+});

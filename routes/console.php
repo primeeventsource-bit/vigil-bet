@@ -49,9 +49,20 @@ Schedule::job(new SyncBoard)
     ->name('edgelab-sync-board')
     ->withoutOverlapping(15);
 
-// The schedule barely moves. Twice a day is enough to catch a postponement.
+/*
+ * Hourly, at :10.
+ *
+ * This feed used to run twice a day, on the reasoning that a schedule
+ * barely moves. The schedule does barely move - but this feed also
+ * carries the final score, and everything that settles reads it from the
+ * mirror: the public record, a customer's bets, their parlays. Twice a
+ * day meant a game finishing at 20:00 could not settle until 07:00.
+ *
+ * At :10 so a score is mirrored before SettleBets at :20 and before
+ * publish-picks at :58, rather than an hour behind both.
+ */
 Schedule::job(new SyncEvents)
-    ->twiceDaily(7, 19)
+    ->hourlyAt(10)
     ->name('edgelab-sync-events')
     ->withoutOverlapping(15);
 
@@ -101,9 +112,13 @@ Schedule::command('vigil:settle-bets')
  * result that arrives at 23:00 should be on the record before anybody
  * looks in the morning.
  *
- * Safe to re-run: one pick per board entry and one result per pick, both
- * enforced in the database. A record that can be padded by running a
- * command twice is not a record.
+ * Safe to re-run: one pick per selection and one result per pick. A
+ * record that can be padded by running a command twice is not a record.
+ *
+ * The overlap lock below is load-bearing for the first of those. A
+ * result is kept unique by the database; a pick is kept unique by the
+ * publisher checking before it writes, so two of these running at once
+ * could still race.
  */
 Schedule::command('vigil:publish-picks')
     ->hourlyAt(58)

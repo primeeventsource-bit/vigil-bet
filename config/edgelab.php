@@ -59,7 +59,7 @@ return [
     */
     'stale_after_minutes' => [
         'board' => (int) env('ENGINE_STALE_BOARD', 90),
-        'events' => (int) env('ENGINE_STALE_EVENTS', 24 * 60),
+        'events' => (int) env('ENGINE_STALE_EVENTS', 180),
         'models' => (int) env('ENGINE_STALE_MODELS', 7 * 24 * 60),
         'odds' => (int) env('ENGINE_STALE_ODDS', 20),
     ],

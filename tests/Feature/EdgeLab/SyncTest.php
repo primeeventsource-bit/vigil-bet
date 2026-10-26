@@ -201,3 +201,86 @@ it('reads nothing at all when the engine is switched off', function () {
         ->and(SyncRun::firstOrFail()->status)->toBe('skipped')
         ->and(SyncRun::firstOrFail()->message)->toContain('switched off');
 });
+
+/*
+|--------------------------------------------------------------------------
+| The seam between a game and its score
+|--------------------------------------------------------------------------
+|
+| `events` is the one feed Vigil reads that is not append-only: a game is
+| inserted when the schedule is published and then edited in place when it
+| finishes, same row and same id. A keyset cursor can only ever offer that
+| row once, on the day it was scheduled, with no score on it.
+|
+| That is not hypothetical. It ran in production: every mirrored game sat
+| frozen at its pre-kickoff state, so the public record, a customer's bets
+| and their parlays could never settle, while the suite stayed green
+| because every settling test hand-built a VlEvent with the score already
+| in it. These tests are the seam those tests skipped.
+|
+*/
+
+it('re-reads a game whose final score landed after it was first mirrored', function () {
+    $game = engineGame('Kansas City Chiefs', 'Buffalo Bills');
+
+    dispatch_sync(new SyncEvents);
+
+    expect(VlEvent::query()->current()->first()->final_home_score)->toBeNull();
+
+    // Filled in by the results pull, which updates the row rather than
+    // writing a new one. The id does not move, so a cursor never sees it.
+    $game->forceFill([
+        'status' => 'final',
+        'final_home_score' => 27,
+        'final_away_score' => 24,
+        'completed_at' => now(),
+    ])->save();
+
+    dispatch_sync(new SyncEvents);
+
+    $current = VlEvent::query()->current()->first();
+
+    expect($current->final_home_score)->toBe(27)
+        ->and($current->final_away_score)->toBe(24)
+        ->and($current->status)->toBe('final')
+        // Both readings kept. What the mirror believed before the result
+        // arrived is still part of the history, as it is for every feed.
+        ->and(VlEvent::where('edge_lab_id', $game->id)->count())->toBe(2);
+});
+
+it('writes nothing on a re-read of a game that has not changed', function () {
+    engineGame();
+
+    dispatch_sync(new SyncEvents);
+    dispatch_sync(new SyncEvents);
+
+    // The refresh pass walks the same games every hour. That is only
+    // affordable because the digest means an unchanged row costs a read
+    // and no write at all.
+    expect(VlEvent::count())->toBe(1)
+        ->and(SyncRun::query()->feed('events')->latestFirst()->first()->records_written)->toBe(0);
+});
+
+it('still advances the discovery cursor, so the whole schedule is not re-walked', function () {
+    $game = engineGame();
+
+    dispatch_sync(new SyncEvents);
+
+    // The refresh window is bounded; discovery is not, and a feed that
+    // forgot its cursor would re-read every game ever scheduled.
+    expect(SyncRun::query()->feed('events')->latestFirst()->first()->cursor_after)->toBe($game->id);
+});
+
+it('leaves a game far outside the refresh window alone', function () {
+    $game = engineGame(overrides: ['starts_at' => now()->subDays(60)]);
+
+    dispatch_sync(new SyncEvents);
+
+    $game->forceFill(['final_home_score' => 27, 'final_away_score' => 24])->save();
+
+    dispatch_sync(new SyncEvents);
+
+    // A result two months late is not worth re-reading every game ever
+    // played to catch. The window is the bound that keeps this cheap.
+    expect(VlEvent::where('edge_lab_id', $game->id)->count())->toBe(1);
+});
