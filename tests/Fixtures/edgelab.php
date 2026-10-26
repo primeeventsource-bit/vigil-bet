@@ -15,7 +15,10 @@ use App\Models\ParlayEvaluation;
 use App\Models\Team;
 use App\Models\ValueBet;
 use App\Models\ValueScan;
+use App\Models\VlEvent;
+use App\Services\EdgeLab\Mirror;
 use App\Support\Internal\Present;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /*
@@ -115,6 +118,41 @@ function eventRow(int $id, array $overrides = []): array
         'final_away_score' => null,
         'completed_at' => null,
     ], $overrides);
+}
+
+/**
+ * The game a board entry points at, mirrored.
+ *
+ * Needed because the dashboard only offers picks on games that have not
+ * started, and the only way it can know that is to read the event. A
+ * board entry with no event is a pick on a game nothing knows about,
+ * and every surface that filters by kickoff is right to drop it.
+ *
+ * Four test files grew their own board-entry helper and three of them
+ * wrote no event at all, so this lives here rather than in any of them.
+ */
+function mirrorEvent(int $edgeLabId, array $overrides = []): void
+{
+    // A test that wrote its own event meant it. This fills a gap,
+    // it does not take over.
+    if (VlEvent::query()->where('edge_lab_id', $edgeLabId)->exists()) {
+        return;
+    }
+
+    $row = eventRow($edgeLabId, $overrides);
+
+    app(Mirror::class)->write(VlEvent::class, $row, [
+        'edge_lab_id' => (int) $row['id'],
+        'sport' => $row['sport'],
+        'starts_at' => Carbon::parse((string) $row['starts_at']),
+        'status' => $row['status'],
+        'home_name' => $row['home']['name'] ?? null,
+        'home_abbreviation' => $row['home']['abbreviation'] ?? null,
+        'away_name' => $row['away']['name'] ?? null,
+        'away_abbreviation' => $row['away']['abbreviation'] ?? null,
+        'final_home_score' => $row['final_home_score'],
+        'final_away_score' => $row['final_away_score'],
+    ]);
 }
 
 function modelRow(int $id, string $verdict = 'insufficient_data', array $overrides = []): array

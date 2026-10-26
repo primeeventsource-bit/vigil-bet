@@ -19,6 +19,8 @@ function mirrorEntry(array $overrides = []): VlBoardEntry
 {
     $row = boardRow($overrides['edge_lab_id'] ?? 1, $overrides);
 
+    mirrorEvent((int) $row['event_id'], $overrides['event'] ?? []);
+
     app(Mirror::class)->write(VlBoardEntry::class, $row, [
         'edge_lab_id' => (int) $row['id'],
         'edge_lab_event_id' => $row['event_id'],

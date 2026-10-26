@@ -20,6 +20,16 @@ function entryFor(array $overrides = []): VlBoardEntry
 {
     $row = boardRow($overrides['id'] ?? 1, $overrides);
 
+    /*
+     * Only for the event this row implies. A test that names an
+     * `edge_lab_event_id` of its own is usually pointing at a game
+     * that is meant to be missing, and conjuring it would quietly
+     * delete the thing being tested.
+     */
+    if (! array_key_exists('edge_lab_event_id', $overrides)) {
+        mirrorEvent((int) $row['event_id'], $overrides['event'] ?? []);
+    }
+
     app(Mirror::class)->write(VlBoardEntry::class, $row, [
         'edge_lab_id' => (int) $row['id'],
         'edge_lab_event_id' => $overrides['edge_lab_event_id'] ?? ($row['event_id'] ?? null),

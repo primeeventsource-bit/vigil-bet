@@ -490,9 +490,14 @@ function provenPick(int $id, array $overrides = []): void
         'edge_at_price' => 0.047,
     ], $overrides));
 
+    mirrorEvent((int) $row['event_id'], $overrides['event'] ?? []);
+
     app(Mirror::class)->write(VlBoardEntry::class, $row, [
         'edge_lab_id' => (int) $row['id'],
+        'edge_lab_event_id' => (int) $row['event_id'],
         'sport' => $row['sport'],
+        'side' => $row['side'],
+        'line' => $row['line'],
         'market' => $row['market'],
         'selection' => $row['selection'],
         'model_prob' => $row['model_prob'],

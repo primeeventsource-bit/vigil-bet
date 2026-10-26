@@ -57,7 +57,8 @@ class VlBoardEntry extends Model
     public function scopeSellablePicks(Builder $query): Builder
     {
         return $query->where('recommendation', 'bet')
-            ->whereIn('market_verdict', self::recommendableVerdicts());
+            ->whereIn('market_verdict', self::recommendableVerdicts())
+            ->latestPerSelection();
     }
 
     /**
@@ -105,20 +106,64 @@ class VlBoardEntry extends Model
      * Spelled out rather than `is not distinct from`, which Postgres has
      * and SQLite does not, and the tests run on SQLite.
      */
+    /**
+     * The engine's latest word on each selection.
+     *
+     * `current()` collapses re-syncs of one engine row; it cannot
+     * collapse successive scans, because each writes a new row with its
+     * own id. The board is rescanned hourly, so without this a customer
+     * sees the same pick once per scan - two identical rows, same price,
+     * same edge, which reads as a broken page rather than a stale one.
+     *
+     * A newer row of any kind supersedes, not only a newer `bet`. If the
+     * last scan passed on a selection it had recommended an hour ago,
+     * the pass is the current answer and the recommendation must stop
+     * being shown.
+     */
+    public function scopeLatestPerSelection(Builder $query): Builder
+    {
+        return $query->whereNotExists(function ($later): void {
+            $later->selectRaw('1')
+                ->from('vl_board_entries as newer')
+                ->whereColumn('newer.edge_lab_event_id', 'vl_board_entries.edge_lab_event_id')
+                ->whereColumn('newer.market', 'vl_board_entries.market')
+                // Null-aware, like the line below it. `side = side` is
+                // false when both are null, so a column that went missing
+                // would not widen the match - it would silently stop the
+                // whole filter matching anything at all.
+                ->whereRaw('(newer.side = vl_board_entries.side or (newer.side is null and vl_board_entries.side is null))')
+                ->whereRaw('(newer.line = vl_board_entries.line or (newer.line is null and vl_board_entries.line is null))')
+                ->whereColumn('newer.id', '>', 'vl_board_entries.id');
+        });
+    }
+
+    /**
+     * Entries on games that have not started.
+     *
+     * A pick on a game already under way is not one anybody can take,
+     * and a finished game sitting on today's card with a Bet button
+     * beside it is the product asserting something untrue about the
+     * world. Kickoff lives on the mirrored event rather than here, so it
+     * is read across rather than duplicated onto every entry.
+     *
+     * Deliberately not folded into `sellablePicks()`: the board page
+     * lets a customer choose a past date on purpose, and that is a
+     * different question from what is actionable now.
+     */
+    public function scopeBeforeKickoff(Builder $query): Builder
+    {
+        return $query->whereIn(
+            'edge_lab_event_id',
+            VlEvent::query()->current()->where('starts_at', '>', now())->select('edge_lab_id'),
+        );
+    }
+
     public function scopeNearMisses(Builder $query): Builder
     {
         return $query
             ->where('recommendation', 'pass')
             ->whereNotNull('edge_at_price')
-            ->whereNotExists(function ($later): void {
-                $later->selectRaw('1')
-                    ->from('vl_board_entries as newer')
-                    ->whereColumn('newer.edge_lab_event_id', 'vl_board_entries.edge_lab_event_id')
-                    ->whereColumn('newer.market', 'vl_board_entries.market')
-                    ->whereColumn('newer.side', 'vl_board_entries.side')
-                    ->whereRaw('(newer.line = vl_board_entries.line or (newer.line is null and vl_board_entries.line is null))')
-                    ->whereColumn('newer.id', '>', 'vl_board_entries.id');
-            })
+            ->latestPerSelection()
             ->orderByDesc('edge_at_price');
     }
 

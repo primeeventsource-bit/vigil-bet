@@ -58,7 +58,13 @@ class DashboardController extends Controller
          */
         $fullCard = $entitlements->can($user, 'card.daily');
 
-        $query = VlBoardEntry::query()->current()->sellablePicks()
+        /*
+         * Before kickoff only. This is today's card, and a game that
+         * has started is not something a customer can act on - a
+         * finished one with a Bet button beside it is worse than
+         * useless, it is the page asserting the game is still to come.
+         */
+        $query = VlBoardEntry::query()->current()->sellablePicks()->beforeKickoff()
             ->when($sport, fn ($q) => $q->where('sport', $sport));
 
         $available = (clone $query)->count();
@@ -72,7 +78,7 @@ class DashboardController extends Controller
          * it is not shown to somebody who has not got it.
          */
         $nearMisses = $picks->isEmpty() && $fullCard
-            ? VlBoardEntry::query()->current()->nearMisses()->limit(5)->get()
+            ? VlBoardEntry::query()->current()->nearMisses()->beforeKickoff()->limit(5)->get()
             : collect();
 
         /*
@@ -96,7 +102,7 @@ class DashboardController extends Controller
             'opinionRecord' => $opinionRecord->summary(),
             // Only sports the engine has actually judged. A tab with
             // nothing behind it is a dead end dressed as a feature.
-            'availableSports' => VlBoardEntry::query()->current()->sellablePicks()
+            'availableSports' => VlBoardEntry::query()->current()->sellablePicks()->beforeKickoff()
                 ->distinct()->orderBy('sport')->pluck('sport'),
             // Withheld, not missing. A customer told "no picks today"
             // when there were seven would be being lied to.
