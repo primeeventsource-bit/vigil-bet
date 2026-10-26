@@ -47,13 +47,13 @@ use Illuminate\Support\Facades\Schedule;
 Schedule::job(new SyncBoard)
     ->hourlyAt(55)
     ->name('edgelab-sync-board')
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 // The schedule barely moves. Twice a day is enough to catch a postponement.
 Schedule::job(new SyncEvents)
     ->twiceDaily(7, 19)
     ->name('edgelab-sync-events')
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 /*
  * Verdicts change only when a model is retrained, which is weekly. Pulled
@@ -63,7 +63,7 @@ Schedule::job(new SyncEvents)
 Schedule::job(new SyncModels)
     ->dailyAt('05:30')
     ->name('edgelab-sync-models')
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 /*
  * Dunning's deadline. Daily, early, before anybody is likely to be
@@ -76,7 +76,7 @@ Schedule::job(new SyncModels)
 Schedule::command('vigil:dunning')
     ->dailyAt('06:10')
     ->name('billing-dunning')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 
 /*
  * Grading. Every quarter of an hour, because the cost of running it on
@@ -92,7 +92,7 @@ Schedule::command('vigil:dunning')
 Schedule::command('vigil:settle-bets')
     ->everyFifteenMinutes()
     ->name('settle-bets')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 
 /*
  * The public record. Publishing runs just after the board sync, so a
@@ -108,7 +108,7 @@ Schedule::command('vigil:settle-bets')
 Schedule::command('vigil:publish-picks')
     ->hourlyAt(58)
     ->name('publish-picks')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 
 /*
  * The shadow record, just after the real publisher.
@@ -121,7 +121,7 @@ Schedule::command('vigil:publish-picks')
 Schedule::command('vigil:shadow')
     ->hourlyAt(59)
     ->name('shadow-record')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 /*
  * Alerts. Just after publishing, because the thing most worth being told
  * about is a pick that has only just gone on the record - and a
@@ -135,7 +135,7 @@ Schedule::command('vigil:shadow')
 Schedule::command('vigil:alerts')
     ->hourlyAt(2)
     ->name('alerts')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 
 /*
 |--------------------------------------------------------------------------
@@ -157,7 +157,7 @@ foreach (Sport::enabled() as $sport) {
     Schedule::job(new PullOddsForSport($sport))
         ->everyMinute()
         ->name("odds-pull-{$sport->value}")
-        ->withoutOverlapping()
+        ->withoutOverlapping(15)
         /*
          * Due-checked here rather than inside the job. The job still
          * checks for itself - two processes deciding the same thing a
@@ -180,13 +180,13 @@ foreach (Sport::enabled() as $sport) {
     Schedule::job(new PullPropsForSport($sport))
         ->everyFiveMinutes()
         ->name("odds-props-{$sport->value}")
-        ->withoutOverlapping()
+        ->withoutOverlapping(15)
         ->when(fn (): bool => app(PullCadence::class)->isDueForProps($sport));
 
     Schedule::job(new SyncSchedules($sport))
         ->twiceDaily(6, 18)
         ->name("schedules-{$sport->value}")
-        ->withoutOverlapping();
+        ->withoutOverlapping(15);
 
     /*
      * Final scores, on a clock that follows whether one is outstanding.
@@ -203,7 +203,7 @@ foreach (Sport::enabled() as $sport) {
     Schedule::job(new SyncResults($sport))
         ->everyFiveMinutes()
         ->name("results-{$sport->value}")
-        ->withoutOverlapping()
+        ->withoutOverlapping(15)
         ->when(fn (): bool => app(ResultsCadence::class)->isDue($sport));
 
     /*
@@ -217,7 +217,7 @@ foreach (Sport::enabled() as $sport) {
     Schedule::job(new SyncDepthCharts($sport))
         ->dailyAt('05:50')
         ->name("depth-charts-{$sport->value}")
-        ->withoutOverlapping();
+        ->withoutOverlapping(15);
 
     // Availability moves on practice reports and warmups, not
     // continuously, and one request covers a whole league. What matters is
@@ -225,7 +225,7 @@ foreach (Sport::enabled() as $sport) {
     Schedule::job(new SyncInjuries($sport))
         ->cron('0 */4 * * *')
         ->name("injuries-{$sport->value}")
-        ->withoutOverlapping();
+        ->withoutOverlapping(15);
 
     // Price the next few days with the active model. A prediction is only
     // worth writing while the game is still ahead of it, so this runs often
@@ -234,7 +234,7 @@ foreach (Sport::enabled() as $sport) {
     Schedule::job(new PredictUpcoming($sport))
         ->hourlyAt(40)
         ->name("predict-{$sport->value}")
-        ->withoutOverlapping();
+        ->withoutOverlapping(15);
 }
 
 /*
@@ -244,7 +244,7 @@ foreach (Sport::enabled() as $sport) {
 Schedule::job(new SyncProbableStarters)
     ->cron('15 */4 * * *')
     ->name('probable-starters')
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 /*
  * Forecasts for kickoff at outdoor venues. Every run writes a new row: a
@@ -254,13 +254,13 @@ Schedule::job(new SyncProbableStarters)
 Schedule::job(new SyncWeather)
     ->cron('30 */6 * * *')
     ->name('weather')
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 // Freeze closing lines shortly after games start.
 Schedule::job(new MarkClosingLines)
     ->hourly()
     ->name('mark-closing-lines')
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 // Grade bets whose games have finished. Offset past the top of the hour so
 // the results pull above has usually landed before this reads it; a bet that
@@ -276,20 +276,20 @@ Schedule::job(new SettleBets)
      * string.
      */
     ->name('settle-engine-bets')
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 // Sweep the board. Runs after the odds pull and the prediction pass, since
 // it compares one against the other and is only as fresh as its prices.
 Schedule::job(new ScanValue)
     ->hourlyAt(45)
     ->name('scan-value')
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 // Stamp closing line value. Runs after the closing lines it reads are frozen.
 Schedule::job(new RecordBetClv)
     ->hourlyAt(25)
     ->name('record-bet-clv')
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 /*
  * Look across books for arbitrages and middles. Runs on the odds cadence
@@ -300,7 +300,7 @@ Schedule::job(new RecordBetClv)
 Schedule::job(new ScanCrossBook)
     ->everyFiveMinutes()
     ->name('scan-crossbook')
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 /*
  * Close out runs whose worker never came back.
@@ -313,7 +313,7 @@ Schedule::job(new ScanCrossBook)
 Schedule::job(new ReapStaleJobRuns)
     ->everyFifteenMinutes()
     ->name('reap-stale-runs')
-    ->withoutOverlapping();
+    ->withoutOverlapping(15);
 
 /*
  * Retrain weekly, so a verdict can change its mind.
@@ -337,7 +337,7 @@ foreach (Sport::enabled() as $sport) {
     Schedule::job(new TrainModel($sport))
         ->weeklyOn(0, '04:00')
         ->name("retrain-{$sport->value}")
-        ->withoutOverlapping();
+        ->withoutOverlapping(15);
 }
 
 /*
@@ -358,7 +358,7 @@ foreach (Sport::enabled() as $sport) {
 Schedule::command('ingest:box-scores all --limit=120')
     ->dailyAt('09:30')
     ->name('box-scores')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 
 /*
  * ESPN ids for events ingested from another source.
@@ -390,7 +390,7 @@ foreach (Sport::cases() as $sport) {
     Schedule::command("ingest:link-espn {$sport->value}")
         ->dailyAt('09:15')
         ->name("link-espn-{$sport->value}")
-        ->withoutOverlapping();
+        ->withoutOverlapping(60);
 }
 
 /*
@@ -411,7 +411,7 @@ foreach (Sport::cases() as $sport) {
 Schedule::command('vigil:reads --passes --limit=40')
     ->hourlyAt(12)
     ->name('vigil-reads')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 
 /*
  * The day's opinions, just before the picks publisher.
@@ -431,7 +431,7 @@ Schedule::command('vigil:reads --passes --limit=40')
 Schedule::command('vigil:publish-opinions')
     ->hourlyAt(56)
     ->name('publish-opinions')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 
 /*
  * Grade yesterday's opinions.
@@ -450,7 +450,7 @@ Schedule::command('vigil:publish-opinions')
 Schedule::command('vigil:settle-opinions')
     ->everyFifteenMinutes()
     ->name('settle-opinions')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 
 /*
  * Write down what the prop model thinks, before the games.
@@ -474,7 +474,7 @@ Schedule::command('vigil:settle-opinions')
 Schedule::command('edge:props:project --record --limit=0')
     ->hourlyAt(38)
     ->name('record-prop-projections')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
 
 /*
  * Mark them once the box scores land.
@@ -487,4 +487,4 @@ Schedule::command('edge:props:project --record --limit=0')
 Schedule::command('edge:props:settle')
     ->dailyAt('10:15')
     ->name('settle-prop-projections')
-    ->withoutOverlapping();
+    ->withoutOverlapping(60);
