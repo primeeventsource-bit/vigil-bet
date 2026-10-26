@@ -16,6 +16,7 @@ use App\Services\Ai\ResearchBrief;
 use App\Services\EdgeLab\SyncHealth;
 use App\Services\Entitlements\Entitlements;
 use App\Services\Record\OpinionRecord;
+use App\Services\Record\OpinionStanding;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -90,9 +91,17 @@ class DashboardController extends Controller
          */
         $opinions = Opinion::query()->live()->with('event:id,starts_at')->limit(12)->get();
 
+        /*
+         * And what the engine says about them today. The published
+         * number never changes - that is the point of the table - so
+         * the present view is carried beside it rather than over it.
+         */
+        $standing = app(OpinionStanding::class)->for($opinions);
+
         return view('app.dashboard', [
             'picks' => $picks,
             'opinions' => $opinions,
+            'opinionStanding' => $standing,
             /*
              * The accuracy of everything published so far, shown beside
              * today's card. A picks page without its record is a claim

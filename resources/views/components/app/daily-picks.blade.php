@@ -1,4 +1,4 @@
-@props(['opinions', 'record'])
+@props(['opinions', 'record', 'standing' => null])
 
 {{--
     VIGIL'S DAILY PICKS — the page this product exists to show.
@@ -105,7 +105,32 @@
                                 <span class="mt-0.5 block text-xs text-[var(--vg-slate)]">{{ $opinion->matchup }}</span>
                             </td>
 
-                            <td class="px-5 py-3.5 font-semibold">{{ $opinion->selection }}</td>
+                            <td class="px-5 py-3.5 font-semibold">
+                                {{ $opinion->selection }}
+
+                                @php($now = $standing?->get($opinion->id))
+
+                                {{--
+                                    The published number never changes; this is
+                                    what the engine says today. Shown only when it
+                                    has moved or the engine has stopped backing
+                                    the selection, because a line saying nothing
+                                    changed is noise on every other row.
+                                --}}
+                                @if ($now && (! $now['held'] || $now['drifted']))
+                                    <span class="mt-1 block text-xs font-normal text-[var(--vg-amber)]">
+                                        @if (! $now['held'])
+                                            We no longer hold this
+                                        @else
+                                            Our view has moved
+                                        @endif
+
+                                        @if ($now['current'] !== null)
+                                            &middot; now {{ round($now['current'] * 100) }}%
+                                        @endif
+                                    </span>
+                                @endif
+                            </td>
 
                             <td class="px-5 py-3.5 text-right font-[family-name:var(--font-mono)]" data-numeric>
                                 {{ $opinion->price_american > 0 ? '+' : '' }}{{ $opinion->price_american }}
@@ -134,6 +159,31 @@
                                 <x-local-time :at="$opinion->kickoff_at" format="H:i" />
                             </td>
                         </tr>
+
+                        {{--
+                            Who the model expects to win, which is a different
+                            sentence from what it would bet. A favourite priced
+                            too short is still the honest answer to what is
+                            likely to happen, and saying nothing about it reads
+                            as having no view of the game at all.
+                        --}}
+                        @if ($now && $now['likely'])
+                            <tr class="border-b border-[var(--vg-line)] last:border-0">
+                                <td colspan="5" class="px-5 pb-3.5 pt-0 text-xs text-[var(--vg-slate)]">
+                                    <span class="font-semibold uppercase tracking-wide">Likely winner</span>
+                                    &middot; {{ $now['likely']['selection'] }}
+                                    {{ round($now['likely']['prob'] * 100) }}%
+
+                                    @if ($now['likely']['price'] !== null)
+                                        at {{ $now['likely']['price'] > 0 ? '+' : '' }}{{ $now['likely']['price'] }}
+                                    @endif
+
+                                    @unless ($now['likely']['backable'])
+                                        &middot; <span class="text-[var(--vg-slate)]">not a pick: the price is shorter than our number</span>
+                                    @endunless
+                                </td>
+                            </tr>
+                        @endif
                     @endforeach
                 </tbody>
             </table>

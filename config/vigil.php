@@ -16,6 +16,23 @@ declare(strict_types=1);
 return [
 
     /*
+    |--------------------------------------------------------------------------
+    | When a published opinion has moved enough to say so
+    |--------------------------------------------------------------------------
+    |
+    | An opinion is published once and never rewritten, but it stays on
+    | the card until kickoff while the model keeps scanning. Past this
+    | much movement the card shows the present number beside the
+    | published one, because a two-day-old figure displayed as today's
+    | view is the page asserting something nobody here believes.
+    |
+    | Two points. Smaller than that is the model breathing; larger is a
+    | different opinion wearing the old one's clothes.
+    |
+    */
+    'opinion_drift_threshold' => 0.02,
+
+    /*
     | The age gate.
     |
     | 21 is the floor in most US states that permit sports betting at all.

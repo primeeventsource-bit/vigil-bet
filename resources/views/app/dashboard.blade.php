@@ -51,7 +51,7 @@
         job: it shows picks from a proven market, and says so, on the
         day there are any.
     --}}
-    <x-app.daily-picks class="mt-5" :opinions="$opinions" :record="$opinionRecord" />
+    <x-app.daily-picks class="mt-5" :opinions="$opinions" :record="$opinionRecord" :standing="$opinionStanding" />
 
     <section class="mt-5 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         {{-- Top picks --}}
