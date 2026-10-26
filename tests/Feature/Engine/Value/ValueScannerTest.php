@@ -306,8 +306,10 @@ it('tells a stale board apart from an empty one', function () {
     // will this - but a stale board means the pull cadence needs looking
     // at, which an empty one does not.
     $event = board(0.65);
-    wholeBoard($event, -110);
-    OddsSnapshot::query()->update(['pulled_at' => now()->subHours(6)]);
+
+    // Quoted six hours ago rather than quoted and then aged: the table
+    // is append-only, and on Postgres the trigger says so.
+    $this->travelTo(now()->subHours(6), fn () => wholeBoard($event, -110));
 
     $this->scanner->scan(Sport::Nfl);
 

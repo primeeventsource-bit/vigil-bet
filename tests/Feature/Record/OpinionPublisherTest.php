@@ -131,7 +131,7 @@ it('refuses a second opinion on one selection in the database', function () {
 
     $first = Opinion::sole();
 
-    expect(fn () => Opinion::create([
+    expect(rejectedByDatabase(fn () => Opinion::create([
         'event_id' => $first->event_id,
         'sport' => $first->sport,
         'market' => $first->market,
@@ -143,7 +143,7 @@ it('refuses a second opinion on one selection in the database', function () {
         'kickoff_at' => $first->kickoff_at,
         'published_at' => now(),
         'created_at' => now(),
-    ]))->toThrow(QueryException::class);
+    ])))->toThrow(QueryException::class);
 
     expect(Opinion::count())->toBe(1);
 });
@@ -171,7 +171,7 @@ it('refuses a row dated after kickoff, in the database', function () {
      */
     $event = engineGame('Detroit Red Wings', 'Boston Bruins', ['sport' => 'nhl']);
 
-    expect(fn () => DB::table('opinions')->insert([
+    expect(rejectedByDatabase(fn () => DB::table('opinions')->insert([
         'public_id' => (string) Str::ulid(),
         'event_id' => $event->id,
         'sport' => 'nhl',
@@ -183,5 +183,14 @@ it('refuses a row dated after kickoff, in the database', function () {
         'kickoff_at' => now()->subHour(),
         'published_at' => now(),
         'created_at' => now(),
-    ]))->toThrow(QueryException::class, 'before kickoff');
+    ])))->toThrow(QueryException::class);
+
+    /*
+     * The exception's text is not asserted. SQLite raises the
+     * trigger's own wording and Postgres names the violated
+     * constraint, so pinning either passes on one engine and fails
+     * on the other. What the rule promises is that the row is not
+     * there, which is the same sentence on both.
+     */
+    expect(Opinion::count())->toBe(0);
 });

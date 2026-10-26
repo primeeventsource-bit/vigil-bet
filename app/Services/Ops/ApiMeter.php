@@ -64,7 +64,11 @@ class ApiMeter
         return ApiRequest::query()
             ->where('provider', $provider)
             ->whereNotNull('quota_remaining')
+            // Insertion order breaks the tie. Several calls land in
+            // the same second, and `requested_at` alone leaves which
+            // of them is latest up to the database.
             ->orderByDesc('requested_at')
+            ->orderByDesc('id')
             ->value('quota_remaining');
     }
 
@@ -121,6 +125,7 @@ class ApiMeter
             ->whereNotNull('quota_remaining')
             ->whereNotNull('quota_used')
             ->orderByDesc('requested_at')
+            ->orderByDesc('id')
             ->first(['quota_used', 'quota_remaining']);
 
         return $row === null

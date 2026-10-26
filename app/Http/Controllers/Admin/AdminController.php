@@ -200,7 +200,7 @@ class AdminController extends Controller
             'rejected' => AiUsage::where('accepted', false)->count(),
             'byModel' => AiUsage::query()
                 ->selectRaw('model, count(*) as calls, sum(cost_millicents) as cost,
-                    sum(case when accepted = 0 then 1 else 0 end) as rejected')
+                    sum(case when accepted then 0 else 1 end) as rejected')
                 ->groupBy('model')
                 ->get(),
             'byPurpose' => AiUsage::query()

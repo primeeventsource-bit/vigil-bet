@@ -75,8 +75,10 @@ it('refuses to record a game that has already started', function () {
 it('refuses one inside the playable lead, however technically pre-kickoff', function () {
     // Eight minutes out is before kickoff and practically unplayable. An
     // experiment built on prices nobody could take flatters itself.
-    shadowCandidate(hoursToKickoff: 0);
-    ValueBet::query()->update(['flagged_at' => now()]);
+    // value_bets is append-only, so the row is written already
+    // flagged now rather than updated afterwards. events is not, so
+    // moving the kickoff is still fine.
+    shadowCandidate(hoursToKickoff: 0, overrides: ['flagged_at' => now()]);
     Event::query()->update(['starts_at' => now()->addMinutes(8)]);
 
     app(ShadowRecorder::class)->record();
@@ -118,7 +120,7 @@ it('refuses a row dated after kickoff, in the database', function () {
      * look better. A shadow record that could be written once the result
      * was known would answer nothing at all.
      */
-    expect(fn () => ShadowPick::create([
+    expect(rejectedByDatabase(fn () => ShadowPick::create([
         'value_bet_id' => engineBoardEntry(null, $event)->id,
         'event_id' => $event->id,
         'sport' => 'nfl',
@@ -129,7 +131,7 @@ it('refuses a row dated after kickoff, in the database', function () {
         'kickoff_at' => now()->addHours(3),
         'recorded_at' => now()->addHours(4),
         'created_at' => now(),
-    ]))->toThrow(Exception::class);
+    ])))->toThrow(Exception::class);
 });
 
 it('settles against the real result and keeps the closing line value', function () {
@@ -339,7 +341,7 @@ it('refuses a duplicate selection in the database, not only in the recorder', fu
 
     $first = ShadowPick::sole();
 
-    expect(fn () => ShadowPick::create([
+    expect(rejectedByDatabase(fn () => ShadowPick::create([
         'value_bet_id' => $bet->id,
         'event_id' => $first->event_id,
         'sport' => $first->sport,
@@ -353,7 +355,7 @@ it('refuses a duplicate selection in the database, not only in the recorder', fu
         'kickoff_at' => $first->kickoff_at,
         'recorded_at' => now(),
         'created_at' => now(),
-    ]))->toThrow(QueryException::class);
+    ])))->toThrow(QueryException::class);
 
     expect(ShadowPick::count())->toBe(1);
 });

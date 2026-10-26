@@ -117,14 +117,14 @@ it('13.3: every number in a read exists in its fact sheet', function () {
 /* 4 ------------------------------------------------------------------- */
 
 it('13.4: a published pick timestamped after kickoff is rejected by the database', function () {
-    expect(fn () => PublishedPick::create([
+    expect(rejectedByDatabase(fn () => PublishedPick::create([
         'edge_lab_event_id' => 1,
         'sport' => 'nfl', 'market' => 'h2h', 'side' => 'home', 'selection' => 'Chiefs',
         'price_american' => -110,
         'kickoff_at' => now()->subHour(),
         'published_at' => now(),
         'created_at' => now(),
-    ]))->toThrow(QueryException::class);
+    ])))->toThrow(QueryException::class);
 
     expect(PublishedPick::count())->toBe(0);
 });

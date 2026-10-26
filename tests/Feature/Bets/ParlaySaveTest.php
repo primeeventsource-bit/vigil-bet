@@ -64,7 +64,7 @@ it('records a placed parlay and takes the stake off the bankroll', function () {
     expect($parlay->status)->toBe('pending')
         ->and($parlay->accepted_price_american)->toBe(260)
         ->and($parlay->ticket_reference)->toBe('DK-9981')
-        ->and(BankrollEntry::query()->where('kind', BankrollEntry::STAKE)->sum('amount_cents'))->toBe(-2500);
+        ->and((int) BankrollEntry::query()->where('kind', BankrollEntry::STAKE)->sum('amount_cents'))->toBe(-2500);
 });
 
 it('empties the slip after saving, so the next save is not a duplicate', function () {

@@ -12,6 +12,7 @@ use App\Models\UserBet;
 use App\Models\ValueBet;
 use App\Services\Bets\BetSettler;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -164,7 +165,10 @@ class ShadowRecorder
         }
 
         try {
-            $this->insert($bet, $event);
+            // In a nested transaction so the refusal below is
+            // survivable: Postgres aborts a transaction on a failed
+            // statement, and catching it does not undo that.
+            DB::transaction(fn () => $this->insert($bet, $event));
         } catch (QueryException $e) {
             /*
              * The database guard had the last word. With the in-batch

@@ -23,7 +23,7 @@ use Illuminate\Database\QueryException;
 */
 
 it('refuses a pick published after kickoff, at the database', function () {
-    expect(fn () => PublishedPick::create([
+    expect(rejectedByDatabase(fn () => PublishedPick::create([
         'edge_lab_event_id' => 1,
         'sport' => 'nfl', 'market' => 'h2h', 'side' => 'home', 'selection' => 'Chiefs',
         'price_american' => -110,
@@ -32,7 +32,7 @@ it('refuses a pick published after kickoff, at the database', function () {
         // into a lie, and the table will not hold it.
         'published_at' => now(),
         'created_at' => now(),
-    ]))->toThrow(QueryException::class);
+    ])))->toThrow(QueryException::class);
 
     expect(PublishedPick::count())->toBe(0);
 });
@@ -41,14 +41,14 @@ it('refuses a pick published at exactly kickoff', function () {
     $at = now();
 
     // Not a rounding question. "Before kickoff" has to mean before.
-    expect(fn () => PublishedPick::create([
+    expect(rejectedByDatabase(fn () => PublishedPick::create([
         'edge_lab_event_id' => 1,
         'sport' => 'nfl', 'market' => 'h2h', 'side' => 'home', 'selection' => 'Chiefs',
         'price_american' => -110,
         'kickoff_at' => $at,
         'published_at' => $at,
         'created_at' => now(),
-    ]))->toThrow(QueryException::class);
+    ])))->toThrow(QueryException::class);
 });
 
 it('accepts a pick published before kickoff', function () {

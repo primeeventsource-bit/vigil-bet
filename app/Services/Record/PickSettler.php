@@ -11,6 +11,7 @@ use App\Models\VlEvent;
 use App\Models\VlOddsDisplay;
 use App\Services\Bets\BetSettler;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Settles published picks from Edge Lab's results.
@@ -56,7 +57,10 @@ class PickSettler
             }
 
             try {
-                PickResult::create([
+                // Nested so a duplicate cannot abort the
+                // surrounding transaction and take the rest of the
+                // batch with it on Postgres.
+                DB::transaction(fn () => PickResult::create([
                     'published_pick_id' => $pick->id,
                     'status' => $status,
                     'final_home_score' => $event->final_home_score,
@@ -66,7 +70,7 @@ class PickSettler
                     'clv' => $closing === null ? null : $this->clv($pick, $closing),
                     'settled_at' => now(),
                     'created_at' => now(),
-                ]);
+                ]));
             } catch (QueryException $e) {
                 // The unique key doing its job. A pick settled twice
                 // would appear twice in the record, and a record that

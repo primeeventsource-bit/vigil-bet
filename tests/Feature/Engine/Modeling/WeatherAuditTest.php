@@ -41,7 +41,7 @@ function auditTeams(): array
  * total. $minutes keeps the start times distinct: events carry a unique
  * natural key of sport, start time and the two teams.
  */
-function auditGame(int $minutes, float $wind, int $totalPoints, ?float $closingTotal = null): Event
+function auditGame(int $minutes, ?float $wind, int $totalPoints, ?float $closingTotal = null): Event
 {
     [$home, $away] = auditTeams();
 
@@ -177,11 +177,10 @@ it('refuses to measure a variable too thinly covered', function () {
     // Wind thins out before 2024 in the real archive. Measuring it on a
     // handful of games would produce a confident number from nothing.
     foreach (range(1, 40) as $i) {
-        $event = auditGame($i, 10.0, 40 + ($i % 7));
-
-        if ($i > 5) {
-            $event->weatherReadings()->first()->forceFill(['wind_mph' => null])->saveQuietly();
-        }
+        // Written without wind rather than written and then emptied.
+        // weather_readings is append-only, and saveQuietly() only
+        // slips past the model - the Postgres trigger still refuses.
+        auditGame($i, $i > 5 ? null : 10.0, 40 + ($i % 7));
     }
 
     $result = app(WeatherAudit::class)->run(Sport::Nfl, 1);

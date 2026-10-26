@@ -9,6 +9,7 @@ use App\Models\ModelVersion;
 use App\Models\Opinion;
 use App\Models\ValueBet;
 use App\Services\Value\OpinionBar;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -119,7 +120,14 @@ class OpinionPublisher
         $metrics = $model?->holdout_metrics ?? [];
 
         try {
-            Opinion::create([
+            /*
+             * In a nested transaction, so the expected refusal below
+             * is survivable. Postgres aborts a transaction on a failed
+             * statement, and catching the exception does not undo
+             * that - without the savepoint, one duplicate would take
+             * down every write after it in the same transaction.
+             */
+            DB::transaction(fn () => Opinion::create([
                 'board_entry_id' => null,
                 'event_id' => $event->id,
                 'sport' => $bet->sport?->value ?? $event->sport->value,
@@ -144,7 +152,7 @@ class OpinionPublisher
                 'kickoff_at' => $event->starts_at,
                 'published_at' => now(),
                 'created_at' => now(),
-            ]);
+            ]));
         } catch (Throwable $e) {
             /*
              * The database refuses a second opinion on one selection,

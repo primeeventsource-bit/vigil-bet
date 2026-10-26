@@ -248,12 +248,12 @@ it('honours an override that has not expired yet', function () {
 it('refuses an override with no reason', function () {
     $user = userOn(null);
 
-    expect(fn () => EntitlementOverride::create([
+    expect(rejectedByDatabase(fn () => EntitlementOverride::create([
         'user_id' => $user->id,
         'feature' => 'board.full',
         'granted' => true,
         'granted_by' => $user->id,
-    ]))->toThrow(QueryException::class);
+    ])))->toThrow(QueryException::class);
 });
 
 it('keeps one override per user and feature', function () {
@@ -269,7 +269,7 @@ it('keeps one override per user and feature', function () {
 
     EntitlementOverride::create($row);
 
-    expect(fn () => EntitlementOverride::create($row))
+    expect(rejectedByDatabase(fn () => EntitlementOverride::create($row)))
         ->toThrow(QueryException::class);
 });
 

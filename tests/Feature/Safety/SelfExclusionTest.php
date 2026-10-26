@@ -125,14 +125,14 @@ it('refuses an exclusion that ends before it starts, at the database', function 
     // Belt and braces. The service computes ends_at and cannot get this
     // wrong, so the constraint is there for everything that is not the
     // service: a seeder, a raw query, an import.
-    expect(fn () => SelfExclusionModel::create([
+    expect(rejectedByDatabase(fn () => SelfExclusionModel::create([
         'user_id' => betUser('pro')->id,
         'days' => 30,
         'starts_at' => now(),
         'ends_at' => now()->subDay(),
         'acknowledged' => 'whatever',
         'created_at' => now(),
-    ]))->toThrow(QueryException::class);
+    ])))->toThrow(QueryException::class);
 });
 
 it('does not let a second, shorter exclusion replace a longer one', function () {
