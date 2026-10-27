@@ -51,6 +51,18 @@ class SyncOddsDisplay implements ShouldQueue
 
     public int $backoff = 60;
 
+    /**
+     * Longer than a worker's default.
+     *
+     * A full slate is sixty games asked for one at a time, and the first
+     * version of this job exhausted its attempts in production against
+     * exactly that. The per-game work is now one read and one write, but
+     * the ceiling stays generous: a Saturday of college football is a
+     * real shape this has to survive, and a timeout here means the
+     * prices a customer is shown simply stop moving.
+     */
+    public int $timeout = 600;
+
     /** The columns that identify one selection at one book. */
     private const SELECTION_KEY = [
         'edge_lab_event_id', 'book', 'market', 'market_key', 'side', 'player_name', 'line',
@@ -67,9 +79,9 @@ class SyncOddsDisplay implements ShouldQueue
         return 'odds';
     }
 
-    public function handle(EdgeLabClient $client, Mirror $mirror): void
+    public function handle(EdgeLabClient $client): void
     {
-        $this->tracked($client, function (SyncRun $run) use ($client, $mirror): array {
+        $this->tracked($client, function (SyncRun $run) use ($client): array {
             $observedAt = now();
             $books = $this->booksWorthMirroring();
 
@@ -87,20 +99,13 @@ class SyncOddsDisplay implements ShouldQueue
                     $quotes = array_merge($quotes, (array) ($odds['props'] ?? []));
                 }
 
-                foreach ($quotes as $quote) {
-                    if (! $this->worthKeeping($quote, $books)) {
-                        continue;
-                    }
+                $keep = array_values(array_filter(
+                    $quotes,
+                    fn (array $quote): bool => $this->worthKeeping($quote, $books),
+                ));
 
-                    $fetched++;
-                    $written += $mirror->writeKeyed(
-                        VlOddsDisplay::class,
-                        $quote,
-                        $this->columns($eventId, $quote),
-                        self::SELECTION_KEY,
-                        $observedAt,
-                    ) ? 1 : 0;
-                }
+                $fetched += count($keep);
+                $written += $this->mirrorEvent($eventId, $keep, $observedAt);
             }
 
             return [
@@ -113,6 +118,82 @@ class SyncOddsDisplay implements ShouldQueue
                 'cursor' => null,
             ];
         });
+    }
+
+    /**
+     * Mirror one game's prices: one read, one write, whatever the slate.
+     *
+     * This began as a digest check per quote, which is the obvious shape
+     * and was wrong by two orders of magnitude. Thirty-two games at a
+     * hundred and thirty quotes each is four thousand round trips a run,
+     * every ten minutes, against a database in a different region from
+     * the application - the job exhausted its attempts in production on
+     * the first slate it met.
+     *
+     * So the digests for a game come back in one query and are compared
+     * in memory, and what changed goes in as one insert. An append-only
+     * table reads newest-first, so the first row seen for a key is the
+     * one to compare against.
+     *
+     * @param  array<int, array<string, mixed>>  $quotes
+     */
+    private function mirrorEvent(int $eventId, array $quotes, Carbon $observedAt): int
+    {
+        if ($quotes === []) {
+            return 0;
+        }
+
+        $held = [];
+
+        foreach (
+            VlOddsDisplay::query()
+                ->where('edge_lab_event_id', $eventId)
+                ->orderByDesc('id')
+                ->get([...self::SELECTION_KEY, 'digest']) as $row
+        ) {
+            // Newest first, so the first sighting of a key is the one we
+            // are still holding. Later rows are its history.
+            $held[$this->selectionKey($row->toArray())] ??= $row->digest;
+        }
+
+        $fresh = [];
+
+        foreach ($quotes as $quote) {
+            $columns = $this->columns($eventId, $quote);
+            $digest = Mirror::digest($quote);
+
+            if (($held[$this->selectionKey($columns)] ?? null) === $digest) {
+                continue;
+            }
+
+            $fresh[] = $columns + ['digest' => $digest, 'observed_at' => $observedAt];
+        }
+
+        if ($fresh !== []) {
+            VlOddsDisplay::insert($fresh);
+        }
+
+        return count($fresh);
+    }
+
+    /**
+     * One selection at one book, as a string that can be compared.
+     *
+     * Null is a real value in this key - a moneyline has no line, only a
+     * prop has a player - so it is spelled rather than left to collapse
+     * into an empty string beside a genuine one.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function selectionKey(array $row): string
+    {
+        $parts = [];
+
+        foreach (self::SELECTION_KEY as $column) {
+            $parts[] = ($row[$column] ?? null) === null ? "\0" : (string) $row[$column];
+        }
+
+        return implode('|', $parts);
     }
 
     /**

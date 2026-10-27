@@ -166,3 +166,44 @@ it('gives the public record a closing line to measure a pick against', function 
     expect(PickResult::sole()->closing_price_american)->toBe(-140)
         ->and(PickResult::sole()->clv)->not->toBeNull();
 });
+
+/*
+ * The failure this job actually had in production.
+ *
+ * A digest check per quote is the obvious shape and it is wrong by two
+ * orders of magnitude: a full slate is thirty-odd games at a hundred and
+ * thirty quotes each, every ten minutes, against a database in another
+ * region. The job exhausted its attempts on the first real slate it met.
+ *
+ * So the cost is counted rather than described. What matters is that it
+ * does not grow with the number of prices on a game.
+ */
+it('does not spend a query on every price', function () {
+    config()->set('edgelab.odds_mirror.bettable_books_only', false);
+
+    $game = engineGame();
+
+    // Forty books quoting the same game: forty distinct selections, which
+    // is the shape of a real board rather than forty prices from one book.
+    foreach (range(1, 40) as $n) {
+        internalQuote($game, 'book'.$n, -100 - $n);
+    }
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    dispatch_sync(new SyncOddsDisplay);
+
+    $queries = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    /*
+     * A digest check per quote - the shape this job shipped with - is
+     * forty queries here before any write, and on a real slate of thirty
+     * games it exhausted the job's attempts against a database in
+     * another region. One read of what is held and one insert per game
+     * is the contract; the headroom is the feed and book lookups.
+     */
+    expect($queries)->toBeLessThan(20)
+        ->and(VlOddsDisplay::count())->toBe(40);
+});
