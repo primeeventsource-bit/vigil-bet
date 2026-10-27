@@ -131,7 +131,26 @@ class NhlApiSource implements SportDataSource
         $common = $this->localized($team['commonName'] ?? null);
 
         if ($place !== null && $common !== null) {
-            return trim($place.' '.$common);
+            /*
+             * The two fields are not always disjoint, and joining them
+             * blindly made names no team could match.
+             *
+             * Utah arrived as placeName "Utah" and commonName "Utah
+             * Hockey Club", which this turned into "Utah Utah Hockey
+             * Club" - and `Utah Hockey Club` is a real alias of a real
+             * franchise, so the doubled word was the only reason it
+             * failed. An All-Star roster does the same thing with the
+             * same string in both fields: "Team Matthews Team Matthews".
+             *
+             * Sixteen sightings sat in `unmatched_names` for a team
+             * playing real games, which is the quiet kind of failure -
+             * an unresolved name is logged rather than raised, so its
+             * events simply never attach to a team and nothing is
+             * predicted for them.
+             */
+            return str_starts_with($common, $place)
+                ? $common
+                : trim($place.' '.$common);
         }
 
         return $common ?? $place ?? ($team['abbrev'] ?? null);
