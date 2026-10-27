@@ -1,5 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Vigil">
   <title>Vigil</title>
-  <rect width="64" height="64" rx="14" fill="#07131B"/>
-  <path fill="#00E676" d="M12 13h11.7l8.3 23.4L40.3 13H52L35.1 55h-6.2L12 13Z"/>
+  <!--
+    The one place in the product that has to repeat the palette by hand.
+    A favicon is an isolated document: it never sees the page's custom
+    properties, so currentColor and var(--vg-edge) both resolve to black
+    here and the mark would disappear.
+
+    BrandingTest asserts these two values against config('brand.colors'),
+    which is what the rest of the product reads. They drifted once - this
+    file still carried the pre-Stealth-Black green and near-black long
+    after everything else had moved - and the test exists so it cannot
+    happen quietly again.
+
+    The glyph is a plain V rather than the notched eye in vigil-mark.svg.
+    At 16px the notch and the inner aperture close up into noise, so the
+    mark is simplified rather than shrunk.
+  -->
+  <rect width="64" height="64" rx="14" fill="#12141A"/>
+  <path fill="#10B981" d="M12 13h11.7l8.3 23.4L40.3 13H52L35.1 55h-6.2L12 13Z"/>
 </svg>

@@ -71,3 +71,28 @@ it('carries the tagline from config', function () {
 
     $this->get(route('home'))->assertSee('Keeps watch');
 });
+
+it('paints the favicon in the palette the rest of the product reads', function () {
+    /*
+     * The sweep above only walks resources/views, and the favicon lives
+     * in public/ - which is how it drifted. It kept the pre-Stealth-Black
+     * #00E676 and #07131B through the whole repalette, so the browser tab
+     * was the one surface still showing the old brand.
+     *
+     * It cannot use a custom property, because an SVG loaded as an icon
+     * is its own document and inherits nothing. So the hexes stay typed
+     * in, and this is what makes them answerable to config.
+     */
+    $svg = File::get(public_path(config('brand.logo.favicon')));
+
+    expect($svg)->toContain('fill="'.config('brand.colors.edge').'"')
+        ->and($svg)->toContain('fill="'.config('brand.colors.navy').'"');
+
+    // And nothing else: a third colour would be a value with no owner.
+    preg_match_all('/#[0-9A-Fa-f]{6}\b/', $svg, $found);
+
+    expect(array_unique($found[0]))->toEqualCanonicalizing([
+        config('brand.colors.edge'),
+        config('brand.colors.navy'),
+    ]);
+});
