@@ -21,6 +21,27 @@
     <meta name="robots" content="noindex, nofollow">
 @endunless
 
+{{--
+    One address per page, whichever host asked.
+
+    Built from APP_URL rather than from the request, and that is the
+    whole point of it. The application answers on more than one domain,
+    and a canonical built from the request host would simply agree with
+    whichever name the page was fetched under - confirming every
+    duplicate instead of resolving it. Pinned to the configured host, the
+    day APP_URL changes is the day every indexable page starts pointing
+    at the new one, with nothing else to remember.
+
+    Only on indexable pages. Everything behind the login is noindex
+    already, and a canonical on a page no crawler may read says nothing.
+--}}
+@if ($indexable)
+    @php($canonical = rtrim((string) config('app.url'), '/').(trim(request()->path(), '/') === '' ? '/' : '/'.trim(request()->path(), '/')))
+
+    <link rel="canonical" href="{{ $canonical }}">
+    <meta property="og:url" content="{{ $canonical }}">
+@endif
+
 <link rel="icon" href="{{ asset(config('brand.logo.favicon')) }}" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{{ asset(config('brand.logo.favicon')) }}">
 
