@@ -86,7 +86,105 @@ class AdminController extends Controller
             // an admin sees is what was last changed and by whom.
             'audit' => AuditEvent::query()->with('actor')
                 ->orderByDesc('created_at')->orderByDesc('id')->limit(10)->get(),
+
+            /*
+             * Who can operate the product, and how many of them have
+             * actually enrolled a second factor. The second number is
+             * the useful one: an administrator without MFA cannot reach
+             * these pages at all, so a gap here is somebody locked out
+             * rather than somebody insecure.
+             */
+            'admins' => User::query()->where('is_admin', true)->count(),
+            'adminsWithoutMfa' => User::query()
+                ->where('is_admin', true)
+                ->whereNull('two_factor_confirmed_at')
+                ->count(),
+            'suspended' => User::query()->whereNotNull('suspended_at')->count(),
+
+            'newThisWeek' => User::where('created_at', '>=', now()->subWeek())->count(),
+            'newThisMonth' => User::where('created_at', '>=', now()->subMonth())->count(),
+
+            /*
+             * Monthly recurring revenue, computed from live
+             * subscriptions and the prices in config rather than from
+             * billing_events.
+             *
+             * Those two answer different questions and the difference
+             * matters: charged cents is money that arrived, MRR is
+             * money expected to arrive again next month. A subscription
+             * cancelled yesterday is in the first and must not be in the
+             * second.
+             *
+             * Yearly plans are divided by twelve rather than counted
+             * whole, which is the only way the figure means "monthly".
+             */
+            'mrrCents' => $this->monthlyRecurringCents(),
+
+            /*
+             * Jobs that gave up. The health endpoint reports whether
+             * any exist; this is the count, because "some" and
+             * "eleven hundred" call for different mornings.
+             */
+            'failedJobs' => DB::table('failed_jobs')->count(),
+            'failedJobsToday' => DB::table('failed_jobs')
+                ->where('failed_at', '>=', now()->subDay())->count(),
+
+            /*
+             * The security panel. Everything in it is an audit action
+             * written by this application, so an empty panel means
+             * nothing happened rather than nothing was recorded.
+             */
+            'security' => AuditEvent::query()
+                ->with('actor')
+                ->whereIn('action', [
+                    'auth.lockout',
+                    'auth.password_reset',
+                    'user.suspended',
+                    'user.reinstated',
+                    'user.role_changed',
+                    'user.sessions_revoked',
+                    'admin.permissions_changed',
+                    'admin.revoked',
+                    'super_admin.created',
+                    'super_admin.granted',
+                ])
+                ->orderByDesc('created_at')->orderByDesc('id')
+                ->limit(10)
+                ->get(),
         ]);
+    }
+
+    /**
+     * MRR from live subscriptions, in cents.
+     *
+     * Read per tier from config so the pricing page and this figure
+     * cannot disagree, and divided by twelve for yearly plans so the
+     * word "monthly" is accurate. Tiers that no longer exist resolve
+     * through plans.renamed, because a subscription row written before
+     * a rename is still revenue.
+     */
+    private function monthlyRecurringCents(): int
+    {
+        $rows = Subscription::query()
+            ->whereIn('status', ['active', 'trialing'])
+            ->where('tier', '!=', 'free')
+            ->get(['tier', 'interval']);
+
+        $total = 0;
+
+        foreach ($rows as $row) {
+            $tier = (string) (config('plans.renamed.'.$row->tier) ?? $row->tier);
+
+            if ($row->interval === 'yearly') {
+                $total += (int) round(((int) config("plans.tiers.{$tier}.yearly_cents", 0)) / 12);
+
+                continue;
+            }
+
+            $total += (int) config("plans.tiers.{$tier}.monthly_cents", 0);
+        }
+
+        return $total;
     }
 
     public function users(Request $request): View

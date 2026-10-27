@@ -28,6 +28,92 @@
                      :tone="$aiRejected > 0 ? 'loss' : 'ink'" />
     </section>
 
+    {{-- Growth and recurring revenue --}}
+    <section class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {{--
+            MRR and "charged" are different questions and the tiles sit
+            apart for that reason. Charged is money that arrived; this
+            is money expected to arrive again. A subscription cancelled
+            yesterday belongs in the first and must not be in the
+            second.
+        --}}
+        <x-stat-tile label="Monthly recurring"
+                     :value="$mrrCents ? '$'.number_format($mrrCents / 100, 2) : null"
+                     sample="live subscriptions at list price"
+                     :tone="$mrrCents > 0 ? 'edge' : 'ink'" />
+
+        <x-stat-tile label="New this week" :value="$newThisWeek ?: null"
+                     :sample="$newThisMonth.' in the last month'" />
+
+        <x-stat-tile label="Administrators" :value="$admins ?: null"
+                     :sample="$adminsWithoutMfa > 0
+                        ? $adminsWithoutMfa.' not enrolled, locked out until they are'
+                        : 'all enrolled'"
+                     :tone="$adminsWithoutMfa > 0 ? 'loss' : 'ink'" />
+
+        <x-stat-tile label="Suspended accounts" :value="$suspended ?: null"
+                     :sample="$suspended === 0 ? 'none' : 'locked out by an operator'"
+                     :tone="$suspended > 0 ? 'loss' : 'ink'" />
+    </section>
+
+    {{-- Operational health --}}
+    <section class="mt-4 grid gap-4 sm:grid-cols-2">
+        <x-stat-tile label="Failed jobs" :value="$failedJobs ?: null"
+                     :sample="$failedJobs === 0
+                        ? 'nothing has given up'
+                        : $failedJobsToday.' in the last day'"
+                     :tone="$failedJobsToday > 0 ? 'loss' : 'ink'" />
+
+        {{--
+            `settled`, not `graded` - this is PublicRecord, which counts
+            published picks, and OpinionRecord is the one with `graded`.
+            Two summaries with different vocabularies, and the view was
+            reading the wrong one's key.
+        --}}
+        <x-stat-tile label="Published record"
+                     :value="$record['settled'] ? $record['settled'].' settled' : null"
+                     :sample="$record['win_rate'] === null
+                        ? 'nothing settled yet, so no rate to quote'
+                        : number_format($record['win_rate'] * 100, 1).'% win rate'" />
+    </section>
+
+    {{--
+        Security. Everything in it is an audit action this application
+        writes, so an empty panel means nothing happened rather than
+        nothing was recorded.
+
+        Failed sign-ins are not here, and that is on purpose: audit_log
+        is append-only with triggers refusing DELETE and nothing prunes
+        it, so a row per wrong password would be unbounded storage an
+        attacker gets to size. The lockout is recorded instead.
+    --}}
+    <section class="panel mt-6 p-5">
+        <h2 class="font-[family-name:var(--font-display)] font-semibold">Security</h2>
+
+        @if ($security->isEmpty())
+            <p class="mt-2 text-sm text-[var(--vg-muted)]">
+                No lockouts, suspensions, role changes or password resets have been recorded.
+            </p>
+        @else
+            <ul class="mt-4 divide-y divide-[var(--vg-line)] text-sm">
+                @foreach ($security as $event)
+                    <li class="py-2.5">
+                        <p>
+                            <span class="font-[family-name:var(--font-mono)] text-xs text-[var(--vg-paper)]">{{ $event->action }}</span>
+                            <span class="text-[var(--vg-slate)]">
+                                by {{ $event->actor?->name ?? 'the system' }}
+                                &middot; {{ $event->created_at->diffForHumans() }}
+                            </span>
+                        </p>
+                        @if ($event->reason)
+                            <p class="mt-0.5 text-xs text-[var(--vg-slate)]">{{ $event->reason }}</p>
+                        @endif
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </section>
+
     <div class="mt-5 grid gap-5 xl:grid-cols-2">
         {{-- Plans --}}
         <section class="panel p-5">
