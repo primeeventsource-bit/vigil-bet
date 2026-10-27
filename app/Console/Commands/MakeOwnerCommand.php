@@ -28,7 +28,7 @@ class MakeOwnerCommand extends Command
     protected $signature = 'vigil:owner
         {email : The address that signs in}
         {--name= : Display name, defaults to the local part of the address}
-        {--tier=pro : Which tier to put the account on}
+        {--tier=elite : Which tier to put the account on}
         {--password= : Set this password instead of generating one}
         {--reset-password : Generate and set a new password for an existing account}
         {--no-admin : Create the account without admin access}';

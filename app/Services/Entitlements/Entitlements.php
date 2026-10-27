@@ -68,11 +68,45 @@ class Entitlements
     {
         $tier = $user?->subscription?->effectiveTier();
 
+        if ($tier === null) {
+            return self::ANONYMOUS_TIER;
+        }
+
+        /*
+         * A tier that was renamed still means what it was sold as.
+         *
+         * subscriptions.tier is a free-form string with no foreign key,
+         * and billing_events is append-only, so the history genuinely
+         * contains tier names that no longer appear in config. Resolving
+         * those to free would quietly take away access somebody is
+         * paying for, on the day of a rename, with nothing in any log
+         * saying why.
+         */
+        $tier = (string) (config('plans.renamed.'.$tier) ?? $tier);
+
         // An unknown tier is treated as free rather than trusted. A typo
         // in a config file must not become a free upgrade for everybody.
-        return $tier !== null && array_key_exists($tier, (array) config('plans.tiers'))
+        return array_key_exists($tier, (array) config('plans.tiers'))
             ? $tier
             : self::ANONYMOUS_TIER;
+    }
+
+    /**
+     * The tiers that are actually for sale.
+     *
+     * `free` is the floor every signed-out visitor stands on, not a
+     * product, so it never belongs on a pricing page, in a checkout
+     * form or in an admin tier picker offering an upgrade. Anything
+     * with a price is sellable; anything without is plumbing.
+     *
+     * @return array<int, string>
+     */
+    public function sellableTiers(): array
+    {
+        return array_keys(array_filter(
+            (array) config('plans.tiers'),
+            static fn (array $tier): bool => ($tier['monthly_cents'] ?? 0) > 0
+        ));
     }
 
     /**

@@ -59,13 +59,17 @@ return [
              * checkout and a plan change.
              */
             'plans' => [
-                'daily' => [
-                    'monthly' => env('NMI_PLAN_DAILY_MONTHLY'),
-                    'yearly' => env('NMI_PLAN_DAILY_YEARLY'),
+                'core' => [
+                    'monthly' => env('NMI_PLAN_CORE_MONTHLY'),
+                    'yearly' => env('NMI_PLAN_CORE_YEARLY'),
                 ],
                 'pro' => [
                     'monthly' => env('NMI_PLAN_PRO_MONTHLY'),
                     'yearly' => env('NMI_PLAN_PRO_YEARLY'),
+                ],
+                'elite' => [
+                    'monthly' => env('NMI_PLAN_ELITE_MONTHLY'),
+                    'yearly' => env('NMI_PLAN_ELITE_YEARLY'),
                 ],
             ],
         ],
@@ -76,13 +80,17 @@ return [
             'webhook_key' => env('STRIPE_WEBHOOK_SECRET'),
 
             'plans' => [
-                'daily' => [
-                    'monthly' => env('STRIPE_PRICE_DAILY_MONTHLY'),
-                    'yearly' => env('STRIPE_PRICE_DAILY_YEARLY'),
+                'core' => [
+                    'monthly' => env('STRIPE_PRICE_CORE_MONTHLY'),
+                    'yearly' => env('STRIPE_PRICE_CORE_YEARLY'),
                 ],
                 'pro' => [
                     'monthly' => env('STRIPE_PRICE_PRO_MONTHLY'),
                     'yearly' => env('STRIPE_PRICE_PRO_YEARLY'),
+                ],
+                'elite' => [
+                    'monthly' => env('STRIPE_PRICE_ELITE_MONTHLY'),
+                    'yearly' => env('STRIPE_PRICE_ELITE_YEARLY'),
                 ],
             ],
         ],

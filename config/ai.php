@@ -100,8 +100,12 @@ return [
      */
     'rate_limits' => [
         'free' => (int) env('VIGIL_AI_LIMIT_FREE', 1),
-        'daily' => (int) env('VIGIL_AI_LIMIT_DAILY', 50),
+        'core' => (int) env('VIGIL_AI_LIMIT_CORE', 50),
         'pro' => (int) env('VIGIL_AI_LIMIT_PRO', 200),
+        // The allowance Elite's pricing bullet promises. A tier that
+        // claims "the highest Read allowance" and is capped at the one
+        // below it would be a sentence the product contradicts.
+        'elite' => (int) env('VIGIL_AI_LIMIT_ELITE', 500),
     ],
 
 ];

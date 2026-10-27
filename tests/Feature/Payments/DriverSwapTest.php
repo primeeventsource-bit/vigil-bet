@@ -87,9 +87,14 @@ it('subscribes a customer identically through either processor', function (strin
         ->and($event->driver)->toBe($driver)
         ->and($event->tier)->toBe('pro')
         ->and($event->interval)->toBe('monthly')
-        // From config/plans.php, so the pricing page and the charge
-        // cannot drift apart.
-        ->and($event->amount_cents)->toBe(5900)
+        /*
+         * Read from config/plans.php rather than written out again.
+         * The comment here has always said the pricing page and the
+         * charge cannot drift apart - and then a second copy of the
+         * price sat underneath it, which is exactly how they drift.
+         * This caught it at the rename: 5900 became 5999 in one place.
+         */
+        ->and($event->amount_cents)->toBe((int) config('plans.tiers.pro.monthly_cents'))
         ->and($event->period_end)->not->toBeNull();
 
     // And the projection agrees.
@@ -105,7 +110,7 @@ it('never sends a card number anywhere, only a token', function () {
     ]);
 
     $this->actingAs(payingUser())->post(route('billing.subscribe'), [
-        'tier' => 'daily',
+        'tier' => 'core',
         'interval' => 'yearly',
         'payment_token' => 'tok_abc',
     ]);

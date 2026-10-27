@@ -18,7 +18,12 @@ it('creates an account that can sign in and reach everything', function () {
     // the entitlement middleware respectively.
     expect($user->email)->toBe('owner@example.com')
         ->and($user->email_verified_at)->not->toBeNull()
-        ->and(app(Entitlements::class)->tier($user))->toBe('pro');
+        // The top tier, whatever it is called this month. The command
+        // exists to make an account that can reach the whole product,
+        // so its default has to follow the top of config rather than a
+        // name that was the top when it was written.
+        ->and(app(Entitlements::class)->tier($user))
+        ->toBe(array_key_last((array) config('plans.tiers')));
 
     foreach (app(Entitlements::class)->allFeatures() as $feature) {
         expect(app(Entitlements::class)->can($user, $feature))->toBeTrue();
@@ -42,14 +47,14 @@ it('leaves an existing password alone when it is run again', function () {
 
     $before = User::sole()->password;
 
-    $this->artisan('vigil:owner', ['email' => 'owner@example.com', '--tier' => 'daily'])
+    $this->artisan('vigil:owner', ['email' => 'owner@example.com', '--tier' => 'core'])
         ->assertSuccessful();
 
     $user = User::sole();
 
     expect($user->password)->toBe($before)
         // The point of the re-run: the tier is put back.
-        ->and($user->subscription->tier)->toBe('daily')
+        ->and($user->subscription->tier)->toBe('core')
         ->and(User::count())->toBe(1);
 });
 

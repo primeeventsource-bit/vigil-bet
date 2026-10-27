@@ -93,11 +93,19 @@ it('gives a user with no subscription the free grants and nothing more', functio
         ->and(entitlements()->cannot($user, 'props'))->toBeTrue();
 });
 
-it('gives a pro subscriber every feature any tier grants', function () {
-    $user = userOn('pro');
+it('gives the top tier every feature any tier grants', function () {
+    /*
+     * Asserted against the last tier in config rather than a name, so
+     * the next rename does not quietly stop testing anything. It used
+     * to say 'pro', which stopped being the top tier the day Elite
+     * arrived - and would have gone on passing if Elite had granted
+     * less than Pro.
+     */
+    $tiers = array_keys((array) config('plans.tiers'));
+    $user = userOn(end($tiers));
 
     foreach (entitlements()->allFeatures() as $feature) {
-        expect(entitlements()->can($user, $feature))->toBeTrue();
+        expect(entitlements()->can($user, $feature))->toBeTrue("top tier was refused {$feature}");
     }
 });
 
@@ -106,6 +114,28 @@ it('treats a tier that is not in the config as free', function () {
 
     expect(entitlements()->tier($user))->toBe('free')
         ->and(entitlements()->can($user, 'board.full'))->toBeFalse();
+});
+
+it('honours a tier that was renamed rather than dropping it to free', function () {
+    /*
+     * subscriptions.tier has no foreign key and billing_events is
+     * append-only, so the history genuinely still says 'daily'. Reading
+     * that as an unknown tier would take away access somebody pays for,
+     * on the day of a rename, with nothing anywhere saying why.
+     */
+    $user = userOn('daily');
+
+    expect(entitlements()->tier($user))->toBe('core')
+        ->and(entitlements()->can($user, 'alerts'))->toBeTrue()
+        ->and(entitlements()->can($user, 'board.full'))->toBeFalse();
+});
+
+it('offers only the tiers that have a price', function () {
+    // `free` is the floor every signed-out visitor stands on, not a
+    // product. It must never appear in a checkout or an upgrade picker.
+    expect(entitlements()->sellableTiers())
+        ->toBe(['core', 'pro', 'elite'])
+        ->not->toContain('free');
 });
 
 /*
@@ -377,8 +407,13 @@ it('knows every feature it grants, and the cheapest tier that grants it', functi
     }
 
     expect(entitlements()->tierRequiredFor('board.today'))->toBe('free')
-        ->and(entitlements()->tierRequiredFor('alerts'))->toBe('daily')
+        ->and(entitlements()->tierRequiredFor('alerts'))->toBe('core')
         ->and(entitlements()->tierRequiredFor('board.full'))->toBe('pro')
+        // The two keys that give Elite something true to say. Anything
+        // Pro already granted would have made it a higher price for the
+        // same product.
+        ->and(entitlements()->tierRequiredFor('playeriq'))->toBe('elite')
+        ->and(entitlements()->tierRequiredFor('props.projected'))->toBe('elite')
         ->and(entitlements()->tierRequiredFor('time-travel'))->toBeNull();
 });
 

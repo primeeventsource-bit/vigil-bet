@@ -80,7 +80,7 @@ it('says the drawer is shut before anything has opened it', function () {
  ---------------------------------------------------------------------- */
 
 it('groups the engine and admin pages for whoever runs the product', function () {
-    $admin = shellUser('pro');
+    $admin = shellUser('elite');
     $admin->forceFill(['is_admin' => true])->save();
 
     $this->actingAs($admin)->get(route('today'))
@@ -96,7 +96,7 @@ it('groups the engine and admin pages for whoever runs the product', function ()
 it('gives a customer no headings to read past', function () {
     // One group, so no label. A customer's nav is ten items and a
     // heading over a single list is furniture.
-    $this->actingAs(shellUser('daily'))->get(route('today'))
+    $this->actingAs(shellUser('core'))->get(route('today'))
         ->assertOk()
         ->assertSee('Dashboard')
         ->assertDontSee('>Engine<', false);
@@ -112,7 +112,7 @@ it('names the tier the customer is actually on', function (string $tier, string 
         ->assertSee('Your plan')
         ->assertSee($expected);
 })->with([
-    ['daily', 'Daily'],
+    ['core', 'Core'],
     ['pro', 'Pro'],
 ]);
 
@@ -132,7 +132,7 @@ it('stops selling to somebody who has already bought the most expensive thing', 
     // The reference layout draws a permanent upgrade card here. An
     // upgrade button shown to the top tier is either a dead end or a
     // lie about there being more to buy.
-    $this->actingAs(shellUser('pro'))->get(route('today'))
+    $this->actingAs(shellUser('elite'))->get(route('today'))
         ->assertOk()
         ->assertDontSee('Compare plans');
 });
@@ -140,7 +140,7 @@ it('stops selling to somebody who has already bought the most expensive thing', 
 it('promises no feature it cannot point at', function () {
     // The reference card advertised unlimited CLV model signals and
     // instant Telegram steam alerts. There is no Telegram integration.
-    $page = $this->actingAs(shellUser('pro'))->get(route('today'))->assertOk()->getContent();
+    $page = $this->actingAs(shellUser('elite'))->get(route('today'))->assertOk()->getContent();
 
     expect($page)->not->toContain('Telegram');
 });
