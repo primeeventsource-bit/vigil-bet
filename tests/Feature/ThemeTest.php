@@ -78,10 +78,46 @@ it('builds light mode from tokens rather than from hardcoded colour', function (
 
     expect($css)->toContain('--vg-navy: var(--vg-light-panel)')
         ->and($css)->toContain('--vg-slate: var(--vg-light-muted)')
-        // The system preference is honoured until somebody pins a mode,
-        // and an explicit dark choice beats a system set to light.
-        ->and($css)->toContain('@media (prefers-color-scheme: light)')
-        ->and($css)->toContain("html:not([data-theme='dark'])");
+        // Light is reached one way: by asking for it. The attribute is
+        // the whole of the switch.
+        ->and($css)->toContain("html[data-theme='light']");
+});
+
+it('is dark for a visitor who has chosen nothing', function () {
+    /*
+     * The regression this exists for: the stylesheet followed
+     * prefers-color-scheme, so anybody whose machine was set to light met
+     * a white page. The design this product was drawn from has no white
+     * page in it, and a first impression decided by an operating system
+     * setting is not a first impression anybody chose.
+     */
+    $css = (string) file_get_contents(resource_path('css/app.css'));
+
+    /*
+     * The rule, not the word. The comment above the light block explains
+     * why the media query went, and a test that forbade the phrase
+     * outright would forbid the explanation with it.
+     */
+    expect($css)->not->toMatch('/@media\s*\(\s*prefers-color-scheme/');
+
+    // And nothing writes the attribute unless the stored value is light.
+    $head = (string) file_get_contents(resource_path('views/partials/head.blade.php'));
+
+    expect($head)->toContain("localStorage.getItem('vigil.theme') === 'light'");
+});
+
+it('offers two modes rather than a third that does the same as one of them', function () {
+    /*
+     * "System" was a real choice while the media query existed. With dark
+     * as the default it would mean exactly what dark means, and a control
+     * offering both is lying about one of them.
+     */
+    $js = (string) file_get_contents(resource_path('js/theme.js'));
+    $toggle = (string) file_get_contents(resource_path('views/components/theme-toggle.blade.php'));
+
+    expect($js)->toContain("const ORDER = ['dark', 'light']")
+        ->and($js)->not->toContain("'system'")
+        ->and($toggle)->not->toContain('data-theme-icon="system"');
 });
 
 it('keeps a light value for every colour the dark theme uses', function () {
@@ -150,4 +186,46 @@ it('keeps the theme overrides out of every cascade layer', function () {
     }
 
     expect($layerDepth)->toBe(0);
+});
+
+it('paints the paginator from tokens rather than from the operating system', function () {
+    /*
+     * Laravel's shipped Tailwind paginator is hardcoded bg-white and
+     * text-gray-800, with its dark variants behind `dark:` - which
+     * compiles to @media (prefers-color-scheme: dark).
+     *
+     * That agreed with the page while the whole stylesheet followed the
+     * same media query. With dark as the default it would put white
+     * buttons on a black page for everybody whose machine is set to
+     * light, on all eight pages that paginate, the public record among
+     * them. So both views are overridden.
+     */
+    foreach (['tailwind', 'simple-tailwind'] as $view) {
+        $path = resource_path('views/vendor/pagination/'.$view.'.blade.php');
+
+        expect(file_exists($path))->toBeTrue("pagination/{$view} is not overridden");
+
+        $markup = (string) file_get_contents($path);
+
+        /*
+         * The classes, not the prose. These files have to explain in a
+         * comment what they are overriding and why, and that comment
+         * necessarily names the utilities - a test reading the whole
+         * file would forbid its own reason for existing.
+         */
+        preg_match_all('/class="([^"]*)"/', $markup, $found);
+        $classes = implode(' ', $found[1]);
+
+        expect($classes)->not->toContain('dark:')
+            ->and($classes)->not->toContain('bg-white')
+            ->and($classes)->toContain('var(--vg-line)');
+    }
+});
+
+it('renders those overrides on a page that actually paginates', function () {
+    // The override only counts if Laravel resolves it, which depends on
+    // the file sitting at the name the framework asks for.
+    $html = $this->get(route('opinions'))->assertOk()->getContent();
+
+    expect($html)->not->toContain('dark:bg-gray-800');
 });

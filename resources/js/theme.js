@@ -1,10 +1,14 @@
 /*
  * The dark/light switch.
  *
- * Three states and not two. "System" is a real choice rather than the
- * absence of one: somebody who flips their machine to light at dusk gets
- * a light app without coming back here, and that stops being true the
- * moment they pin a mode, which is the point of pinning it.
+ * Two states, where there were three. "System" was a real choice while
+ * the stylesheet followed prefers-color-scheme; it stopped being one
+ * when dark became the default, because "follow your system" and "dark"
+ * then did the same thing and a control offering both would be lying
+ * about one of them.
+ *
+ * Dark is the product's face. Light is a thing somebody asks for, and
+ * once asked for it is remembered.
  *
  * The attribute is already on <html> by the time this runs - an inline
  * script in the head sets it before the first paint, because a deferred
@@ -13,10 +17,9 @@
  */
 
 const KEY = 'vigil.theme'
-const ORDER = ['system', 'light', 'dark']
+const ORDER = ['dark', 'light']
 
 const LABELS = {
-    system: 'Colour theme: following your system. Change it.',
     light: 'Colour theme: light. Change it.',
     dark: 'Colour theme: dark. Change it.',
 }
@@ -28,30 +31,25 @@ const LABELS = {
  */
 function stored() {
     try {
-        const value = localStorage.getItem(KEY)
-
-        return value === 'light' || value === 'dark' ? value : 'system'
+        return localStorage.getItem(KEY) === 'light' ? 'light' : 'dark'
     } catch (e) {
-        return 'system'
+        return 'dark'
     }
 }
 
 function remember(mode) {
     try {
-        mode === 'system' ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, mode)
+        // Dark is the default, so choosing it is the absence of a
+        // preference rather than a preference. Storing it would pin a
+        // visitor to today's default if the default ever moved.
+        mode === 'dark' ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, mode)
     } catch (e) {
         // Nothing to do. The choice holds for this page and not beyond it.
     }
 }
 
 function apply(mode) {
-    const root = document.documentElement
-
-    if (mode === 'system') {
-        root.removeAttribute('data-theme')
-    } else {
-        root.setAttribute('data-theme', mode)
-    }
+    document.documentElement.setAttribute('data-theme', mode)
 }
 
 function paint(button, mode) {

@@ -146,15 +146,19 @@
 |
 */
 /*
- * Light mode, three ways, and the duplication is deliberate.
+ * Light mode, which is opt-in and is not the default.
  *
- * A visitor who has never touched the switch should get the mode their
- * system asks for, and a visitor who has touched it should get what
- * they chose on every page afterwards - which needs both a media query
- * and an attribute, and an explicit dark attribute that wins over a
- * system set to light. CSS has no way to share one declaration block
- * between a media query and a selector, so the overrides are written
- * twice rather than cleverly once.
+ * It used to follow prefers-color-scheme, which meant the product had
+ * two first impressions: anybody whose machine was set to light met a
+ * white page, and the design this was drawn from has no white page in
+ * it. Stealth Black is the product's face, not one of two faces chosen
+ * by a setting the visitor made about their operating system and not
+ * about us.
+ *
+ * So dark is what :root already says, and light happens only when
+ * somebody asks for it here. That also collapsed what used to be two
+ * copies of this block - one for the media query, one for the
+ * attribute - into the one below.
  *
  * Every value is a token. The previous version hardcoded four hexes
  * here, which quietly broke the rule stated at the top of this file -
@@ -180,28 +184,6 @@ html[data-theme='light'] {
     --vg-chart-line: var(--vg-light-chart-line);
     --vg-chart-fill: var(--vg-light-chart-fill);
     --vg-chart-grid: var(--vg-light-chart-grid);
-}
-
-@media (prefers-color-scheme: light) {
-    html:not([data-theme='dark']) {
-        color-scheme: light;
-        background-color: var(--vg-light-bg);
-
-        --vg-night: var(--vg-light-bg);
-        --vg-navy: var(--vg-light-panel);
-        --vg-slate-dark: var(--vg-light-panel);
-        --vg-line: var(--vg-light-line);
-        --vg-paper: var(--vg-light-text);
-        --vg-slate: var(--vg-light-muted);
-        --vg-edge: var(--vg-light-edge);
-        --vg-loss: var(--vg-light-loss);
-        --vg-warning: var(--vg-light-warning);
-        --vg-blue: var(--vg-light-blue);
-        --vg-decor: var(--vg-light-decor);
-        --vg-chart-line: var(--vg-light-chart-line);
-        --vg-chart-fill: var(--vg-light-chart-fill);
-        --vg-chart-grid: var(--vg-light-chart-grid);
-    }
 }
 
 @layer components {

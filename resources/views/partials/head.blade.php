@@ -84,15 +84,18 @@
     already painted a black page by the time a deferred module runs. It is
     the one place a script belongs in the head.
 
+    Only light is ever written here. Dark is what the stylesheet already
+    does, so a visitor who has chosen nothing needs no attribute and the
+    page they get is the one the product was designed as.
+
     Wrapped in try/catch because localStorage throws rather than returning
     null in a private window with site data blocked, and a theme
     preference is not worth a blank page.
 --}}
 <script>
     try {
-        var t = localStorage.getItem('vigil.theme');
-        if (t === 'light' || t === 'dark') {
-            document.documentElement.setAttribute('data-theme', t);
+        if (localStorage.getItem('vigil.theme') === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
         }
     } catch (e) {}
 </script>
