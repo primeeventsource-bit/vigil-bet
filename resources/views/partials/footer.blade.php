@@ -32,8 +32,17 @@
             </div>
 
             <nav aria-label="Footer" class="grid grid-cols-2 gap-x-10 gap-y-2 text-sm">
+                <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('about') }}">About</a>
+                <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('features') }}">Features</a>
+                <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('sports-analytics') }}">Sports analytics</a>
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('pricing') }}">Pricing</a>
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('how-it-works') }}">How it works</a>
+                {{--
+                    Linked here rather than left as section 4 of the
+                    terms. Billing rules nobody can find before they buy
+                    are rules written for after the argument starts.
+                --}}
+                <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('legal.cancellation') }}">Cancellation policy</a>
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('legal.terms') }}">Terms</a>
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('legal.privacy') }}">Privacy</a>
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('legal.responsible-gambling') }}">Responsible gambling</a>

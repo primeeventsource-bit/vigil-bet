@@ -22,9 +22,12 @@ use App\Http\Controllers\GamesController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\LearningCenterController;
 use App\Http\Controllers\ModelLabController;
+use App\Http\Controllers\OddsComparisonController;
 use App\Http\Controllers\OpinionRecordController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ParlayController;
+use App\Http\Controllers\PerformanceController;
+use App\Http\Controllers\PlayerIqController;
 use App\Http\Controllers\PropsController;
 use App\Http\Controllers\RecordController;
 use App\Http\Controllers\SafetyController;
@@ -74,15 +77,28 @@ Route::get('/record/{pick}', [RecordController::class, 'show'])->name('record.pi
  */
 Route::get('/opinions', OpinionRecordController::class)->name('opinions');
 
+/*
+ * The pages a stranger reads before deciding whether this is a tip
+ * service. Public and indexable, all three built from real figures
+ * rather than from adjectives.
+ */
+Route::get('/about', [PageController::class, 'about'])->name('about');
+Route::get('/features', [PageController::class, 'features'])->name('features');
+Route::get('/sports-analytics', [PageController::class, 'sportsAnalytics'])->name('sports-analytics');
+
 Route::get('/legal/{page}', [PageController::class, 'legal'])
-    ->whereIn('page', ['terms', 'privacy', 'responsible-gambling', 'disclaimer'])
+    ->whereIn('page', PageController::LEGAL_PAGES)
     ->name('legal.page');
 
 /*
  * Named individually as well, so a template never builds a legal URL by
  * string concatenation and no typo can produce a 404 in a footer.
+ *
+ * Both this and the constraint above read PageController::LEGAL_PAGES.
+ * The list used to be written out three times, and adding a page to two
+ * of the three produced a 404 that looked like a missing view.
  */
-foreach (['terms', 'privacy', 'responsible-gambling', 'disclaimer'] as $page) {
+foreach (PageController::LEGAL_PAGES as $page) {
     Route::get("/legal/{$page}", [PageController::class, 'legal'])
         ->defaults('page', $page)
         ->name("legal.{$page}");
@@ -252,10 +268,20 @@ Route::middleware('auth')->group(function (): void {
             Route::get('my-parlays', [ParlayController::class, 'mine'])->name('my-parlays');
         });
 
-        Route::view('analytics', 'app.placeholder', [
-            'heading' => 'Analytics',
-            'step' => 'Step 8 — closing line value and your own record.',
-        ])->middleware('entitled:bets.clv')->name('analytics');
+        /*
+         * Results and performance: a customer's own record beside the
+         * engine's. Both of these used to render app/placeholder -
+         * "Not built yet, Step 8" and "Not built yet, Step 9" - while
+         * BetRecord had been computing every figure on them since bets
+         * were first tracked.
+         *
+         * Ungated. The figures are the customer's own, and charging
+         * somebody to see what they themselves entered would be an odd
+         * thing to sell. The one line that is gated is closing line
+         * value, which the tile locks on its own.
+         */
+        Route::get('performance', PerformanceController::class)->name('performance');
+        Route::get('analytics', PerformanceController::class)->name('analytics');
 
         /*
          * Props and Tools. Both Pro, both read-only, and both limited
@@ -272,10 +298,31 @@ Route::middleware('auth')->group(function (): void {
         Route::get('models', ModelLabController::class)
             ->middleware('entitled:modellab')->name('models');
 
-        Route::view('reports', 'app.placeholder', [
-            'heading' => 'Reports',
-            'step' => 'Step 9 — the public track record.',
-        ])->name('reports');
+        // Kept as a name so nothing linking to it breaks; it is the
+        // same page, which is what "Reports" always meant.
+        Route::get('reports', PerformanceController::class)->name('reports');
+
+        /*
+         * Player IQ. Elite, and one of the two grants that let Elite
+         * claim anything Pro did not already have - the ratings have
+         * been computed nightly since launch and displayed nowhere.
+         */
+        Route::get('player-iq', [PlayerIqController::class, 'index'])
+            ->middleware('entitled:playeriq')->name('player-iq');
+
+        Route::get('player-iq/{sport}/{player}', [PlayerIqController::class, 'show'])
+            ->middleware('entitled:playeriq')->name('player-iq.show');
+
+        /*
+         * Odds comparison: every book's price for one game, side by
+         * side. Distinct from Today's Games, which shows the best of N
+         * and hides who is offering it.
+         */
+        Route::get('odds', [OddsComparisonController::class, 'index'])
+            ->middleware('entitled:lineshopping')->name('odds');
+
+        Route::get('odds/{event}', [OddsComparisonController::class, 'show'])
+            ->middleware('entitled:lineshopping')->name('odds.show');
 
         /*
          * Alerts. Daily and up, per §4, and the entitlement is checked

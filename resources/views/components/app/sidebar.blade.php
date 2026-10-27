@@ -35,7 +35,21 @@
         ['route' => 'games', 'label' => "Today's Games", 'icon' => 'grid', 'feature' => 'parlay.grade'],
         ['route' => 'parlays', 'label' => 'Parlay Builder', 'icon' => 'layers', 'feature' => 'parlay.grade'],
         ['route' => 'my-parlays', 'label' => 'My Parlays', 'icon' => 'file', 'feature' => 'parlay.grade'],
-        ['route' => 'opinions', 'label' => 'Results', 'icon' => 'file'],
+        /*
+         * Odds comparison and Player IQ are customer pages, not engine
+         * diagnostics, so they belong in this list rather than the one
+         * below. Both carry a feature key, so a plan that does not
+         * include them shows a lock pointing at the upgrade page -
+         * which is this nav's existing bargain, not a new one.
+         */
+        ['route' => 'odds', 'label' => 'Odds Comparison', 'icon' => 'search', 'feature' => 'lineshopping'],
+        ['route' => 'player-iq', 'label' => 'Player IQ', 'icon' => 'target', 'feature' => 'playeriq'],
+        /*
+         * Results was pointing at the public marketing page, which
+         * showed the engine's record and never the customer's own. It
+         * now points at the member page that shows both.
+         */
+        ['route' => 'performance', 'label' => 'Results', 'icon' => 'file'],
         ['route' => 'bets', 'label' => 'My Bets', 'icon' => 'file'],
         ['route' => 'bankroll', 'label' => 'Bankroll', 'icon' => 'chart', 'feature' => 'bankroll'],
         ['route' => 'alerts', 'label' => 'Alerts', 'icon' => 'bell', 'feature' => 'alerts'],
@@ -58,11 +72,9 @@
          * to act on, with the record behind them under Results.
          */
         ['route' => 'picks', 'label' => 'Board', 'icon' => 'target', 'feature' => 'board.full'],
-        ['route' => 'analytics', 'label' => 'Analytics', 'icon' => 'chart', 'feature' => 'bets.clv'],
         ['route' => 'models', 'label' => 'Models', 'icon' => 'cpu', 'feature' => 'modellab'],
         ['route' => 'props', 'label' => 'Props', 'icon' => 'target', 'feature' => 'props'],
         ['route' => 'tools', 'label' => 'Tools', 'icon' => 'search', 'feature' => 'tools.crossbook'],
-        ['route' => 'reports', 'label' => 'Reports', 'icon' => 'file'],
     ];
 
     /*

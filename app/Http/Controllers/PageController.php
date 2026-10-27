@@ -6,7 +6,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Opinion;
 use App\Models\VlBoardEntry;
+use App\Models\VlModel;
 use App\Services\EdgeLab\SyncHealth;
+use App\Services\Entitlements\Entitlements;
 use App\Services\Odds\GameMarkets;
 use App\Services\Record\OpinionRecord;
 use App\Services\Record\PublicRecord;
@@ -21,6 +23,26 @@ use Illuminate\View\View;
  */
 class PageController extends Controller
 {
+    /**
+     * The legal pages, named once.
+     *
+     * This list used to be written out three times - the route
+     * constraint, the loop that names each route individually, and the
+     * guard in legal() - which meant adding a page in two of the three
+     * places produced a 404 that looked like a missing view.
+     *
+     * @var array<int, string>
+     */
+    public const LEGAL_PAGES = [
+        'terms',
+        'privacy',
+        'responsible-gambling',
+        'disclaimer',
+        // The billing rules were correct and buried four headings into
+        // the terms. Same rules, findable before somebody buys.
+        'cancellation',
+    ];
+
     public function home(OpinionRecord $opinions, GameMarkets $markets): View
     {
         /*
@@ -101,6 +123,90 @@ class PageController extends Controller
         ]);
     }
 
+    /**
+     * About, which is a page about the product and not about a company.
+     *
+     * The company facts a conventional About page carries - who owns
+     * this, where it is registered, who works on it - are not written
+     * here and will not be invented. Nothing on this site may state a
+     * fact about the business that nobody has supplied, and an About
+     * page is the exact place that rule is most tempting to bend.
+     *
+     * What it does say is true and checkable from the product: what the
+     * engine does, what it refuses to do, and what the public record
+     * shows. The company section is marked as outstanding rather than
+     * filled with the usual sentences about passion and innovation.
+     */
+    public function about(PublicRecord $record): View
+    {
+        return view('marketing.about', [
+            'record' => $this->publicRecord(),
+            'proven' => VlModel::anyMarketProven(),
+            'sports' => (array) config('edge.sports_enabled'),
+            'principles' => [
+                [
+                    'heading' => 'Every published opinion is graded',
+                    'body' => 'Including the losers. Nothing is removed from the record once it is published, and the record is open to anybody without an account.',
+                ],
+                [
+                    'heading' => 'Most of the time the answer is pass',
+                    'body' => 'A market has to clear a calibration gate before anything from it is published at all. On most days that leaves very little, and the product says so rather than filling the gap.',
+                ],
+                [
+                    'heading' => 'The model shows its working',
+                    'body' => 'Fair probability, the price the books are posting, and the gap between them. A number with no method behind it is a tip, and this is not a tipping service.',
+                ],
+                [
+                    'heading' => 'Losing tools are built in',
+                    'body' => 'Deposit limits that do not negotiate, loss limits, and a self-exclusion no operator here can shorten - not even the one who runs it.',
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Features, derived from the plans rather than written beside them.
+     *
+     * A features page maintained by hand drifts from what the product
+     * sells within a release or two, and the direction it drifts is
+     * always the same: it keeps promising the thing that was removed.
+     * This reads config/plans.php, so it cannot say anything the
+     * checkout does not also say.
+     */
+    public function features(Entitlements $entitlements): View
+    {
+        return view('marketing.features', [
+            'tiers' => collect(config('plans.tiers'))
+                ->only($entitlements->sellableTiers())
+                ->all(),
+            'free' => (array) config('plans.tiers.free'),
+        ]);
+    }
+
+    /**
+     * Sports analytics: what is covered and what has been proven.
+     *
+     * Deliberately not a brochure. The interesting fact about this
+     * engine is how much it refuses, and a coverage page that lists
+     * four leagues without saying how many of their markets have
+     * actually cleared the gate is describing an ambition.
+     */
+    public function sportsAnalytics(SyncHealth $health): View
+    {
+        $models = VlModel::query()
+            ->orderBy('sport')
+            ->orderBy('market')
+            ->get(['sport', 'market', 'verdict', 'allows_picks', 'predictions', 'trained_at']);
+
+        return view('marketing.sports-analytics', [
+            'sports' => (array) config('edge.sports_enabled'),
+            'models' => $models->groupBy('sport'),
+            'proven' => $models->where('allows_picks', true)->count(),
+            'total' => $models->count(),
+            'stale' => $health->anyStale(['board']),
+        ]);
+    }
+
     public function pricing(): View
     {
         return view('marketing.pricing');
@@ -168,7 +274,7 @@ class PageController extends Controller
      */
     public function legal(string $page): View
     {
-        abort_unless(in_array($page, ['terms', 'privacy', 'responsible-gambling', 'disclaimer'], true), 404);
+        abort_unless(in_array($page, self::LEGAL_PAGES, true), 404);
 
         return view("legal.{$page}");
     }

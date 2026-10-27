@@ -64,6 +64,18 @@ function gatedRoutes(): array
             continue;
         }
 
+        /*
+         * Parameterised routes are skipped, because route() cannot
+         * build one without knowing what to put in it and every caller
+         * below expects a URL it can just fetch. The gate on a detail
+         * page is the same middleware as the gate on its index, which
+         * is covered - and each detail page has its own test that
+         * supplies a real record.
+         */
+        if (str_contains($route->uri(), '{')) {
+            continue;
+        }
+
         foreach ($route->gatherMiddleware() as $middleware) {
             if (is_string($middleware) && str_starts_with($middleware, 'entitled:')) {
                 $gated[] = [$route->getName(), explode(':', $middleware, 2)[1]];
@@ -184,11 +196,17 @@ it('returns 403 and no data when a free user asks for gated routes as json', fun
     }
 });
 
-it('lets a pro subscriber into every gated page', function () {
-    $user = userOn('pro');
+it('lets the top tier into every gated page', function () {
+    /*
+     * The top of config, not a name. Player IQ and projected props sit
+     * above Pro, so a test still saying 'pro' here would have started
+     * asserting a hole the moment Elite existed.
+     */
+    $tiers = array_keys((array) config('plans.tiers'));
+    $user = userOn(end($tiers));
 
     foreach (gatedRoutes() as [$name, $feature]) {
-        $this->actingAs($user)->get(route($name))->assertOk();
+        $this->actingAs($user)->get(route($name))->assertOk("top tier was refused {$name}");
     }
 });
 
@@ -442,7 +460,9 @@ it('shows a locked nav item pointing at the upgrade page rather than hiding it',
 });
 
 it('does not lock the nav for a subscriber who has the feature', function () {
-    $this->actingAs(userOn('pro'))->get(route('today'))
+    $tiers = array_keys((array) config('plans.tiers'));
+
+    $this->actingAs(userOn(end($tiers)))->get(route('today'))
         ->assertOk()
         ->assertDontSee('not on your plan')
         ->assertSee(route('picks'), escape: false);

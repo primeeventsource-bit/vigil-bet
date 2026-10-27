@@ -45,6 +45,14 @@ it('13.1: a free user cannot reach pro data through any route or json response',
             continue;
         }
 
+        // Skipped for the same reason as in EntitlementsTest: route()
+        // cannot build a URL for a parameterised route without being
+        // told what to put in it, and a detail page carries the same
+        // middleware as the index that is checked here.
+        if (str_contains($route->uri(), '{')) {
+            continue;
+        }
+
         foreach ($route->gatherMiddleware() as $middleware) {
             if (is_string($middleware) && str_starts_with($middleware, 'entitled:')) {
                 $gated[$route->getName()] = explode(':', $middleware, 2)[1];

@@ -90,7 +90,29 @@ it('groups the engine and admin pages for whoever runs the product', function ()
         // Still every page it had before the restructure.
         ->assertSee('Board')
         ->assertSee('Models')
-        ->assertSee('Reports');
+        ->assertSee('Tools');
+});
+
+it('puts the customer pages in the customer group, not the engine one', function () {
+    /*
+     * Odds Comparison and Player IQ are things a customer buys, not
+     * engine diagnostics, so they sit in the main list where a
+     * customer can find them - locked, if their plan does not include
+     * them, which is what the lock is for.
+     *
+     * Analytics and Reports left the Engine group because both now
+     * point at the same Results page in the main list. Two labels for
+     * one page in two different groups is a nav that answers the same
+     * question twice.
+     */
+    $customer = shellUser('elite');
+
+    $this->actingAs($customer)->get(route('today'))
+        ->assertOk()
+        ->assertSee('Odds Comparison')
+        ->assertSee('Player IQ')
+        ->assertSee('Results')
+        ->assertDontSee('>Engine<', false);
 });
 
 it('gives a customer no headings to read past', function () {
