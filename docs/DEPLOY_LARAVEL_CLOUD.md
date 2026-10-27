@@ -14,7 +14,32 @@ than remembered because there used to be two.
 | Application | `app-a307a4b6-8877-4ec1-a815-9080baced557` ("Vigil", slug `edge-lab`) |
 | Environment | `env-a307a4b9-3ec3-4f35-8c14-5d23798471f2` |
 | Database | schema `67484972` |
-| Domains | parlayq.com, parlayhq.online |
+| Domains | pickvigil.com (pending DNS), parlayq.com, parlayhq.online |
+
+## DNS for pickvigil.com
+
+Registered at GoDaddy; mail is Google Workspace. Attached to the
+environment on 26 October 2026 and waiting on these four records, which
+are written down here because verification fails quietly until all of
+them resolve.
+
+| Host | Type | Value |
+| --- | --- | --- |
+| `@` | A | `103.133.1.1` |
+| `www` | A | `103.133.1.1` |
+| `_acme-challenge` | CNAME | `pickvigil.com.f3d4b240ffe5f1c3.dcv.cloudflare.com` |
+| `_acme-challenge.www` | CNAME | `www.pickvigil.com.f3d4b240ffe5f1c3.dcv.cloudflare.com` |
+
+GoDaddy ships a parking A record on `@`; it is replaced, not added to.
+
+**Leave MX and TXT alone.** `support@pickvigil.com` is Google Workspace
+and its MX points at `smtp.google.com` - deleting those records to tidy
+up before pointing the A record at Cloud is how the support address
+stops receiving mail on the same afternoon the site goes live. The A
+record and the MX records answer different questions and do not
+interfere with each other.
+
+Verify with `cloud domain:verify env-a307a4b9-3ec3-4f35-8c14-5d23798471f2`.
 
 **Deployment is `git push origin main`.** `usesPushToDeploy` is on, so the push
 is the deploy; an explicit `cloud deploy <app-id>` is only for redeploying
