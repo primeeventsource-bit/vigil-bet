@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -13,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class ApiRequest extends Model
 {
-    use HasFactory;
+    use HasFactory, MassPrunable;
 
     public $timestamps = false;
 
@@ -37,5 +39,24 @@ class ApiRequest extends Model
     public function wasSuccessful(): bool
     {
         return $this->http_status !== null && $this->http_status >= 200 && $this->http_status < 300;
+    }
+
+    /**
+     * Rows old enough that nothing reads them any more.
+     *
+     * The longest window of the three operational tables, and the one
+     * that has to be: ApiMeter decides whether there is budget left to
+     * pull odds by summing credits spent since the start of the calendar
+     * month, so a window shorter than a long month would quietly
+     * understate spend on its last day. Sixty days clears that with
+     * margin - see the note in config/edge.php.
+     */
+    public function prunable(): Builder
+    {
+        return static::query()->where(
+            'requested_at',
+            '<',
+            now()->subDays((int) config('edge.retention.api_requests_days')),
+        );
     }
 }

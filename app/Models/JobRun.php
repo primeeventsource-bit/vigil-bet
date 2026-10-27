@@ -9,6 +9,7 @@ use App\Enums\Sport;
 use App\Enums\TriggerSource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -17,7 +18,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class JobRun extends Model
 {
-    use HasFactory;
+    use HasFactory, MassPrunable;
 
     public const UPDATED_AT = null;
 
@@ -47,5 +48,29 @@ class JobRun extends Model
     public function scopeLatestFirst(Builder $query): Builder
     {
         return $query->orderByDesc('started_at');
+    }
+
+    /**
+     * Rows old enough that nothing reads them any more.
+     *
+     * This is the table that grew: 3,700 rows a day, nothing deleting
+     * them, and every reader only ever wanting the newest row for one
+     * job key - PullCadence asks when a sport last pulled successfully,
+     * ResultsCadence asks when it last ran at all, the doctor asks what
+     * failed in the past two days.
+     *
+     * No exception for the newest row per key, unlike SyncRun. The worst
+     * a missing one can do here is leave a cadence with no last-run time
+     * and so count a job as due, which costs one early pull and writes a
+     * fresh row - it heals itself on the next tick. SyncRun's newest row
+     * carries a cursor, which does not.
+     */
+    public function prunable(): Builder
+    {
+        return static::query()->where(
+            'started_at',
+            '<',
+            now()->subDays((int) config('edge.retention.job_runs_days')),
+        );
     }
 }

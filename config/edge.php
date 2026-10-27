@@ -655,4 +655,36 @@ return [
         'retry_sleep_ms' => 400,
         'user_agent' => 'EdgeLab/1.0 (private analytics; single user)',
     ],
+
+    /*
+     * How long the operational tables keep their rows.
+     *
+     * These three are telemetry rather than product - what ran, what was
+     * asked of a provider, what a feed did - and nothing was ever
+     * deleting them. `job_runs` was taking 3,700 rows a day, which is a
+     * million and a third a year for a table whose readers only ever
+     * want the newest row per job.
+     *
+     * The windows differ because what reads them differs.
+     *
+     * `api_requests` is the long one, and the only one with a hard
+     * floor under it: ApiMeter sums credits from the start of the
+     * calendar month to decide whether there is budget left to pull odds
+     * at all. Anything under 31 days would understate spend on the last
+     * day of a long month, and an understated spend is a guard that
+     * waves through the request which blows the quota. Sixty days is
+     * that floor with room on both sides of it.
+     *
+     * `job_runs` and `sync_runs` are read newest-first - the last
+     * successful pull of a sport, the cursor a feed stopped at - so a
+     * month is already far longer than anything asks for. What protects
+     * those readers is not the window but the exception the prune makes
+     * for the newest row.
+     */
+    'retention' => [
+        'job_runs_days' => (int) env('EDGE_RETAIN_JOB_RUNS_DAYS', 30),
+        'api_requests_days' => (int) env('EDGE_RETAIN_API_REQUESTS_DAYS', 60),
+        'sync_runs_days' => (int) env('EDGE_RETAIN_SYNC_RUNS_DAYS', 30),
+        'failed_jobs_days' => (int) env('EDGE_RETAIN_FAILED_JOBS_DAYS', 30),
+    ],
 ];

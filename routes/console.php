@@ -519,3 +519,54 @@ Schedule::command('edge:props:settle')
     ->dailyAt('10:15')
     ->name('settle-prop-projections')
     ->withoutOverlapping(60);
+
+/*
+|--------------------------------------------------------------------------
+| Housekeeping
+|--------------------------------------------------------------------------
+|
+| The operational tables had no ceiling. Nothing in this file deleted
+| anything, which is correct for every table that holds a claim - a
+| snapshot, a pick, a result, an audit row - and was simply an omission
+| for the three that hold telemetry about the run itself.
+|
+| `job_runs` was the one that showed it: 26,201 rows in the seven days
+| since the first deploy, about 3,700 a day, for a table whose readers
+| only ever want the newest row for one job key. A year of that is one
+| and a third million rows and the better part of two gigabytes, on a
+| database where every query already pays for crossing a region.
+|
+| Which rows go and which stay is each model's own business - see
+| `prunable()` on JobRun, ApiRequest and SyncRun, where the windows differ
+| because what reads them differs. Nothing append-only is touched: those
+| models do not carry the trait, and Postgres would refuse the delete even
+| if they did.
+|
+*/
+
+/*
+ * Daily, early, and after the night's work rather than during it.
+ *
+ * 04:40 sits between the Sunday retrain at 04:00 and the models sync at
+ * 05:30, in the quietest part of the clock this file has.
+ */
+Schedule::command('model:prune')
+    ->dailyAt('04:40')
+    ->name('prune-operational-tables')
+    ->withoutOverlapping(60);
+
+/*
+ * Failed jobs, on the same clock.
+ *
+ * Separate from the above because `failed_jobs` is the framework's table
+ * and has no model to hang a window on. It needs one all the same: 82
+ * rows had accumulated, most of them a single morning's worth of an
+ * expired Odds API key retried every two seconds, and they stay there
+ * for ever by default. Anything reading that table is asking what is
+ * broken now - /health looks six hours back, `edge:doctor` two days -
+ * so a month is already generous.
+ */
+Schedule::command('queue:prune-failed --hours='.(24 * (int) config('edge.retention.failed_jobs_days')))
+    ->dailyAt('04:45')
+    ->name('prune-failed-jobs')
+    ->withoutOverlapping(60);
