@@ -42,8 +42,16 @@
     <meta property="og:url" content="{{ $canonical }}">
 @endif
 
+{{--
+    Two files, because the two slots do not accept the same one. The tab
+    icon is an SVG and scales to whatever the browser asks for. The home
+    screen icon cannot be: iOS has never supported SVG for
+    apple-touch-icon, so pointing this at the favicon - which is what it
+    used to do - got a blank default icon on every iPhone that saved the
+    site. It wants a raster at a declared size.
+--}}
 <link rel="icon" href="{{ asset(config('brand.logo.favicon')) }}" type="image/svg+xml">
-<link rel="apple-touch-icon" href="{{ asset(config('brand.logo.favicon')) }}">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ asset(config('brand.logo.touch')) }}">
 
 <meta property="og:site_name" content="{{ config('brand.name') }}">
 <meta property="og:title" content="{{ $title ?? config('brand.name') }}">

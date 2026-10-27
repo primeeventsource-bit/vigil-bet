@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="180" height="180" role="img" aria-label="Vigil">
+  <title>Vigil</title>
+  <!--
+    The source for vigil-icon-180.png, which is what iOS puts on a home
+    screen. It is not vigil-favicon.svg at a larger size, and it cannot
+    be, for two reasons.
+
+    No rounded corners. iOS masks the icon into its own squircle and
+    composites anything transparent against black, so a radius baked in
+    here would leave four black notches sitting outside Apple's curve.
+    The navy runs full bleed and Apple cuts the shape.
+
+    More margin. That same mask takes a real bite out of the corners,
+    so the glyph is scaled to 0.88 and re-centred - the favicon's V sits
+    two units low in its box, which nothing notices at 16px and the
+    squircle would notice at 180.
+
+    The palette is typed in for the same reason it is in the favicon: an
+    icon is its own document and inherits no custom properties.
+    BrandingTest asserts both values against config('brand.colors'), and
+    asserts the rendered PNG's corner pixel is the same navy.
+  -->
+  <rect width="64" height="64" fill="#12141A"/>
+  <g transform="translate(32,32) scale(0.88) translate(-32,-34)">
+    <path fill="#10B981" d="M12 13h11.7l8.3 23.4L40.3 13H52L35.1 55h-6.2L12 13Z"/>
+  </g>
+</svg>

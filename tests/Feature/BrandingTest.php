@@ -96,3 +96,53 @@ it('paints the favicon in the palette the rest of the product reads', function (
         config('brand.colors.navy'),
     ]);
 });
+
+it('gives iOS a raster home screen icon rather than an SVG it cannot read', function () {
+    /*
+     * apple-touch-icon used to point at the favicon, which is an SVG.
+     * iOS has never supported that in this slot, so every iPhone that
+     * saved the site to its home screen got a blank default tile. The
+     * config key for the PNG already existed; the template just never
+     * read it, and the file it named was never created.
+     */
+    $html = $this->get(route('home'))->assertOk()->getContent();
+
+    expect($html)->toContain('rel="apple-touch-icon" sizes="180x180"')
+        ->and($html)->toContain(asset(config('brand.logo.touch')))
+        // The SVG belongs in rel="icon" and nowhere near the touch slot.
+        ->and($html)->not->toContain('rel="apple-touch-icon" href="'.asset(config('brand.logo.favicon')).'"');
+});
+
+it('ships that icon at the size it claims, opaque and in the palette', function () {
+    $png = public_path(config('brand.logo.touch'));
+
+    expect(File::exists($png))->toBeTrue();
+
+    $image = imagecreatefrompng($png);
+
+    expect(imagesx($image))->toBe(180)
+        ->and(imagesy($image))->toBe(180);
+
+    /*
+     * Opaque and full bleed, both of which iOS cares about. It masks the
+     * tile into its own squircle and composites transparency against
+     * black, so a corner that is transparent - or a radius baked into
+     * the artwork - shows as a black notch outside Apple's curve.
+     */
+    $corner = imagecolorat($image, 2, 2);
+
+    expect(($corner >> 24) & 0x7F)->toBe(0)
+        ->and(sprintf('#%06X', $corner & 0xFFFFFF))->toBe(strtoupper(config('brand.colors.navy')));
+
+    // And the mark is actually on it, in the one green that means edge.
+    $green = 0;
+    for ($y = 0; $y < 180; $y += 3) {
+        for ($x = 0; $x < 180; $x += 3) {
+            if (sprintf('#%06X', imagecolorat($image, $x, $y) & 0xFFFFFF) === strtoupper(config('brand.colors.edge'))) {
+                $green++;
+            }
+        }
+    }
+
+    expect($green)->toBeGreaterThan(100);
+});
