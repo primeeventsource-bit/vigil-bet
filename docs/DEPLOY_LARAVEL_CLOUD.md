@@ -25,10 +25,17 @@ them resolve.
 
 | Host | Type | Value |
 | --- | --- | --- |
-| `@` | A | `103.133.1.1` |
-| `www` | A | `103.133.1.1` |
+| `_cf-custom-hostname` | TXT | `cbf40dac-e4ba-4a9e-90a6-c434e371b7b5` |
+| `_cf-custom-hostname.www` | TXT | `2b66b0a4-da43-4868-805b-f8b8c3126271` |
 | `_acme-challenge` | CNAME | `pickvigil.com.f3d4b240ffe5f1c3.dcv.cloudflare.com` |
 | `_acme-challenge.www` | CNAME | `www.pickvigil.com.f3d4b240ffe5f1c3.dcv.cloudflare.com` |
+| `@` | A | `103.133.1.1` |
+| `www` | A | `103.133.1.1` |
+
+The two TXT records are not in the response `domain:create` returns -
+they appear only once `domain:verify` has been run and the domain
+reaches `pre_verification`. Ask for them before going to the registrar,
+or you will make two trips.
 
 GoDaddy ships a parking A record on `@`; it is replaced, not added to.
 
