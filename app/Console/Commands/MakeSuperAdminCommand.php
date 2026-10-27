@@ -124,7 +124,15 @@ class MakeSuperAdminCommand extends Command
         $this->components->twoColumnDetail('Admin flag', $user->isAdmin() ? 'true' : 'false');
 
         if ($this->option('no-invite')) {
-            $this->components->warn('No invitation sent (--no-invite). The account has no usable password.');
+            /*
+             * The warning only applies to an account this run created.
+             * Saying "no usable password" about one that already
+             * existed is alarming and wrong - it has whatever password
+             * its owner set, and this command did not touch it.
+             */
+            $this->components->warn($existed
+                ? 'No invitation sent (--no-invite). The existing password is unchanged.'
+                : 'No invitation sent (--no-invite). This new account has no usable password yet.');
 
             return self::SUCCESS;
         }
