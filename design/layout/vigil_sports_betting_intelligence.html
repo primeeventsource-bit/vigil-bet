@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIGIL — AI-Driven Sports Betting Intelligence & Odds Engine</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Chart.js for Performance & Engine Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Google Fonts: Sora (Headings) & Inter (UI Text & Numbers) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        vigil: {
+                            bg: '#0A0A0A',          // Pure Stealth Black
+                            card: '#12141A',        // Dark Charcoal Surface
+                            cardHover: '#181B24',   // Elevated Card Hover
+                            border: '#1E222D',      // Clean Structural Border
+                            borderBright: '#2D3345',// Highlighted Border
+                            green: '#10B981',       // Positive Edge / Win Accent
+                            red: '#EF4444',         // Loss / Decline Accent
+                            silver: '#94A3B8',      // Subtle Muted Label
+                            silverLight: '#CBD5E1', // Primary Text Secondary
+                            cyan: '#06B6D4'         // Live Feed / Pulse Accent
+                        }
+                    },
+                    fontFamily: {
+                        sora: ['Sora', 'sans-serif'],
+                        inter: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Courier New', 'monospace']
+                    },
+                    boxShadow: {
+                        'stealth': '0 8px 30px rgba(0, 0, 0, 0.85)',
+                        'glow-green': '0 0 20px rgba(16, 185, 129, 0.2)',
+                        'glow-white': '0 0 20px rgba(255, 255, 255, 0.1)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0A0A0A;
+            color: #FFFFFF;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4, .font-heading {
+            font-family: 'Sora', sans-serif;
+        }
+
+        /* Custom Sleek Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0A0A0A;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1E222D;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
+        }
+
+        /* Glassmorphism Surface */
+        .vigil-glass {
+            background: rgba(18, 20, 26, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid #1E222D;
+        }
+
+        /* Radar Pulse Effect */
+        @keyframes radar-ping {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.15); opacity: 0.3; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .animate-radar {
+            animation: radar-ping 2s infinite ease-in-out;
+        }
+
+        /* Ticker Infinite Loop */
+        @keyframes ticker-slide {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .animate-ticker {
+            display: flex;
+            width: 200%;
+            animation: ticker-slide 30s linear infinite;
+        }
+        .animate-ticker:hover {
+            animation-play-state: paused;
+        }
+    </style>
+</head>
+<body class="bg-vigil-bg text-white min-h-screen flex flex-col antialiased selection:bg-white selection:text-black">
+
+    <!-- TOP HEADER -->
+    <header class="sticky top-0 z-40 bg-vigil-bg/95 backdrop-blur-md border-b border-vigil-border h-16 flex items-center px-4 lg:px-6 justify-between">
+        
+        <!-- Left: Brand / Logo + Sidebar Toggle -->
+        <div class="flex items-center gap-4">
+            <button id="sidebarToggleBtn" onclick="toggleSidebar()" class="lg:hidden text-vigil-silver hover:text-white p-2">
+                <i class="fa-solid fa-bars text-lg"></i>
+            </button>
+
+            <a href="#" onclick="switchScreen('screen-homepage')" class="flex items-center gap-3 group">
+                <!-- Exact Falcon-V Shield Logo SVG -->
+                <div class="w-9 h-9 flex items-center justify-center bg-black border border-vigil-border rounded-lg group-hover:border-white transition-all shadow-stealth">
+                    <svg class="w-6 h-6 text-white" viewBox="0 0 100 100" fill="currentColor">
+                        <!-- Left Wing V Shield -->
+                        <polygon points="10,15 48,90 28,90 2,25" />
+                        <!-- Right Wing V Shield -->
+                        <polygon points="90,15 52,90 72,90 98,25" />
+                        <!-- Falcon Head Negative Silhouette -->
+                        <path d="M50,15 Q68,18 72,32 Q74,42 66,48 Q58,54 50,75 Q42,54 34,48 Q26,42 28,32 Q32,18 50,15 Z" fill="#0A0A0A" />
+                        <!-- Falcon Beak & Eye Sharp Cut -->
+                        <path d="M50,22 Q60,25 62,35 Q55,38 50,30 Q45,38 38,35 Q40,25 50,22 Z" fill="#FFFFFF" />
+                    </svg>
+                </div>
+                <div>
+                    <span class="font-heading font-black text-xl tracking-tight text-white block leading-none">VIGIL</span>
+                    <span class="text-[9px] font-mono tracking-widest text-vigil-silver uppercase font-semibold">AI-DRIVEN EDGE.</span>
+                </div>
+            </a>
+        </div>
+
+        <!-- Center: Search Input (Desktop) -->
+        <div class="hidden md:flex items-center relative w-80">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 text-xs text-vigil-silver"></i>
+            <input type="text" placeholder="Search teams, players, or games..." class="w-full bg-vigil-card border border-vigil-border rounded-lg pl-9 pr-4 py-1.5 text-xs text-white placeholder-vigil-silver focus:outline-none focus:border-white transition-colors">
+            <span class="absolute right-2.5 text-[10px] font-mono bg-vigil-bg px-1.5 py-0.5 rounded text-vigil-silver border border-vigil-border">⌘K</span>
+        </div>
+
+        <!-- Right: Actions & Indicators -->
+        <div class="flex items-center gap-3">
+            <!-- Live Engine Status Badge -->
+            <div class="hidden sm:flex items-center gap-2 bg-vigil-card border border-vigil-border px-3 py-1.5 rounded-full text-xs">
+                <span class="w-2 h-2 rounded-full bg-vigil-green animate-radar"></span>
+                <span class="font-mono text-[11px] text-vigil-silverLight">Engine <strong class="text-white font-bold">v3.2 Active</strong></span>
+            </div>
+
+            <!-- Notifications Dropdown Trigger -->
+            <button class="relative p-2 text-vigil-silver hover:text-white transition-colors bg-vigil-card border border-vigil-border rounded-lg">
+                <i class="fa-regular fa-bell text-sm"></i>
+                <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-vigil-green rounded-full"></span>
+            </button>
+
+            <!-- Parlay Drawer Toggle Button -->
+            <button onclick="toggleParlayDrawer()" class="relative flex items-center gap-2 bg-vigil-card hover:bg-vigil-border border border-vigil-border px-3 py-1.5 rounded-lg transition-all">
+                <i class="fa-solid fa-layer-group text-xs text-vigil-green"></i>
+                <span class="text-xs font-bold font-mono">Parlay</span>
+                <span id="parlayCountBadge" class="bg-vigil-green text-black font-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-mono">3</span>
+            </button>
+
+            <!-- User Profile Button -->
+            <div class="flex items-center gap-2 pl-2 border-l border-vigil-border">
+                <div class="w-8 h-8 rounded-lg bg-vigil-card border border-vigil-border flex items-center justify-center font-heading font-bold text-xs text-white">
+                    JD
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP CONTAINER (SIDEBAR + CONTENT PANELS) -->
+    <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- LEFT SIDEBAR NAVIGATION -->
+        <aside id="appSidebar" class="w-64 bg-vigil-bg border-r border-vigil-border flex-shrink-0 flex flex-col justify-between transition-all duration-300 absolute lg:static inset-y-0 left-0 z-30 -translate-x-full lg:translate-x-0">
+            
+            <div class="p-4 space-y-6 overflow-y-auto">
+                
+                <!-- Main Navigation Category -->
+                <div>
+                    <div class="text-[10px] font-mono uppercase tracking-widest text-vigil-silver font-bold px-3 mb-2">Main Platform</div>
+                    <nav class="space-y-1">
+                        <button onclick="switchScreen('screen-homepage')" class="nav-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold text-white bg-vigil-card border border-vigil-border hover:border-white transition-all">
+                            <i class="fa-solid fa-house w-4 text-center text-vigil-silver"></i>
+                            <span>Homepage / Hero</span>
+                        </button>
+                        
+                        <button onclick="switchScreen('screen-games')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold text-vigil-silverLight hover:text-white hover:bg-vigil-card transition-all">
+                            <i class="fa-solid fa-basketball w-4 text-center"></i>
+                            <span>Today's Games</span>
+                        </button>
+
+                        <button onclick="toggleParlayDrawer()" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold text-vigil-silverLight hover:text-white hover:bg-vigil-card transition-all">
+                            <i class="fa-solid fa-sliders w-4 text-center"></i>
+                            <span class="flex-1 text-left">Parlay Builder</span>
+                            <span class="text-[9px] bg-vigil-green/20 text-vigil-green font-mono px-1.5 py-0.5 rounded font-bold">BUILD</span>
+                        </button>
+
+                        <button onclick="switchScreen('screen-aipicks')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold text-vigil-silverLight hover:text-white hover:bg-vigil-card transition-all">
+                            <i class="fa-solid fa-robot w-4 text-center text-vigil-green"></i>
+                            <span>VIGIL AI Picks</span>
+                        </button>
+
+                        <button onclick="switchScreen('screen-mypicks')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold text-vigil-silverLight hover:text-white hover:bg-vigil-card transition-all">
+                            <i class="fa-solid fa-bookmark w-4 text-center"></i>
+                            <span>My Picks</span>
+                        </button>
+
+                        <button onclick="switchScreen('screen-analytics')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold text-vigil-silverLight hover:text-white hover:bg-vigil-card transition-all">
+                            <i class="fa-solid fa-chart-line w-4 text-center"></i>
+                            <span>Results & Analytics</span>
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Backend & Administration -->
+                <div>
+                    <div class="text-[10px] font-mono uppercase tracking-widest text-vigil-silver font-bold px-3 mb-2">System Admin</div>
+                    <nav class="space-y-1">
+                        <button onclick="switchScreen('screen-admindash')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold text-vigil-silverLight hover:text-white hover:bg-vigil-card transition-all">
+                            <i class="fa-solid fa-gauge-high w-4 text-center"></i>
+                            <span>Admin Dashboard</span>
+                        </button>
+
+                        <button onclick="switchScreen('screen-engine')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold text-vigil-silverLight hover:text-white hover:bg-vigil-card transition-all">
+                            <i class="fa-solid fa-microchip w-4 text-center"></i>
+                            <span>AI Engine Control</span>
+                        </button>
+
+                        <button onclick="switchScreen('screen-users')" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold text-vigil-silverLight hover:text-white hover:bg-vigil-card transition-all">
+                            <i class="fa-solid fa-users w-4 text-center"></i>
+                            <span>User Management</span>
+                        </button>
+                    </nav>
+                </div>
+
+            </div>
+
+            <!-- Pro Upgrade Widget Bottom -->
+            <div class="p-4 border-t border-vigil-border">
+                <div class="bg-vigil-card p-3 rounded-xl border border-vigil-border space-y-2 text-xs">
+                    <div class="flex items-center gap-2 text-white font-heading font-bold">
+                        <i class="fa-solid fa-crown text-amber-400"></i>
+                        <span>Pro Member</span>
+                    </div>
+                    <p class="text-[11px] text-vigil-silver leading-tight">Unlimited CLV model signals & instant Telegram steam alerts.</p>
+                    <button class="w-full py-1.5 rounded-lg bg-white hover:bg-vigil-silverLight text-black font-heading font-bold text-[11px] transition-colors">
+                        Upgrade Plan
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN INTERACTIVE SCREENS CONTAINER -->
+        <main class="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 relative">
+            
+            <!-- SCREEN 1: HOMEPAGE / HERO -->
+            <section id="screen-homepage" class="app-screen space-y-10">
+                
+                <!-- Stealth Black Hero Banner -->
+                <div class="relative rounded-2xl bg-vigil-card border border-vigil-border p-8 lg:p-12 overflow-hidden shadow-stealth">
+                    <!-- Subtle Dark Diagonal Pattern -->
+                    <div class="absolute inset-0 opacity-10 bg-[radial-gradient(#FFFFFF_1px,transparent_1px)] [background-size:16px_16px]"></div>
+
+                    <div class="relative z-10 max-w-3xl space-y-6">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-vigil-border text-vigil-silver text-xs font-mono font-semibold">
+                            <span class="w-2 h-2 rounded-full bg-vigil-green"></span>
+                            VALIDATED INTELLIGENCE FOR GAMBLING INSIGHTS & LEARNING
+                        </div>
+
+                        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-heading font-black tracking-tight leading-tight text-white">
+                            THE DATA SPEAKS.<br/>
+                            <span class="text-transparent bg-clip-text bg-gradient-to-r from-white via-vigil-silverLight to-vigil-silver">VIGIL MAKES THE CALL.</span>
+                        </h1>
+
+                        <p class="text-sm sm:text-base text-vigil-silver leading-relaxed max-w-2xl">
+                            AI-driven sports predictions, real-time odds analysis, and independent daily picks to give you a smarter, quantitative edge over bookmakers.
+                        </p>
+
+                        <div class="flex flex-wrap items-center gap-4 pt-2">
+                            <button onclick="switchScreen('screen-aipicks')" class="px-6 py-3.5 rounded-xl bg-white hover:bg-vigil-silverLight text-black font-heading font-extrabold text-xs uppercase tracking-wider transition-all shadow-glow-white">
+                                View Today's Picks
+                            </button>
+                            <button onclick="switchScreen('screen-engine')" class="px-6 py-3.5 rounded-xl bg-vigil-bg hover:bg-vigil-border border border-vigil-border text-white font-heading font-bold text-xs uppercase tracking-wider transition-all">
+                                Explore VIGIL AI Engine
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature Callouts Ribbon -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border space-y-1">
+                        <i class="fa-solid fa-robot text-vigil-green text-lg mb-1"></i>
+                        <h4 class="font-heading font-bold text-xs text-white">AI Predictions</h4>
+                        <p class="text-[11px] text-vigil-silver">Independent analysis</p>
+                    </div>
+
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border space-y-1">
+                        <i class="fa-solid fa-bolt text-vigil-cyan text-lg mb-1"></i>
+                        <h4 class="font-heading font-bold text-xs text-white">Real-Time Odds</h4>
+                        <p class="text-[11px] text-vigil-silver">Live market data</p>
+                    </div>
+
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border space-y-1">
+                        <i class="fa-solid fa-clock-rotate-left text-purple-400 text-lg mb-1"></i>
+                        <h4 class="font-heading font-bold text-xs text-white">Track Your Bets</h4>
+                        <p class="text-[11px] text-vigil-silver">Full performance history</p>
+                    </div>
+
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border space-y-1">
+                        <i class="fa-solid fa-layer-group text-amber-400 text-lg mb-1"></i>
+                        <h4 class="font-heading font-bold text-xs text-white">Build Parlays</h4>
+                        <p class="text-[11px] text-vigil-silver">Create and record</p>
+                    </div>
+
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border space-y-1 col-span-2 md:col-span-1">
+                        <i class="fa-solid fa-shield-halved text-white text-lg mb-1"></i>
+                        <h4 class="font-heading font-bold text-xs text-white">Data-Driven Edge</h4>
+                        <p class="text-[11px] text-vigil-silver">Not guesswork</p>
+                    </div>
+                </div>
+
+                <!-- Dynamic Hero Matchup Bar / Live Odds Ticker -->
+                <div class="bg-vigil-card rounded-xl border border-vigil-border p-4 space-y-3">
+                    <div class="flex items-center justify-between border-b border-vigil-border pb-2 text-xs font-mono">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-vigil-green animate-ping"></span>
+                            <span class="text-white font-bold">LIVE SURVEILLANCE FEED</span>
+                        </div>
+                        <span class="text-vigil-silver">Updated 12s ago</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-vigil-bg p-3 rounded-lg border border-vigil-border flex justify-between items-center text-xs">
+                            <div>
+                                <span class="text-[10px] text-vigil-silver block font-mono">NFL • Thu 8:15 PM</span>
+                                <span class="font-bold text-white">Bills vs Chiefs</span>
+                            </div>
+                            <div class="flex gap-2 font-mono">
+                                <span class="bg-vigil-card px-2 py-1 rounded text-vigil-silverLight">BUF -3.5 (-110)</span>
+                                <span class="bg-vigil-card px-2 py-1 rounded text-vigil-silverLight">KC +3.5 (-110)</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-vigil-bg p-3 rounded-lg border border-vigil-border flex justify-between items-center text-xs">
+                            <div>
+                                <span class="text-[10px] text-vigil-silver block font-mono">NBA • Today 7:30 PM</span>
+                                <span class="font-bold text-white">Lakers vs Celtics</span>
+                            </div>
+                            <div class="flex gap-2 font-mono">
+                                <span class="bg-vigil-card px-2 py-1 rounded text-vigil-silverLight">LAL +2.5 (-105)</span>
+                                <span class="bg-vigil-card px-2 py-1 rounded text-vigil-silverLight">BOS -2.5 (-115)</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-vigil-bg p-3 rounded-lg border border-vigil-border flex justify-between items-center text-xs">
+                            <div>
+                                <span class="text-[10px] text-vigil-silver block font-mono">MLB • Today 8:10 PM</span>
+                                <span class="font-bold text-white">Yankees vs Astros</span>
+                            </div>
+                            <div class="flex gap-2 font-mono">
+                                <span class="bg-vigil-card px-2 py-1 rounded text-vigil-silverLight">NYY +110</span>
+                                <span class="bg-vigil-card px-2 py-1 rounded text-vigil-silverLight">HOU -130</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- SCREEN 2: TODAY'S GAMES (Clickable Markets) -->
+            <section id="screen-games" class="app-screen hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-heading font-extrabold text-white">Today's Games</h2>
+                        <p class="text-xs text-vigil-silver">Click any line market to instantly add to your interactive Parlay Builder.</p>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-vigil-silver font-mono">Oct 24, 2026</span>
+                        <button class="bg-vigil-card border border-vigil-border p-2 rounded-lg text-vigil-silver hover:text-white">
+                            <i class="fa-regular fa-calendar"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="flex flex-wrap items-center justify-between gap-4 bg-vigil-card p-3 rounded-xl border border-vigil-border">
+                    <div class="flex flex-wrap gap-1.5">
+                        <button class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-black">All</button>
+                        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold text-vigil-silver hover:text-white hover:bg-vigil-border">NFL</button>
+                        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold text-vigil-silver hover:text-white hover:bg-vigil-border">NBA</button>
+                        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold text-vigil-silver hover:text-white hover:bg-vigil-border">MLB</button>
+                        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold text-vigil-silver hover:text-white hover:bg-vigil-border">NHL</button>
+                        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold text-vigil-silver hover:text-white hover:bg-vigil-border">NCAAF</button>
+                        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold text-vigil-silver hover:text-white hover:bg-vigil-border">NCAAB</button>
+                        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold text-vigil-silver hover:text-white hover:bg-vigil-border">Soccer</button>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <select class="bg-vigil-bg border border-vigil-border rounded-lg text-xs text-vigil-silver px-2.5 py-1.5 focus:outline-none">
+                            <option>All Markets</option>
+                            <option>Moneyline</option>
+                            <option>Spread</option>
+                            <option>Totals</option>
+                        </select>
+                        <select class="bg-vigil-bg border border-vigil-border rounded-lg text-xs text-vigil-silver px-2.5 py-1.5 focus:outline-none">
+                            <option>Consensus Books</option>
+                            <option>DraftKings</option>
+                            <option>FanDuel</option>
+                            <option>Pinnacle</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Interactive Games Table -->
+                <div class="bg-vigil-card rounded-xl border border-vigil-border overflow-hidden">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-vigil-bg text-vigil-silver font-mono uppercase text-[10px] border-b border-vigil-border">
+                                <th class="p-4">Game / Time</th>
+                                <th class="p-4 text-center">Moneyline</th>
+                                <th class="p-4 text-center">Spread</th>
+                                <th class="p-4 text-center">Total Points</th>
+                                <th class="p-4 text-right">Analytics</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-vigil-border text-white">
+                            <!-- Match 1 -->
+                            <tr class="hover:bg-vigil-border/30 transition-colors">
+                                <td class="p-4 space-y-1">
+                                    <div class="font-bold">Bills @ Chiefs</div>
+                                    <div class="text-[10px] text-vigil-silver font-mono">NFL • Thu 8:15 PM</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex justify-center gap-2">
+                                        <button onclick="addToParlay('Bills ML', '-165')" class="px-3 py-1.5 rounded bg-vigil-bg border border-vigil-border hover:border-vigil-green font-mono text-center">
+                                            <span class="block text-[10px] text-vigil-silver">BUF</span> -165
+                                        </button>
+                                        <button onclick="addToParlay('Chiefs ML', '+140')" class="px-3 py-1.5 rounded bg-vigil-bg border border-vigil-border hover:border-vigil-green font-mono text-center">
+                                            <span class="block text-[10px] text-vigil-silver">KC</span> +140
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex justify-center gap-2">
+                                        <button onclick="addToParlay('Bills -3.5', '-110')" class="px-3 py-1.5 rounded bg-vigil-bg border border-vigil-border hover:border-vigil-green font-mono text-center">
+                                            -3.5 (-110)
+                                        </button>
+                                        <button onclick="addToParlay('Chiefs +3.5', '-110')" class="px-3 py-1.5 rounded bg-vigil-bg border border-vigil-border hover:border-vigil-green font-mono text-center">
+                                            +3.5 (-110)
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex justify-center gap-2">
+                                        <button onclick="addToParlay('Over 47.5', '-110')" class="px-3 py-1.5 rounded bg-vigil-bg border border-vigil-border hover:border-vigil-green font-mono text-center">
+                                            O 47.5 (-110)
+                                        </button>
+                                        <button onclick="addToParlay('Under 47.5', '-110')" class="px-3 py-1.5 rounded bg-vigil-bg border border-vigil-border hover:border-vigil-green font-mono text-center">
+                                            U 47.5 (-110)
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="p-4 text-right">
+                                    <button class="p-2 text-vigil-silver hover:text-white">
+                                        <i class="fa-solid fa-chart-column"></i>
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <!-- Match 2 -->
+                            <tr class="hover:bg-vigil-border/30 transition-colors">
+                                <td class="p-4 space-y-1">
+                                    <div class="font-bold">Lakers @ Celtics</div>
+                                    <div class="text-[10px] text-vigil-silver font-mono">NBA • Today 7:30 PM</div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex justify-center gap-2">
+                                        <button onclick="addToParlay('Lakers ML', '+125')" class="px-3 py-1.5 rounded bg-vigil-bg border border-vigil-border hover:border-vigil-green font-mono text-center">
+                                            <span class="block text-[10px] text-vigil-silver">LAL</span> +125
+                                        </button>
+                                        <button onclick="addToParlay('Celtics ML', '-150')" class="px-3 py-1.5 rounded bg-vigil-bg border border-vigil-border hover:border-vigil-green font-mono text-center">
+                                            <span class="block text-[10px] text-vigil-silver">BOS</span> -150
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex justify-center gap-2">
+                                        <button onclick="addToParlay('Lakers +2.5', '-105')" class="px-3 py-1.5 rounded bg-vigil-bg border border-vigil-border hover:border-vigil-green font-mono text-center">
+                                            +2.5 (-105)
+                                        </button>
+                                        <button onclick="addToParlay('Celtics -2.5', '-115')" class="px-3 py-1.5 rounded bg-vigil-bg border border-vigil-border hover:border-vigil-green font-mono text-center">
+                                            -2.5 (-115)
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex justify-center gap-2">
+                                        <button onclick="addToParlay('Over 224.5', '-110')" class="px-3 py-1.5 rounded bg-vigil-bg border border-vigil-border hover:border-vigil-green font-mono text-center">
+                                            O 224.5 (-110)
+                                        </button>
+                                        <button onclick="addToParlay('Under 224.5', '-110')" class="px-3 py-1.5 rounded bg-vigil-bg border border-vigil-border hover:border-vigil-green font-mono text-center">
+                                            U 224.5 (-110)
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="p-4 text-right">
+                                    <button class="p-2 text-vigil-silver hover:text-white">
+                                        <i class="fa-solid fa-chart-column"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- SCREEN 4: VIGIL AI PICKS (Engine Recommendations) -->
+            <section id="screen-aipicks" class="app-screen hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-2xl font-heading font-extrabold text-white">VIGIL's Daily Picks</h2>
+                            <span class="bg-vigil-green/20 text-vigil-green border border-vigil-green/30 text-[10px] font-mono px-2 py-0.5 rounded font-bold">MODEL v3.2</span>
+                        </div>
+                        <p class="text-xs text-vigil-silver">Quantitatively scored recommendations that pass closing line threshold testing.</p>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-mono text-vigil-silver">Oct 24, 2026</span>
+                    </div>
+                </div>
+
+                <!-- AI Picks Table -->
+                <div class="bg-vigil-card rounded-xl border border-vigil-border overflow-hidden">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-vigil-bg text-vigil-silver font-mono uppercase text-[10px] border-b border-vigil-border">
+                                <th class="p-4">Game</th>
+                                <th class="p-4">VIGIL Pick</th>
+                                <th class="p-4 text-center">Odds</th>
+                                <th class="p-4 text-center">Confidence</th>
+                                <th class="p-4 text-center">Edge</th>
+                                <th class="p-4">Reasoning</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-vigil-border text-white">
+                            <tr class="hover:bg-vigil-border/30 transition-colors">
+                                <td class="p-4 font-bold">Bills vs Chiefs</td>
+                                <td class="p-4"><span class="bg-vigil-bg px-2.5 py-1 rounded border border-vigil-border font-mono font-bold text-vigil-green">Bills -3.5</span></td>
+                                <td class="p-4 text-center font-mono">-110</td>
+                                <td class="p-4 text-center font-mono">
+                                    <div class="w-24 mx-auto bg-vigil-bg rounded-full h-2 overflow-hidden border border-vigil-border">
+                                        <div class="bg-vigil-green h-full" style="width: 78%"></div>
+                                    </div>
+                                    <span class="text-[10px] text-vigil-silver">78%</span>
+                                </td>
+                                <td class="p-4 text-center"><span class="bg-vigil-green/10 text-vigil-green border border-vigil-green/30 px-2 py-0.5 rounded font-mono font-bold">+12.4%</span></td>
+                                <td class="p-4 text-vigil-silver text-[11px]">Model edge in matchup. Better pass defense.</td>
+                            </tr>
+
+                            <tr class="hover:bg-vigil-border/30 transition-colors">
+                                <td class="p-4 font-bold">Lakers vs Celtics</td>
+                                <td class="p-4"><span class="bg-vigil-bg px-2.5 py-1 rounded border border-vigil-border font-mono font-bold text-vigil-green">Under 224.5</span></td>
+                                <td class="p-4 text-center font-mono">-110</td>
+                                <td class="p-4 text-center font-mono">
+                                    <div class="w-24 mx-auto bg-vigil-bg rounded-full h-2 overflow-hidden border border-vigil-border">
+                                        <div class="bg-vigil-green h-full" style="width: 72%"></div>
+                                    </div>
+                                    <span class="text-[10px] text-vigil-silver">72%</span>
+                                </td>
+                                <td class="p-4 text-center"><span class="bg-vigil-green/10 text-vigil-green border border-vigil-green/30 px-2 py-0.5 rounded font-mono font-bold">+9.8%</span></td>
+                                <td class="p-4 text-vigil-silver text-[11px]">Pace & efficiency projected lower.</td>
+                            </tr>
+
+                            <tr class="hover:bg-vigil-border/30 transition-colors">
+                                <td class="p-4 font-bold">Yankees vs Astros</td>
+                                <td class="p-4"><span class="bg-vigil-bg px-2.5 py-1 rounded border border-vigil-border font-mono font-bold text-vigil-green">Yankees ML</span></td>
+                                <td class="p-4 text-center font-mono">+110</td>
+                                <td class="p-4 text-center font-mono">
+                                    <div class="w-24 mx-auto bg-vigil-bg rounded-full h-2 overflow-hidden border border-vigil-border">
+                                        <div class="bg-vigil-green h-full" style="width: 69%"></div>
+                                    </div>
+                                    <span class="text-[10px] text-vigil-silver">69%</span>
+                                </td>
+                                <td class="p-4 text-center"><span class="bg-vigil-green/10 text-vigil-green border border-vigil-green/30 px-2 py-0.5 rounded font-mono font-bold">+8.1%</span></td>
+                                <td class="p-4 text-vigil-silver text-[11px]">Starting pitching advantage.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- SCREEN 5: MY PICKS (User Tracked Selections) -->
+            <section id="screen-mypicks" class="app-screen hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-heading font-extrabold text-white">My Picks</h2>
+                        <p class="text-xs text-vigil-silver">Personal logged wagers and automated outcome tracking.</p>
+                    </div>
+
+                    <button class="px-4 py-2 rounded-xl bg-white text-black font-heading font-bold text-xs flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Add Custom Pick</span>
+                    </button>
+                </div>
+
+                <!-- My Picks Table -->
+                <div class="bg-vigil-card rounded-xl border border-vigil-border overflow-hidden">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-vigil-bg text-vigil-silver font-mono uppercase text-[10px] border-b border-vigil-border">
+                                <th class="p-4">Game</th>
+                                <th class="p-4">Pick</th>
+                                <th class="p-4 text-center">Odds</th>
+                                <th class="p-4 text-center">Stake</th>
+                                <th class="p-4 text-center">To Win</th>
+                                <th class="p-4 text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-vigil-border text-white">
+                            <tr class="hover:bg-vigil-border/30 transition-colors">
+                                <td class="p-4 font-bold">Lakers vs Celtics</td>
+                                <td class="p-4 font-mono">Under 224.5</td>
+                                <td class="p-4 text-center font-mono">-110</td>
+                                <td class="p-4 text-center font-mono">$50</td>
+                                <td class="p-4 text-center font-mono">$45.45</td>
+                                <td class="p-4 text-right"><span class="px-2.5 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold">Pending</span></td>
+                            </tr>
+                            <tr class="hover:bg-vigil-border/30 transition-colors">
+                                <td class="p-4 font-bold">Panthers vs Lightning</td>
+                                <td class="p-4 font-mono">Under 6.0</td>
+                                <td class="p-4 text-center font-mono">-115</td>
+                                <td class="p-4 text-center font-mono">$50</td>
+                                <td class="p-4 text-center font-mono">$43.48</td>
+                                <td class="p-4 text-right"><span class="px-2.5 py-1 rounded bg-vigil-green/10 text-vigil-green border border-vigil-green/30 text-[10px] font-mono font-bold">Won</span></td>
+                            </tr>
+                            <tr class="hover:bg-vigil-border/30 transition-colors">
+                                <td class="p-4 font-bold">Heat vs Hawks</td>
+                                <td class="p-4 font-mono">Over 221.5</td>
+                                <td class="p-4 text-center font-mono">-105</td>
+                                <td class="p-4 text-center font-mono">$50</td>
+                                <td class="p-4 text-center font-mono">$47.62</td>
+                                <td class="p-4 text-right"><span class="px-2.5 py-1 rounded bg-vigil-red/10 text-vigil-red border border-vigil-red/30 text-[10px] font-mono font-bold">Lost</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- SCREEN 6: RESULTS & ANALYTICS -->
+            <section id="screen-analytics" class="app-screen hidden space-y-8">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-heading font-extrabold text-white">My Performance & Engine Results</h2>
+                        <p class="text-xs text-vigil-silver">Automated audit ledger, ROI calculation, and closing line verification.</p>
+                    </div>
+
+                    <div class="flex items-center gap-1 bg-vigil-card p-1 rounded-lg border border-vigil-border text-xs font-mono">
+                        <button class="px-2.5 py-1 rounded bg-white text-black font-bold">30D</button>
+                        <button class="px-2.5 py-1 rounded text-vigil-silver hover:text-white">90D</button>
+                        <button class="px-2.5 py-1 rounded text-vigil-silver hover:text-white">1Y</button>
+                        <button class="px-2.5 py-1 rounded text-vigil-silver hover:text-white">All</button>
+                    </div>
+                </div>
+
+                <!-- KPI Overview Grid -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-vigil-card p-5 rounded-xl border border-vigil-border space-y-2">
+                        <span class="text-xs text-vigil-silver font-mono">Total Bets</span>
+                        <div class="text-2xl font-heading font-black text-white">128</div>
+                        <span class="text-[10px] text-vigil-green font-mono">↑ +12.3% this month</span>
+                    </div>
+
+                    <div class="bg-vigil-card p-5 rounded-xl border border-vigil-border space-y-2">
+                        <span class="text-xs text-vigil-silver font-mono">Win Rate</span>
+                        <div class="text-2xl font-heading font-black text-vigil-green">62%</div>
+                        <span class="text-[10px] text-vigil-green font-mono">↑ +5.1% vs consensus</span>
+                    </div>
+
+                    <div class="bg-vigil-card p-5 rounded-xl border border-vigil-border space-y-2">
+                        <span class="text-xs text-vigil-silver font-mono">ROI</span>
+                        <div class="text-2xl font-heading font-black text-vigil-green">+18.4%</div>
+                        <span class="text-[10px] text-vigil-green font-mono">↑ +6.8% edge</span>
+                    </div>
+
+                    <div class="bg-vigil-card p-5 rounded-xl border border-vigil-border space-y-2">
+                        <span class="text-xs text-vigil-silver font-mono">Net Profit</span>
+                        <div class="text-2xl font-heading font-black text-white">$1,245</div>
+                        <span class="text-[10px] text-vigil-green font-mono">↑ +24.7% total growth</span>
+                    </div>
+                </div>
+
+                <!-- Chart & Sport Breakdown -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-vigil-card p-6 rounded-xl border border-vigil-border space-y-4">
+                        <h3 class="font-heading font-bold text-sm text-white">Profit / Loss History ($)</h3>
+                        <div class="h-64 w-full">
+                            <canvas id="analyticsChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-vigil-card p-6 rounded-xl border border-vigil-border space-y-4">
+                        <h3 class="font-heading font-bold text-sm text-white">Performance by Sport</h3>
+                        <div class="space-y-3 text-xs">
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-vigil-silver">NFL</span>
+                                    <span class="font-mono font-bold text-vigil-green">68%</span>
+                                </div>
+                                <div class="w-full bg-vigil-bg rounded-full h-1.5 overflow-hidden">
+                                    <div class="bg-vigil-green h-full" style="width: 68%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-vigil-silver">NBA</span>
+                                    <span class="font-mono font-bold text-vigil-green">61%</span>
+                                </div>
+                                <div class="w-full bg-vigil-bg rounded-full h-1.5 overflow-hidden">
+                                    <div class="bg-vigil-green h-full" style="width: 61%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-vigil-silver">MLB</span>
+                                    <span class="font-mono font-bold text-vigil-green">58%</span>
+                                </div>
+                                <div class="w-full bg-vigil-bg rounded-full h-1.5 overflow-hidden">
+                                    <div class="bg-vigil-green h-full" style="width: 58%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-vigil-silver">NHL</span>
+                                    <span class="font-mono font-bold text-vigil-green">63%</span>
+                                </div>
+                                <div class="w-full bg-vigil-bg rounded-full h-1.5 overflow-hidden">
+                                    <div class="bg-vigil-green h-full" style="width: 63%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- THE BOARD - ENGINE TRANSPARENCY SECTION -->
+                <div class="bg-vigil-card rounded-xl border border-vigil-border p-6 space-y-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-vigil-border pb-4">
+                        <div>
+                            <h3 class="text-lg font-heading font-bold text-white">Nothing here is sellable, and here is why</h3>
+                            <p class="text-xs text-vigil-silver">The engine judged 24,610 candidates in this view and passed on all of them. Vigil only sells from a market that has already beaten the closing line over a measured sample.</p>
+                        </div>
+                        <div class="text-right font-mono">
+                            <span class="text-xl font-bold text-white block">24,610</span>
+                            <span class="text-[10px] text-vigil-silver">Judged Candidates</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-vigil-bg p-4 rounded-lg border border-vigil-border">
+                            <span class="text-[10px] text-vigil-silver font-mono block">NCAAB • H2H</span>
+                            <span class="text-xs font-bold text-vigil-red block">Loses to the market</span>
+                            <span class="text-[11px] text-vigil-silver font-mono">1,216 predictions measured</span>
+                        </div>
+
+                        <div class="bg-vigil-bg p-4 rounded-lg border border-vigil-border">
+                            <span class="text-[10px] text-vigil-silver font-mono block">NCAAF • H2H</span>
+                            <span class="text-xs font-bold text-vigil-red block">Loses to the market</span>
+                            <span class="text-[11px] text-vigil-silver font-mono">9,929 predictions measured</span>
+                        </div>
+
+                        <div class="bg-vigil-bg p-4 rounded-lg border border-vigil-border">
+                            <span class="text-[10px] text-vigil-silver font-mono block">NHL • H2H</span>
+                            <span class="text-xs font-bold text-vigil-red block">Loses to the market</span>
+                            <span class="text-[11px] text-vigil-silver font-mono">1,722 predictions measured</span>
+                        </div>
+                    </div>
+
+                    <!-- Declination Bar Metrics -->
+                    <div class="space-y-3 pt-2">
+                        <h4 class="text-xs font-bold text-white uppercase font-mono">Why each candidate was declined:</h4>
+                        <div class="space-y-2 text-xs font-mono">
+                            <div>
+                                <div class="flex justify-between text-vigil-silver text-[11px]">
+                                    <span>no price</span>
+                                    <span>18,422</span>
+                                </div>
+                                <div class="w-full bg-vigil-bg rounded-full h-1.5 overflow-hidden">
+                                    <div class="bg-vigil-silver h-full" style="width: 75%"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-vigil-silver text-[11px]">
+                                    <span>market unproven</span>
+                                    <span>4,400</span>
+                                </div>
+                                <div class="w-full bg-vigil-bg rounded-full h-1.5 overflow-hidden">
+                                    <div class="bg-vigil-silver h-full" style="width: 18%"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-vigil-silver text-[11px]">
+                                    <span>stale quote</span>
+                                    <span>1,788</span>
+                                </div>
+                                <div class="w-full bg-vigil-bg rounded-full h-1.5 overflow-hidden">
+                                    <div class="bg-vigil-silver h-full" style="width: 7%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SCREEN 7: ADMIN DASHBOARD (Master Backend) -->
+            <section id="screen-admindash" class="app-screen hidden space-y-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-heading font-extrabold text-white">Admin Dashboard</h2>
+                        <p class="text-xs text-vigil-silver">Master backend metrics and platform activity feed.</p>
+                    </div>
+                    <span class="px-3 py-1 rounded bg-vigil-card border border-vigil-border text-xs font-mono text-vigil-silver">Role: Master Admin</span>
+                </div>
+
+                <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border">
+                        <span class="text-[10px] text-vigil-silver font-mono block">Total Users</span>
+                        <span class="text-xl font-bold text-white font-mono">2,548</span>
+                    </div>
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border">
+                        <span class="text-[10px] text-vigil-silver font-mono block">Active Subs</span>
+                        <span class="text-xl font-bold text-vigil-green font-mono">1,843</span>
+                    </div>
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border">
+                        <span class="text-[10px] text-vigil-silver font-mono block">Predictions Today</span>
+                        <span class="text-xl font-bold text-white font-mono">24,610</span>
+                    </div>
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border">
+                        <span class="text-[10px] text-vigil-silver font-mono block">Published Picks</span>
+                        <span class="text-xl font-bold text-white font-mono">12</span>
+                    </div>
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border col-span-2 lg:col-span-1">
+                        <span class="text-[10px] text-vigil-silver font-mono block">Settled Bets</span>
+                        <span class="text-xl font-bold text-white font-mono">18,722</span>
+                    </div>
+                </div>
+
+                <!-- Admin Activity Feed -->
+                <div class="bg-vigil-card rounded-xl border border-vigil-border p-6 space-y-4">
+                    <h3 class="font-heading font-bold text-sm text-white">System Activity Stream</h3>
+                    <div class="space-y-3 text-xs font-mono">
+                        <div class="flex justify-between items-center p-2.5 rounded bg-vigil-bg border border-vigil-border">
+                            <div class="flex items-center gap-3">
+                                <span class="w-2 h-2 rounded-full bg-vigil-green"></span>
+                                <span class="text-white">Odds feed update (NBA)</span>
+                            </div>
+                            <span class="text-vigil-silver text-[10px]">10:24 AM • Success</span>
+                        </div>
+                        <div class="flex justify-between items-center p-2.5 rounded bg-vigil-bg border border-vigil-border">
+                            <div class="flex items-center gap-3">
+                                <span class="w-2 h-2 rounded-full bg-vigil-green"></span>
+                                <span class="text-white">Model v3.2 predictions generated</span>
+                            </div>
+                            <span class="text-vigil-silver text-[10px]">10:18 AM • Success</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SCREEN 8: AI ENGINE CONTROL -->
+            <section id="screen-engine" class="app-screen hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-2xl font-heading font-extrabold text-white">AI Engine Control</h2>
+                            <span class="px-2.5 py-0.5 rounded bg-vigil-green/20 text-vigil-green text-[10px] font-mono font-bold border border-vigil-green/30">Engine Running</span>
+                        </div>
+                        <p class="text-xs text-vigil-silver">Model parameters, threshold limits, and prediction gates.</p>
+                    </div>
+
+                    <div class="text-xs font-mono text-vigil-silver">Model: VIGIL v3.2</div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border space-y-1">
+                        <span class="text-[10px] text-vigil-silver font-mono">Model Accuracy</span>
+                        <div class="text-xl font-bold font-mono text-vigil-green">62.8%</div>
+                    </div>
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border space-y-1">
+                        <span class="text-[10px] text-vigil-silver font-mono">Avg ROI</span>
+                        <div class="text-xl font-bold font-mono text-vigil-green">+18.4%</div>
+                    </div>
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border space-y-1">
+                        <span class="text-[10px] text-vigil-silver font-mono">Picks Generated</span>
+                        <div class="text-xl font-bold font-mono text-white">24,610</div>
+                    </div>
+                    <div class="bg-vigil-card p-4 rounded-xl border border-vigil-border space-y-1">
+                        <span class="text-[10px] text-vigil-silver font-mono">Published Picks</span>
+                        <div class="text-xl font-bold font-mono text-white">12</div>
+                    </div>
+                </div>
+
+                <!-- Prediction Criteria Thresholds -->
+                <div class="bg-vigil-card rounded-xl border border-vigil-border p-6 space-y-4">
+                    <h3 class="font-heading font-bold text-sm text-white">Engine Threshold Criteria</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+                        <div class="p-3 bg-vigil-bg rounded border border-vigil-border">
+                            <span class="text-vigil-silver block">Minimum Edge</span>
+                            <span class="text-white font-bold text-sm">+5.0%</span>
+                        </div>
+                        <div class="p-3 bg-vigil-bg rounded border border-vigil-border">
+                            <span class="text-vigil-silver block">Confidence Threshold</span>
+                            <span class="text-white font-bold text-sm">≥ 60%</span>
+                        </div>
+                        <div class="p-3 bg-vigil-bg rounded border border-vigil-border">
+                            <span class="text-vigil-silver block">Closing Line Validation</span>
+                            <span class="text-vigil-green font-bold text-sm">Required</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SCREEN 9: USER MANAGEMENT -->
+            <section id="screen-users" class="app-screen hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-heading font-extrabold text-white">User Management</h2>
+                        <p class="text-xs text-vigil-silver">Manage registered members, active subscriptions, and user roles.</p>
+                    </div>
+
+                    <button class="px-4 py-2 rounded-xl bg-white text-black font-heading font-bold text-xs flex items-center gap-2">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <span>Add User</span>
+                    </button>
+                </div>
+
+                <!-- User Table -->
+                <div class="bg-vigil-card rounded-xl border border-vigil-border overflow-hidden">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-vigil-bg text-vigil-silver font-mono uppercase text-[10px] border-b border-vigil-border">
+                                <th class="p-4">Name</th>
+                                <th class="p-4">Email</th>
+                                <th class="p-4">Plan</th>
+                                <th class="p-4">Status</th>
+                                <th class="p-4">Joined</th>
+                                <th class="p-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-vigil-border text-white">
+                            <tr class="hover:bg-vigil-border/30 transition-colors">
+                                <td class="p-4 font-bold">Christian Banks</td>
+                                <td class="p-4 font-mono text-vigil-silver">christian@example.com</td>
+                                <td class="p-4 font-mono">Pro</td>
+                                <td class="p-4"><span class="px-2 py-0.5 rounded bg-vigil-green/20 text-vigil-green text-[10px] font-mono font-bold">Active</span></td>
+                                <td class="p-4 font-mono text-vigil-silver">Oct 12, 2026</td>
+                                <td class="p-4 text-right"><button class="text-vigil-silver hover:text-white"><i class="fa-solid fa-ellipsis"></i></button></td>
+                            </tr>
+                            <tr class="hover:bg-vigil-border/30 transition-colors">
+                                <td class="p-4 font-bold">Sarah Miller</td>
+                                <td class="p-4 font-mono text-vigil-silver">sarah@example.com</td>
+                                <td class="p-4 font-mono">Premium</td>
+                                <td class="p-4"><span class="px-2 py-0.5 rounded bg-vigil-green/20 text-vigil-green text-[10px] font-mono font-bold">Active</span></td>
+                                <td class="p-4 font-mono text-vigil-silver">Oct 11, 2026</td>
+                                <td class="p-4 text-right"><button class="text-vigil-silver hover:text-white"><i class="fa-solid fa-ellipsis"></i></button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- INTERACTIVE PARLAY BUILDER DRAWER (SCREEN 3) -->
+        <div id="parlayDrawer" class="w-80 bg-vigil-card border-l border-vigil-border flex-shrink-0 flex flex-col justify-between transition-all duration-300 absolute lg:static inset-y-0 right-0 z-40 translate-x-full lg:translate-x-0 hidden">
+            
+            <!-- Drawer Header -->
+            <div class="p-4 border-b border-vigil-border flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-vigil-green"></i>
+                    <h3 class="font-heading font-bold text-sm text-white">Parlay Builder</h3>
+                </div>
+                <button onclick="toggleParlayDrawer()" class="text-vigil-silver hover:text-white text-xs">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Selection List -->
+            <div class="p-4 flex-1 overflow-y-auto space-y-3" id="parlaySelectionsContainer">
+                
+                <div class="bg-vigil-bg p-3 rounded-lg border border-vigil-border space-y-1 relative group">
+                    <button onclick="removeParlaySelection(this)" class="absolute top-2 right-2 text-vigil-silver hover:text-vigil-red text-xs">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <span class="text-[10px] text-vigil-silver font-mono block">Lakers vs Celtics</span>
+                    <span class="text-xs font-bold text-white block">Under 224.5</span>
+                    <span class="text-[11px] font-mono text-vigil-green">-110</span>
+                </div>
+
+                <div class="bg-vigil-bg p-3 rounded-lg border border-vigil-border space-y-1 relative group">
+                    <button onclick="removeParlaySelection(this)" class="absolute top-2 right-2 text-vigil-silver hover:text-vigil-red text-xs">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <span class="text-[10px] text-vigil-silver font-mono block">Bills vs Chiefs</span>
+                    <span class="text-xs font-bold text-white block">Bills -3.5</span>
+                    <span class="text-[11px] font-mono text-vigil-green">-110</span>
+                </div>
+
+                <div class="bg-vigil-bg p-3 rounded-lg border border-vigil-border space-y-1 relative group">
+                    <button onclick="removeParlaySelection(this)" class="absolute top-2 right-2 text-vigil-silver hover:text-vigil-red text-xs">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <span class="text-[10px] text-vigil-silver font-mono block">Yankees vs Astros</span>
+                    <span class="text-xs font-bold text-white block">Yankees ML</span>
+                    <span class="text-[11px] font-mono text-vigil-green">+110</span>
+                </div>
+
+            </div>
+
+            <!-- Parlay Summary & Stake Calculator -->
+            <div class="p-4 border-t border-vigil-border bg-vigil-bg space-y-4 text-xs font-mono">
+                <div class="flex justify-between items-center text-vigil-silver">
+                    <span>Combined Odds</span>
+                    <span class="text-white font-bold text-sm" id="combinedOddsLabel">+537</span>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[10px] text-vigil-silver block uppercase">Stake ($)</label>
+                    <input type="number" id="parlayStakeInput" value="100" oninput="calculateParlayPayout()" class="w-full bg-vigil-card border border-vigil-border rounded px-3 py-2 text-white font-bold focus:outline-none focus:border-white">
+                </div>
+
+                <div class="flex justify-between items-center pt-2 border-t border-vigil-border">
+                    <span class="text-vigil-silver">Potential Return</span>
+                    <span class="text-vigil-green font-bold text-base" id="potentialReturnLabel">$637.00</span>
+                </div>
+
+                <button onclick="saveParlayTicket()" class="w-full py-3 rounded-xl bg-white hover:bg-vigil-silverLight text-black font-heading font-extrabold text-xs uppercase tracking-wider transition-all">
+                    Save Parlay
+                </button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- APPLICATION SCRIPTS -->
+    <script>
+        // Screen Navigation Logic
+        function switchScreen(screenId) {
+            document.querySelectorAll('.app-screen').forEach(s => s.classList.add('hidden'));
+            document.getElementById(screenId)?.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                btn.classList.remove('active', 'bg-vigil-card', 'text-white', 'border', 'border-vigil-border');
+                btn.classList.add('text-vigil-silverLight');
+            });
+
+            if (window.innerWidth < 1024) {
+                document.getElementById('appSidebar').classList.add('-translate-x-full');
+            }
+        }
+
+        // Sidebar Drawer Toggle (Mobile)
+        function toggleSidebar() {
+            document.getElementById('appSidebar').classList.toggle('-translate-x-full');
+        }
+
+        // Parlay Drawer Toggle
+        function toggleParlayDrawer() {
+            const drawer = document.getElementById('parlayDrawer');
+            drawer.classList.toggle('hidden');
+        }
+
+        // Add Selection to Parlay
+        function addToParlay(selection, odds) {
+            const container = document.getElementById('parlaySelectionsContainer');
+            const card = document.createElement('div');
+            card.className = "bg-vigil-bg p-3 rounded-lg border border-vigil-border space-y-1 relative group";
+            card.innerHTML = `
+                <button onclick="removeParlaySelection(this)" class="absolute top-2 right-2 text-vigil-silver hover:text-vigil-red text-xs">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                <span class="text-[10px] text-vigil-silver font-mono block">Live Selection</span>
+                <span class="text-xs font-bold text-white block">${selection}</span>
+                <span class="text-[11px] font-mono text-vigil-green">${odds}</span>
+            `;
+            container.appendChild(card);
+            updateParlayBadge();
+            calculateParlayPayout();
+
+            // Ensure drawer is visible
+            document.getElementById('parlayDrawer').classList.remove('hidden');
+        }
+
+        // Remove Selection
+        function removeParlaySelection(btn) {
+            btn.parentElement.remove();
+            updateParlayBadge();
+            calculateParlayPayout();
+        }
+
+        function updateParlayBadge() {
+            const count = document.getElementById('parlaySelectionsContainer').children.length;
+            document.getElementById('parlayCountBadge').innerText = count;
+        }
+
+        // Calculate Parlay Return
+        function calculateParlayPayout() {
+            const stake = parseFloat(document.getElementById('parlayStakeInput').value) || 0;
+            // Simulated return factor based on +537 combined odds
+            const returnVal = stake * 6.37;
+            document.getElementById('potentialReturnLabel').innerText = `$${returnVal.toFixed(2)}`;
+        }
+
+        function saveParlayTicket() {
+            alert('Parlay recorded in My Picks!');
+        }
+
+        // Initialize Analytics Chart
+        window.onload = function() {
+            const ctx = document.getElementById('analyticsChart')?.getContext('2d');
+            if (ctx) {
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Sep 24', 'Oct 1', 'Oct 8', 'Oct 15', 'Oct 22'],
+                        datasets: [{
+                            label: 'Net Profit ($)',
+                            data: [150, -80, 420, 310, 445],
+                            backgroundColor: function(context) {
+                                const value = context.dataset.data[context.dataIndex];
+                                return value >= 0 ? '#10B981' : '#EF4444';
+                            },
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: { grid: { color: '#1E222D' }, ticks: { color: '#94A3B8', font: { family: 'Inter' } } },
+                            y: { grid: { color: '#1E222D' }, ticks: { color: '#94A3B8', font: { family: 'Inter' } } }
+                        }
+                    }
+                });
+            }
+        };
+    </script>
+</body>
+</html>
