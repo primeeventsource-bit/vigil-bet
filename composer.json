@@ -12,7 +12,8 @@
         "laravel/tinker": "^2.10.1",
         "livewire/livewire": "^3.6.4",
         "livewire/volt": "^1.7.0",
-        "minishlink/web-push": "^11.0"
+        "minishlink/web-push": "^11.0",
+        "resend/resend-laravel": "^1.7"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

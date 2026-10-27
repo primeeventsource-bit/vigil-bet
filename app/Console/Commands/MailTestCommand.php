@@ -62,6 +62,23 @@ class MailTestCommand extends Command
             $this->reachability((string) ($smtp['host'] ?? ''), (int) ($smtp['port'] ?? 0), $smtp['scheme'] ?? null);
         }
 
+        if ($mailer === 'resend') {
+            $key = (string) config('services.resend.key');
+
+            $this->components->twoColumnDetail(
+                'API key',
+                $key !== '' ? 'set ('.strlen($key).' chars)' : '<fg=red>missing</>'
+            );
+
+            /*
+             * Resend will only send from a domain somebody has proved
+             * they own, so the sending domain is a precondition and not
+             * a detail. Naming it here means a refusal reads as "that
+             * domain is not verified" rather than as a mystery.
+             */
+            $this->components->twoColumnDetail('Sending domain', (string) str($from)->after('@'));
+        }
+
         $this->newLine();
 
         if ($mailer === 'log' || $mailer === 'array') {
