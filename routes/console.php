@@ -8,6 +8,7 @@ use App\Jobs\Bets\SettleBets;
 use App\Jobs\EdgeLab\SyncBoard;
 use App\Jobs\EdgeLab\SyncEvents;
 use App\Jobs\EdgeLab\SyncModels;
+use App\Jobs\EdgeLab\SyncOddsDisplay;
 use App\Jobs\Ingest\SyncDepthCharts;
 use App\Jobs\Ingest\SyncInjuries;
 use App\Jobs\Ingest\SyncProbableStarters;
@@ -64,6 +65,21 @@ Schedule::job(new SyncBoard)
 Schedule::job(new SyncEvents)
     ->hourlyAt(10)
     ->name('edgelab-sync-events')
+    ->withoutOverlapping(15);
+
+/*
+ * The prices the product shows, every ten minutes.
+ *
+ * Often, because this is where closing line value comes from: the last
+ * quote mirrored before a kickoff is the one the record compares a pick
+ * against, so the gap between runs is the margin of error on that
+ * number. Ten minutes keeps it small without ever asking for the slate -
+ * the job walks the games near kickoff and asks for each one's prices on
+ * its own, which is the only way this is allowed to work.
+ */
+Schedule::job(new SyncOddsDisplay)
+    ->everyTenMinutes()
+    ->name('edgelab-sync-odds')
     ->withoutOverlapping(15);
 
 /*

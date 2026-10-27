@@ -19,7 +19,7 @@ use App\Models\SyncRun;
  */
 class SyncHealth
 {
-    public const FEEDS = ['board', 'events', 'models'];
+    public const FEEDS = ['board', 'events', 'models', 'odds'];
 
     /**
      * @return array<int, array<string, mixed>>

@@ -57,6 +57,25 @@ return [
     | schedule barely moves at all.
     |
     */
+    /*
+     * What the display mirror keeps.
+     *
+     * An append-only table of every price from every tracked book would
+     * be enormous and almost all of it noise, so three things bound it:
+     * a window around kickoff, the books a customer can actually bet at,
+     * and the digest that declines to write a price which has not moved.
+     *
+     * Widen `bettable_books_only` to compare prices across the whole
+     * tracked field, and expect the table to grow accordingly.
+     */
+    'odds_mirror' => [
+        'hours_back' => (int) env('ENGINE_ODDS_MIRROR_HOURS_BACK', 3),
+        'hours_ahead' => (int) env('ENGINE_ODDS_MIRROR_HOURS_AHEAD', 24),
+        'bettable_books_only' => (bool) env('ENGINE_ODDS_MIRROR_BETTABLE_ONLY', true),
+        'include_props' => (bool) env('ENGINE_ODDS_MIRROR_PROPS', true),
+        'max_events' => (int) env('ENGINE_ODDS_MIRROR_MAX_EVENTS', 60),
+    ],
+
     'stale_after_minutes' => [
         'board' => (int) env('ENGINE_STALE_BOARD', 90),
         'events' => (int) env('ENGINE_STALE_EVENTS', 180),
