@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\VlModel;
 use App\Services\Record\OpinionRecord;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -28,13 +27,20 @@ class OpinionRecordController extends Controller
     public function __invoke(Request $request, OpinionRecord $record): View
     {
         /*
-         * Same gate as /record. An opinion is a weaker claim than a
-         * pick, but it is still the engine's own selection on a page a
-         * stranger can read, and none of it belongs on the site while
-         * nothing has passed.
+         * Deliberately ungated.
+         *
+         * This page is the engine's own work and how it has actually
+         * done, which is the thing a subscription buys. It answers to
+         * OpinionBar - an opinion is published only once its market's
+         * probabilities have been measured and held - and never to the
+         * verdict gate, which asks the much stronger question /record
+         * claims and this page is at pains to say it does not.
+         *
+         * Empty rather than absent when there is nothing yet, because
+         * that is this codebase's answer everywhere else: an accuracy
+         * page with no rows says there is nothing to judge, which is
+         * true and checkable, where a 404 says nothing at all.
          */
-        abort_unless(VlModel::anyMarketProven(), 404);
-
         $sports = $record->sports();
 
         // Validated against what exists. A sport nobody has an opinion

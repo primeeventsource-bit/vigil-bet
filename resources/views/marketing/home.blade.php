@@ -132,13 +132,19 @@
         to be no invented numbers anywhere near this page.
     --}}
     {{--
-        Only once a market has passed the gate. Everything in this
-        section is the engine's own selection, and the comment above is
-        the reason it is wrapped rather than left to render an empty
-        shell: a heading that says what the engine likes today, over
-        nothing, is still a claim about what the engine likes today.
+        The engine's own work, which is the thing a subscription buys.
+
+        Shown when the engine has published something, not when a market
+        has beaten the closing line - those are different gates and this
+        section answers to the first. An opinion reaches this page only
+        because its market cleared OpinionBar, so one existing is already
+        the gate having said yes.
+
+        Still wrapped rather than left to render an empty shell: a
+        heading that says what the engine likes today, over nothing, is
+        still a claim about what the engine likes today.
     --}}
-    @if (\App\Models\VlModel::anyMarketProven())
+    @if (\App\Models\Opinion::anyPublished())
     <section id="todays-picks" class="relative scroll-mt-24 border-b border-[var(--vg-line)]">
         <div class="mx-auto max-w-6xl px-6 py-20">
             <div class="flex flex-wrap items-end justify-between gap-4">

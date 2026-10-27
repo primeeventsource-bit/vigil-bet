@@ -89,6 +89,27 @@ class Opinion extends Model
     }
 
     /**
+     * Whether the engine has published anything at all.
+     *
+     * The question the public pages ask before showing the engine's own
+     * work. Asked of the opinions rather than of the verdict gate, and
+     * the difference matters: an opinion is published only once its
+     * market has cleared OpinionBar, so the existence of one is already
+     * proof that the gate governing it said yes. Asking the *verdict*
+     * gate here instead would hide the product behind a standard it was
+     * never measured against - that gate answers whether a market beats
+     * the closing line, which is what the public record claims and what
+     * an opinion is careful never to claim.
+     *
+     * Memoised per request; several components ask it while rendering
+     * one page.
+     */
+    public static function anyPublished(): bool
+    {
+        return once(fn (): bool => self::query()->exists());
+    }
+
+    /**
      * The confidence figure, as a whole percentage.
      *
      * Rounded for display in one place rather than in each template,

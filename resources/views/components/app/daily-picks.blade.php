@@ -31,7 +31,7 @@
             </p>
         </div>
 
-        @if (\App\Models\VlModel::anyMarketProven())
+        @if (\App\Models\Opinion::anyPublished())
             <a href="{{ route('opinions') }}"
                class="text-xs text-[var(--vg-slate)] underline transition hover:text-[var(--vg-paper)]">
                 See how they have done →
