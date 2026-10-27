@@ -147,7 +147,7 @@ needs it, and then it is urgent.
 
 | | State |
 | --- | --- |
-| Mail | `MAIL_MAILER=log`. Nothing is delivered - password resets and verification emails are written to the log and go nowhere |
+| Mail | Google Workspace SMTP, wired but not armed. Every `MAIL_*` is set in the environment except `MAIL_PASSWORD`, and `MAIL_MAILER` stays `log` until it is - so nothing is delivered yet, and nothing throws either. Flip both together or a password reset starts failing instead of silently going nowhere |
 | Web push | `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` unset, so push alerts cannot be sent |
 | Payments | No NMI merchant account, so the billing flow cannot take money |
 
