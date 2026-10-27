@@ -7,20 +7,25 @@ namespace App\Enums;
 /**
  * Whether a sport+market has earned the right to produce recommendations.
  *
- * Two tiers may surface a pick, and they are different claims.
+ * One tier, and only one. `Proven` means the model beats the no-vig
+ * closing line, which is the strongest thing a sports model can say and
+ * almost nothing ever says it.
  *
- * `Proven` means the model beats the no-vig closing line. That is the
- * strongest thing a sports model can say and almost nothing ever says it:
- * measured here across eleven markets, every one of them loses to the
- * close. Keeping it as the only gate meant VIGIL published nothing and
- * would have gone on publishing nothing.
+ * `Calibrated` used to pass here too, on the reasoning that an honest
+ * probability is worth something even without an edge, and that holding
+ * the line at Proven meant publishing nothing. Both halves of that were
+ * true. It was still wrong: everything downstream of this method writes
+ * a recommendation, and a recommendation drawn from a market that is
+ * losing to the close reads as "we beat the book" however carefully the
+ * page is worded. `claimsEdge` below says so in as many words, and the
+ * live site was publishing a track record with a win rate and units
+ * where no market had ever cleared the gate.
  *
- * `Calibrated` means something weaker and still worth money: over a real
- * out-of-sample run, when this model says 60% the thing happens about 60%
- * of the time. That is an honest probability, not an edge over the
- * market, and it is labelled as such everywhere it appears. Four of the
- * eleven markets clear it and seven do not, which is what makes it a gate
- * rather than a rubber stamp.
+ * Publishing nothing is the correct output of a gate nothing has passed.
+ * It is not a dead end either: opinions are governed by calibration
+ * rather than by this method, so they keep being published and keep
+ * accumulating the closing-line measurements a market needs before it
+ * can ever answer Proven here.
  *
  * Everything else is reported plainly - never quietly hidden.
  */
@@ -34,7 +39,7 @@ enum Verdict: string
 
     public function allowsRecommendation(): bool
     {
-        return $this === self::Proven || $this === self::Calibrated;
+        return $this === self::Proven;
     }
 
     /**

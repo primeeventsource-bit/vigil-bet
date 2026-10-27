@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Opinion;
 use App\Models\PublishedPick;
+use App\Models\VlModel;
 use App\Services\Record\OpinionRecord;
 use App\Services\Record\PublicRecord;
 use Illuminate\Http\Request;
@@ -23,6 +24,14 @@ class RecordController extends Controller
 {
     public function index(Request $request, PublicRecord $record, OpinionRecord $opinions): View
     {
+        /*
+         * Nothing the engine produced is shown while no market has
+         * passed the gate. Not an empty table and not a page explaining
+         * the absence - the page is not part of the site until there is
+         * something it can honestly hold.
+         */
+        abort_unless(VlModel::anyMarketProven(), 404);
+
         $options = $record->filterOptions();
 
         /*
@@ -80,6 +89,12 @@ class RecordController extends Controller
      */
     public function show(PublishedPick $pick): View
     {
+        // The permalink too. §7 wants one per pick that never moves, and
+        // it will be there again the moment a market passes - but a
+        // permanent address for a claim we are no longer making is just
+        // the claim, still being made, one link deeper.
+        abort_unless(VlModel::anyMarketProven(), 404);
+
         return view('marketing.pick', [
             'pick' => $pick->load('result'),
         ]);

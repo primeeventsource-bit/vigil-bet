@@ -16,6 +16,7 @@ use App\Models\Team;
 use App\Models\ValueBet;
 use App\Models\ValueScan;
 use App\Models\VlEvent;
+use App\Models\VlModel;
 use App\Services\EdgeLab\Mirror;
 use App\Support\Internal\Present;
 use Illuminate\Support\Carbon;
@@ -360,4 +361,34 @@ function engineParlayVerdict(array $overrides = []): array
     ], $overrides));
 
     return Present::parlay($parlay) + ['stored' => false];
+}
+
+/**
+ * A market that has passed the verdict gate.
+ *
+ * The public record, the opinion page and the engine's section of the
+ * home page are all hidden until one of these exists, so a test that
+ * wants to see any of them has to say which market earned it. That is
+ * the point rather than an inconvenience: the pages went live for
+ * months against markets that had never passed, and nothing failed.
+ */
+function provenMarket(string $sport = 'nfl', string $market = 'h2h'): VlModel
+{
+    return VlModel::create([
+        'edge_lab_id' => random_int(1, 1_000_000),
+        'sport' => $sport,
+        'market' => $market,
+        'model_type' => 'logistic',
+        'version' => 3,
+        'status' => 'active',
+        'verdict' => Verdict::Proven->value,
+        'allows_picks' => true,
+        'predictions' => 1_284,
+        'log_loss_improvement' => 0.0231,
+        'gate' => ['min_predictions' => 500, 'min_log_loss_improvement' => 0.01],
+        'trained_at' => now()->subWeek(),
+        'payload' => [],
+        'digest' => uniqid('', true),
+        'observed_at' => now(),
+    ]);
 }

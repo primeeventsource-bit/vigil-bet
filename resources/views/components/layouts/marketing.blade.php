@@ -21,7 +21,10 @@
 
             <nav aria-label="Main" class="hidden items-center gap-6 text-sm sm:flex">
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('how-it-works') }}">How it works</a>
-                <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('record') }}">Track record</a>
+                {{-- The page 404s while nothing has passed the gate, so the nav goes with it. --}}
+                @if (\App\Models\VlModel::anyMarketProven())
+                    <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('record') }}">Track record</a>
+                @endif
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('pricing') }}">Pricing</a>
             </nav>
 

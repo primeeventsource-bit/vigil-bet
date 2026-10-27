@@ -19,8 +19,15 @@ declare(strict_types=1);
 | clear it on today's numbers and seven do not, which is what makes it a
 | standard rather than a rubber stamp.
 |
-| These tests fix the shape of that: what it lets through, what it still
-| refuses, and that it never claims an edge it has not got.
+| It no longer opens the pick gate. It did, and the result was a public
+| track record carrying a win rate and units for markets that had never
+| beaten the close - which is the claim `claimsEdge` says must never be
+| made for this tier, made on the most-read page on the site. Calibration
+| now governs what it can honestly govern: the opinions, where the claim
+| is the confidence figure itself and nothing more.
+|
+| These tests fix the shape of that: which markets reach the tier, which
+| do not, and that reaching it is not permission to recommend.
 |
 */
 
@@ -44,7 +51,7 @@ dataset('live markets', [
     'ncaab spreads' => [536, 0.2328, false],
 ]);
 
-it('publishes exactly the markets whose own numbers hold up', function (int $predictions, float $calibration, bool $expected) {
+it('reaches the calibrated tier for exactly the markets whose own numbers hold up', function (int $predictions, float $calibration, bool $expected) {
     /*
      * Every one of these loses to the closing line, so the proven tier
      * is unavailable to all of them. What separates them is whether
@@ -59,7 +66,10 @@ it('publishes exactly the markets whose own numbers hold up', function (int $pre
         improvementTStat: -3.1,
     );
 
-    expect($result->verdict->allowsRecommendation())->toBe($expected);
+    // Whether the tier is reached, not whether a pick may follow from
+    // it. Nothing here beats the close, so none of them may.
+    expect($result->verdict === Verdict::Calibrated)->toBe($expected)
+        ->and($result->verdict->allowsRecommendation())->toBeFalse();
 })->with('live markets');
 
 it('never lets the weaker tier claim an edge', function () {
@@ -73,10 +83,14 @@ it('never lets the weaker tier claim an edge', function () {
     );
 
     expect($result->verdict)->toBe(Verdict::Calibrated)
-        ->and($result->verdict->allowsRecommendation())->toBeTrue()
-        // The distinction the whole tier rests on.
+        // The distinction the whole tier rests on - and the reason it no
+        // longer opens the pick gate. A recommendation is read as an
+        // edge claim however the page is worded, so the tier that may
+        // not claim one may not issue them either.
         ->and($result->verdict->claimsEdge())->toBeFalse()
-        ->and(Verdict::Proven->claimsEdge())->toBeTrue();
+        ->and($result->verdict->allowsRecommendation())->toBeFalse()
+        ->and(Verdict::Proven->claimsEdge())->toBeTrue()
+        ->and(Verdict::Proven->allowsRecommendation())->toBeTrue();
 });
 
 it('says in the reason that it still loses to the market', function () {

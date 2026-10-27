@@ -31,10 +31,12 @@
             </p>
         </div>
 
-        <a href="{{ route('opinions') }}"
-           class="text-xs text-[var(--vg-slate)] underline transition hover:text-[var(--vg-paper)]">
-            See how they have done →
-        </a>
+        @if (\App\Models\VlModel::anyMarketProven())
+            <a href="{{ route('opinions') }}"
+               class="text-xs text-[var(--vg-slate)] underline transition hover:text-[var(--vg-paper)]">
+                See how they have done →
+            </a>
+        @endif
     </header>
 
     {{--

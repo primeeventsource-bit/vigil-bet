@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+// The record page is behind the verdict gate now, so a test that
+// reads it has to put a market through first.
+beforeEach(fn () => provenMarket());
+
 use App\Models\Opinion;
 use App\Support\Clock;
 use Carbon\CarbonImmutable;

@@ -43,7 +43,11 @@ function sourceFilesGating(): array
 
 it('asks one question about which verdicts may publish', function () {
     expect(Verdict::Proven->allowsRecommendation())->toBeTrue()
-        ->and(Verdict::Calibrated->allowsRecommendation())->toBeTrue()
+        // Calibrated states an honest probability and is still losing to
+        // the close. It governs the opinions, where that is the whole
+        // claim; it does not open this gate, because everything past
+        // this point writes a recommendation.
+        ->and(Verdict::Calibrated->allowsRecommendation())->toBeFalse()
         ->and(Verdict::Unproven->allowsRecommendation())->toBeFalse()
         ->and(Verdict::Negative->allowsRecommendation())->toBeFalse()
         ->and(Verdict::Insufficient->allowsRecommendation())->toBeFalse();

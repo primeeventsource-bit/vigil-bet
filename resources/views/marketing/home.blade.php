@@ -131,6 +131,14 @@
         that is not to label invented numbers carefully - it is for there
         to be no invented numbers anywhere near this page.
     --}}
+    {{--
+        Only once a market has passed the gate. Everything in this
+        section is the engine's own selection, and the comment above is
+        the reason it is wrapped rather than left to render an empty
+        shell: a heading that says what the engine likes today, over
+        nothing, is still a claim about what the engine likes today.
+    --}}
+    @if (\App\Models\VlModel::anyMarketProven())
     <section id="todays-picks" class="relative scroll-mt-24 border-b border-[var(--vg-line)]">
         <div class="mx-auto max-w-6xl px-6 py-20">
             <div class="flex flex-wrap items-end justify-between gap-4">
@@ -236,6 +244,7 @@
             </dl>
         </div>
     </section>
+    @endif
 
     {{-- The honest counter-pitch, which is the product's actual edge. --}}
     <section class="relative border-b border-[var(--vg-line)] bg-[var(--vg-navy)]">
@@ -298,7 +307,9 @@
         </div>
     </section>
 
-    <x-marketing.track-record-strip :record="$record" />
+    @if (\App\Models\VlModel::anyMarketProven())
+        <x-marketing.track-record-strip :record="$record" />
+    @endif
     <x-marketing.tiers />
     <x-marketing.faq />
 </x-layouts.marketing>

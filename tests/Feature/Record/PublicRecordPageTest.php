@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+/*
+ * These pages are hidden until a market has passed the gate, so each
+ * test says which one earned the page it is about to read.
+ */
+beforeEach(fn () => provenMarket());
+
 use App\Models\PickResult;
 use App\Models\PublishedPick;
 use App\Services\Record\PublicRecord;

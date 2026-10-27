@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\VlModel;
 use App\Services\Record\OpinionRecord;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -26,6 +27,14 @@ class OpinionRecordController extends Controller
 {
     public function __invoke(Request $request, OpinionRecord $record): View
     {
+        /*
+         * Same gate as /record. An opinion is a weaker claim than a
+         * pick, but it is still the engine's own selection on a page a
+         * stranger can read, and none of it belongs on the site while
+         * nothing has passed.
+         */
+        abort_unless(VlModel::anyMarketProven(), 404);
+
         $sports = $record->sports();
 
         // Validated against what exists. A sport nobody has an opinion

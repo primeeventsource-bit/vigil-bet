@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+/*
+ * The record page exists only once a market has passed the gate, so a
+ * test that asks for it has to earn it first. Everything else here is
+ * reachable whatever the engine has or has not proved.
+ */
+beforeEach(fn () => provenMarket());
+
 it('serves every public page', function (string $route) {
     $this->get(route($route))->assertOk();
 })->with(['home', 'pricing', 'how-it-works', 'record', 'login', 'register']);

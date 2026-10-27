@@ -40,6 +40,29 @@ class VlModel extends Model
         ];
     }
 
+    /**
+     * Whether any market at all has passed the gate.
+     *
+     * The question the public pages ask before rendering anything the
+     * engine produced. Answered from the verdict column rather than from
+     * the stored `allows_picks` flag beside it: that flag is written at
+     * sync time from whatever the gate said then, the mirror only writes
+     * a new row when the upstream payload changes, and a derived column
+     * is not part of that payload - so tightening the gate would never
+     * reach the stored flag and the pages would go on believing the old
+     * answer for ever.
+     *
+     * Memoised per request. Several components ask it while rendering
+     * one page and the answer cannot change mid-response.
+     */
+    public static function anyMarketProven(): bool
+    {
+        // `once` rather than a static of our own: the framework flushes
+        // it between requests and between tests, where a static would
+        // carry one test's answer into the next.
+        return once(fn (): bool => self::query()->current()->proven()->exists());
+    }
+
     public function scopeProven(Builder $query): Builder
     {
         return $query->whereIn('verdict', VlBoardEntry::recommendableVerdicts());

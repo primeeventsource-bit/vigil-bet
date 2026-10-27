@@ -74,16 +74,17 @@ it('refuses to prove a sharper model whose probabilities are miscalibrated', fun
         ->and($result->reason)->toContain('worse calibrated');
 });
 
-it('publishes a calibrated model that does not beat the market, and says it does not', function () {
+it('calls a model calibrated when it does not beat the market, and says it does not', function () {
     /*
-     * The change this tier exists for. Beating the no-vig close is the
-     * strongest claim a sports model can make and nothing here makes it -
-     * every one of the eleven live markets loses to the close. A gate
-     * only that could pass meant VIGIL published nothing, for ever.
+     * Beating the no-vig close is the strongest claim a sports model can
+     * make and nothing here makes it - every one of the eleven live
+     * markets loses to the close.
      *
      * What this model can say is narrower and true: when it says 60%, it
-     * happens about 60% of the time. So it may be published, and the
-     * reason carries the rest of the truth with it.
+     * happens about 60% of the time. That earns the calibrated tier and
+     * the reason carries the rest of the truth with it - but it does not
+     * earn a recommendation, because a recommendation is read as an edge
+     * claim and this tier has no edge to claim.
      */
     $result = $this->verdicter->decide(
         predictions: 600,
@@ -95,8 +96,8 @@ it('publishes a calibrated model that does not beat the market, and says it does
     );
 
     expect($result->verdict)->toBe(Verdict::Calibrated)
-        ->and($result->allowsRecommendation())->toBeTrue()
-        // Publishable, and never as an edge over the book.
+        // Measured, and still not a recommendation.
+        ->and($result->allowsRecommendation())->toBeFalse()
         ->and($result->verdict->claimsEdge())->toBeFalse()
         ->and($result->reason)->toContain('loses to the closing line');
 });
