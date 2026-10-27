@@ -259,6 +259,27 @@ html[data-theme='light'] {
         box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
     }
 
+    /*
+     * The navigation drawer's open state.
+     *
+     * A rule rather than a utility because it has to beat the panel's own
+     * `-translate-x-full`, and scoped under the sidebar's breakpoint so
+     * it cannot reach a desktop sidebar that is always in place - the
+     * script closes the drawer on the way up to `lg`, and this means a
+     * missed resize event still could not strand the overlay there.
+     */
+    @media (width < 64rem) {
+        html.nav-open [data-nav-panel] {
+            transform: translateX(0);
+        }
+
+        /* The page behind a drawer does not scroll. */
+        html.nav-open,
+        html.nav-open body {
+            overflow: hidden;
+        }
+    }
+
     .skip-link {
         position: absolute;
         left: -9999px;

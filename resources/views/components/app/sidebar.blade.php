@@ -24,11 +24,12 @@
      * product failed to keep.
      *
      * None of it is deleted. The routes still work and still carry their
-     * own middleware; they are listed under $engine below and shown to
-     * whoever runs the product. Deleting a working feature to tidy a
-     * sidebar would be throwing away the thing rather than the link.
+     * own middleware; they are listed under the engine group below and
+     * shown to whoever runs the product. Deleting a working feature to
+     * tidy a sidebar would be throwing away the thing rather than the
+     * link.
      */
-    $items = [
+    $platform = [
         ['route' => 'today', 'label' => 'Dashboard', 'icon' => 'grid'],
         ['route' => 'live-odds', 'label' => 'Live Odds', 'icon' => 'activity', 'feature' => 'board.full'],
         ['route' => 'games', 'label' => "Today's Games", 'icon' => 'grid', 'feature' => 'parlay.grade'],
@@ -64,55 +65,114 @@
         ['route' => 'reports', 'label' => 'Reports', 'icon' => 'file'],
     ];
 
+    /*
+     * Grouped rather than run together, which the reference layout does
+     * and which matters most for whoever runs the product: an admin's
+     * nav is seventeen items, and a flat seventeen reads as a list to
+     * search rather than a structure to navigate. A customer sees one
+     * group and no headings they have to skip past.
+     */
+    $groups = [['label' => null, 'items' => $platform]];
+
     if (auth()->user()?->isAdmin()) {
-        $items = array_merge($items, $engine);
+        $groups[] = ['label' => 'Engine', 'items' => $engine];
+        $groups[] = ['label' => 'Admin', 'items' => [
+            ['route' => 'admin.overview', 'label' => 'Overview', 'icon' => 'cog'],
+        ]];
     }
 
     /*
-     * Admin, for whoever runs the product. Appended rather than listed
-     * above so a customer's nav is not built around a link they will
-     * never see - and the route 404s for them anyway.
+     * The plan, named rather than sold. The reference draws an upgrade
+     * card here promising unlimited model signals and instant Telegram
+     * alerts; this says which tier the customer is actually on and links
+     * to the prices, because the first version would have been an
+     * invented feature list sitting under the real one.
      */
-    if (auth()->user()?->isAdmin()) {
-        $items[] = ['route' => 'admin.overview', 'label' => 'Admin', 'icon' => 'cog'];
-    }
+    $tier = auth()->user()?->tier() ?? 'free';
+    $tierName = str_replace(
+        ':brand',
+        (string) config('brand.name'),
+        (string) config('plans.tiers.'.$tier.'.name', $tier),
+    );
+    $tiers = array_keys((array) config('plans.tiers'));
+    $onTopTier = $tier === end($tiers);
 @endphp
 
-<aside class="hidden w-56 shrink-0 flex-col border-r border-[var(--vg-line)] bg-[var(--vg-navy)] lg:flex">
-    <div class="px-5 py-4">
+{{--
+    Dimmed page behind the drawer. Hidden until the script opens it, and
+    `lg:hidden` so it can never cover a desktop sidebar that is simply
+    always there.
+--}}
+<div data-nav-backdrop hidden
+     class="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm lg:hidden"></div>
+
+<aside data-nav-panel id="app-nav"
+       @class([
+           'fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-[var(--vg-line)] bg-[var(--vg-navy)]',
+           // Off-canvas until opened, and permanently in place from `lg`.
+           // The open state is a CSS rule in app.css, scoped below `lg`,
+           // rather than a utility: it has to beat `-translate-x-full`.
+           '-translate-x-full transition-transform duration-200 ease-out',
+           'lg:static lg:translate-x-0',
+       ])>
+    <div class="flex items-center justify-between px-5 py-4">
         <a href="{{ route('today') }}" aria-label="{{ config('brand.name') }} home">
             <x-brand.lockup size="h-7" />
         </a>
     </div>
 
-    <nav aria-label="Main" class="flex-1 px-3 pb-4">
-        <ul class="space-y-1">
-            @foreach ($items as $item)
-                @php($current = Route::has($item['route']) && request()->routeIs($item['route']))
-                @php($locked = isset($item['feature']) && Gate::denies($item['feature']))
-                <li>
-                    <a
-                        @if ($locked)
-                            href="{{ route('upgrade', ['feature' => $item['feature']]) }}"
-                            title="Not on your plan"
-                        @else
-                            href="{{ Route::has($item['route']) ? route($item['route']) : '#' }}"
-                        @endif
-                        @if ($current) aria-current="page" @endif
-                        @class([
-                            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition',
-                            'bg-[color-mix(in_srgb,var(--vg-edge)_16%,transparent)] font-semibold text-[var(--vg-edge)]' => $current,
-                            'text-[var(--vg-slate)] hover:bg-[var(--vg-slate-dark)] hover:text-[var(--vg-paper)]' => ! $current,
-                        ])>
-                        <x-app.icon :name="$item['icon']" class="h-4 w-4 shrink-0" />
-                        <span @class(['flex-1', 'opacity-60' => $locked])>{{ $item['label'] }}</span>
-                        @if ($locked)
-                            <x-app.icon name="lock" class="h-3.5 w-3.5 shrink-0 text-[var(--vg-slate)]" />
-                            <span class="sr-only">— not on your plan</span>
-                        @endif
-                    </a>
-                </li>
-            @endforeach
-        </ul>
+    <nav aria-label="Main" class="flex-1 overflow-y-auto px-3 pb-4">
+        @foreach ($groups as $group)
+            <div @class(['mt-5' => ! $loop->first])>
+                @if ($group['label'])
+                    <h2 class="px-3 pb-2 font-[family-name:var(--font-mono)] text-[10px] font-bold uppercase tracking-widest text-[var(--vg-muted)]">
+                        {{ $group['label'] }}
+                    </h2>
+                @endif
+
+                <ul class="space-y-1">
+                    @foreach ($group['items'] as $item)
+                        @php($current = Route::has($item['route']) && request()->routeIs($item['route']))
+                        @php($locked = isset($item['feature']) && Gate::denies($item['feature']))
+                        <li>
+                            <a
+                                @if ($locked)
+                                    href="{{ route('upgrade', ['feature' => $item['feature']]) }}"
+                                    title="Not on your plan"
+                                @else
+                                    href="{{ Route::has($item['route']) ? route($item['route']) : '#' }}"
+                                @endif
+                                @if ($current) aria-current="page" @endif
+                                @class([
+                                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition',
+                                    'bg-[color-mix(in_srgb,var(--vg-edge)_16%,transparent)] font-semibold text-[var(--vg-edge)]' => $current,
+                                    'text-[var(--vg-slate)] hover:bg-[var(--vg-slate-dark)] hover:text-[var(--vg-paper)]' => ! $current,
+                                ])>
+                                <x-app.icon :name="$item['icon']" class="h-4 w-4 shrink-0" />
+                                <span @class(['flex-1', 'opacity-60' => $locked])>{{ $item['label'] }}</span>
+                                @if ($locked)
+                                    <x-app.icon name="lock" class="h-3.5 w-3.5 shrink-0 text-[var(--vg-slate)]" />
+                                    <span class="sr-only">— not on your plan</span>
+                                @endif
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endforeach
     </nav>
+
+    <div class="border-t border-[var(--vg-line)] p-4">
+        <div class="rounded-xl border border-[var(--vg-line)] bg-[var(--vg-slate-dark)] p-3">
+            <p class="text-[10px] uppercase tracking-widest text-[var(--vg-muted)]">Your plan</p>
+            <p class="mt-0.5 font-[family-name:var(--font-display)] text-sm font-bold">{{ $tierName }}</p>
+
+            @unless ($onTopTier)
+                <a href="{{ route('pricing') }}"
+                   class="mt-2.5 block rounded-lg bg-[var(--vg-paper)] px-3 py-1.5 text-center text-[11px] font-bold text-[var(--vg-night)] transition hover:opacity-90">
+                    Compare plans
+                </a>
+            @endunless
+        </div>
+    </div>
 </aside>

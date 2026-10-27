@@ -1,4 +1,20 @@
 <header class="flex items-center gap-4 border-b border-[var(--vg-line)] bg-[var(--vg-navy)] px-6 py-3">
+    {{--
+        The drawer's handle. Ships hidden and is revealed by resources/js/nav.js,
+        the same bargain the theme toggle makes: without scripting the
+        desktop sidebar is unaffected and no button sits here doing
+        nothing.
+    --}}
+    <button type="button"
+            data-nav-toggle
+            hidden
+            aria-controls="app-nav"
+            aria-expanded="false"
+            class="-ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--vg-slate)] transition hover:bg-[var(--vg-slate-dark)] hover:text-[var(--vg-paper)] lg:hidden">
+        <x-app.icon name="menu" class="h-5 w-5" />
+        <span class="sr-only">Menu</span>
+    </button>
+
     <a href="{{ route('today') }}" class="lg:hidden" aria-label="{{ config('brand.name') }} home">
         <x-brand.lockup size="h-6" />
     </a>
