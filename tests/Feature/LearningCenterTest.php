@@ -18,6 +18,8 @@ function learner(): User
         'name' => 'Ops', 'email' => 'ops@example.com',
         'password' => 'correct-horse-battery-staple', 'email_verified_at' => now(),
         'is_admin' => true,
+        'two_factor_secret' => 'JBSWY3DPEHPK3PXP',
+        'two_factor_confirmed_at' => now(),
     ]);
 }
 

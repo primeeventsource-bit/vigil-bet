@@ -81,7 +81,7 @@ it('says the drawer is shut before anything has opened it', function () {
 
 it('groups the engine and admin pages for whoever runs the product', function () {
     $admin = shellUser('elite');
-    $admin->forceFill(['is_admin' => true])->save();
+    $admin->forceFill(['is_admin' => true, 'two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
 
     $this->actingAs($admin)->get(route('today'))
         ->assertOk()

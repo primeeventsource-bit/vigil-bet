@@ -97,7 +97,22 @@ it('makes the account an admin, because nothing else can', function () {
     // can reach is not an admin area.
     expect(User::sole()->isAdmin())->toBeTrue();
 
-    $this->actingAs(User::sole())->get(route('admin.overview'))->assertOk();
+    /*
+     * Sent to enrol a second factor, not into the overview. The command
+     * bootstraps an operator account into an environment that may have
+     * no mailer; it cannot bootstrap a phone. So the account is an admin
+     * the moment it exists and reaches the admin area one enrolment
+     * later, which is the order the requirement implies.
+     */
+    $this->actingAs(User::sole())->get(route('admin.overview'))
+        ->assertRedirect(route('two-factor.show'));
+
+    User::sole()->forceFill([
+        'two_factor_secret' => 'JBSWY3DPEHPK3PXP',
+        'two_factor_confirmed_at' => now(),
+    ])->save();
+
+    $this->actingAs(User::sole()->fresh())->get(route('admin.overview'))->assertOk();
 });
 
 it('can create an account without admin access', function () {

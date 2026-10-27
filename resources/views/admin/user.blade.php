@@ -4,10 +4,30 @@
         @unless ($customer->email_verified_at)
             <span class="badge badge-pass ml-2">unconfirmed</span>
         @endunless
-        @if ($customer->is_admin)
-            <span class="badge badge-edge ml-2">admin</span>
+        @foreach ($customer->roles as $role)
+            <span class="badge badge-edge ml-2">{{ $role->name }}</span>
+        @endforeach
+        @if ($customer->isSuspended())
+            <span class="badge badge-loss ml-2">suspended</span>
         @endif
     </p>
+
+    @if ($customer->isSuspended())
+        {{--
+            Said at the top, in the words the person themselves sees on
+            the sign-in page. A suspension buried below four panels is a
+            suspension somebody re-applies by accident.
+        --}}
+        <div class="panel mt-4 border-l-2 border-[var(--vg-loss)] p-4">
+            <p class="text-sm font-semibold text-[var(--vg-paper)]">
+                Suspended {{ $customer->suspended_at?->diffForHumans() }}
+                @if ($customer->suspendedBy)
+                    by {{ $customer->suspendedBy->email }}
+                @endif
+            </p>
+            <p class="mt-1 text-xs text-[var(--vg-slate)]">{{ $customer->suspended_reason }}</p>
+        </div>
+    @endif
 
     <section class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <x-stat-tile label="Effective plan"
@@ -253,5 +273,124 @@
                 @endforeach
             </ul>
         @endif
+    </section>
+
+    {{--
+        Account administration, last on the page on purpose. Everything
+        above answers "what is going on with this person"; this is the
+        part that changes it, and it should take a deliberate scroll.
+
+        Every control is wrapped in its own @can. A policy refusal and a
+        hidden button are not the same protection - the policy is the
+        one that holds - but showing an operator a button that will
+        refuse them is its own small lie.
+    --}}
+    <section class="panel mt-5 p-5">
+        <h2 class="font-[family-name:var(--font-display)] font-semibold">Account</h2>
+
+        @if ($customer->isSuperAdmin())
+            <p class="mt-2 text-xs text-[var(--vg-muted)]">
+                This account holds {{ config('roles.super_admin') }}. It cannot be edited, suspended,
+                demoted or deleted from here by anybody, including another {{ config('roles.super_admin') }}.
+                A reset link is the one thing that can still be sent, so a locked-out holder has a way back.
+            </p>
+        @endif
+
+        @can('update', $customer)
+            <div class="mt-4 border-t border-[var(--vg-line)] pt-4">
+                <h3 class="text-xs font-bold uppercase tracking-wide text-[var(--vg-slate)]">Details</h3>
+                <p class="mt-1 text-xs text-[var(--vg-muted)]">
+                    Changing the address clears its confirmation. The old one proved the old mailbox.
+                </p>
+
+                <x-admin.reasoned-form :action="route('admin.users.update', $customer)" label="Save">
+                    <label class="block text-xs">
+                        <span class="text-[var(--vg-slate)]">First name</span>
+                        <input name="first_name" required maxlength="60"
+                               value="{{ Str::before($customer->name, ' ') }}"
+                               class="mt-1 w-32 rounded-lg border border-[var(--vg-line)] bg-[var(--vg-night)] px-3 py-2">
+                    </label>
+                    <label class="block text-xs">
+                        <span class="text-[var(--vg-slate)]">Last name</span>
+                        <input name="last_name" required maxlength="60"
+                               value="{{ Str::after($customer->name, ' ') }}"
+                               class="mt-1 w-32 rounded-lg border border-[var(--vg-line)] bg-[var(--vg-night)] px-3 py-2">
+                    </label>
+                    <label class="block text-xs">
+                        <span class="text-[var(--vg-slate)]">Email</span>
+                        <input name="email" type="email" required maxlength="255" value="{{ $customer->email }}"
+                               class="mt-1 w-56 rounded-lg border border-[var(--vg-line)] bg-[var(--vg-night)] px-3 py-2">
+                    </label>
+                </x-admin.reasoned-form>
+            </div>
+        @endcan
+
+        @can('assignRole', $customer)
+            <div class="mt-4 border-t border-[var(--vg-line)] pt-4">
+                <h3 class="text-xs font-bold uppercase tracking-wide text-[var(--vg-slate)]">Role</h3>
+                <p class="mt-1 text-xs text-[var(--vg-muted)]">
+                    Removing {{ config('roles.admin') }} ends every session this account has open.
+                </p>
+
+                <x-admin.reasoned-form :action="route('admin.users.role', $customer)" label="Set role">
+                    <label class="block text-xs">
+                        <span class="text-[var(--vg-slate)]">Role</span>
+                        <select name="role" class="mt-1 rounded-lg border border-[var(--vg-line)] bg-[var(--vg-night)] px-3 py-2">
+                            <option value="{{ config('roles.user') }}"
+                                @selected(! $customer->hasRole(config('roles.admin')))>{{ config('roles.user') }}</option>
+                            <option value="{{ config('roles.admin') }}"
+                                @selected($customer->hasRole(config('roles.admin')))>{{ config('roles.admin') }}</option>
+                        </select>
+                    </label>
+                </x-admin.reasoned-form>
+            </div>
+        @endcan
+
+        @can('suspend', $customer)
+            <div class="mt-4 border-t border-[var(--vg-line)] pt-4">
+                <h3 class="text-xs font-bold uppercase tracking-wide text-[var(--vg-slate)]">Access</h3>
+
+                @if ($customer->isSuspended())
+                    <p class="mt-1 text-xs text-[var(--vg-muted)]">
+                        Reinstating lets this account sign in again. It does not lift a self-exclusion,
+                        which is the customer's own and cannot be shortened from here.
+                    </p>
+                    <x-admin.reasoned-form :action="route('admin.users.reinstate', $customer)"
+                                           label="Reinstate" />
+                @else
+                    <p class="mt-1 text-xs text-[var(--vg-muted)]">
+                        The reason is shown to this person on the sign-in page, so write it as a sentence.
+                        Suspending ends every open session immediately.
+                    </p>
+                    <x-admin.reasoned-form :action="route('admin.users.suspend', $customer)"
+                                           label="Suspend"
+                                           confirm="Suspend this account and end its sessions?" />
+                @endif
+            </div>
+        @endcan
+
+        <div class="mt-4 grid gap-4 border-t border-[var(--vg-line)] pt-4 sm:grid-cols-2">
+            @can('revokeSessions', $customer)
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-wide text-[var(--vg-slate)]">Sessions</h3>
+                    <p class="mt-1 text-xs text-[var(--vg-muted)]">
+                        Signs this account out of every device without suspending it.
+                    </p>
+                    <x-admin.reasoned-form :action="route('admin.users.revoke', $customer)"
+                                           label="Sign out everywhere" />
+                </div>
+            @endcan
+
+            @can('resetPassword', $customer)
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-wide text-[var(--vg-slate)]">Password</h3>
+                    <p class="mt-1 text-xs text-[var(--vg-muted)]">
+                        Sends a reset link. No operator ever sets a password on somebody's behalf.
+                    </p>
+                    <x-admin.reasoned-form :action="route('admin.users.reset', $customer)"
+                                           label="Send reset link" />
+                </div>
+            @endcan
+        </div>
     </section>
 </x-layouts.admin>

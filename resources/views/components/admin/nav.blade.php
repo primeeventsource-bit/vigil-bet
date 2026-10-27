@@ -1,7 +1,17 @@
 @php
+    /*
+     * The Super Admin tabs are appended rather than filtered out of a
+     * fixed list, so an ordinary operator's markup never mentions a page
+     * they cannot open. The middleware 404s it either way; this is just
+     * not advertising it.
+     */
     $tabs = [
         ['route' => 'admin.overview', 'label' => 'Overview'],
         ['route' => 'admin.users', 'label' => 'Users'],
+        ...(auth()->user()?->isSuperAdmin() ? [
+            ['route' => 'admin.admins', 'label' => 'Administrators'],
+            ['route' => 'admin.roles', 'label' => 'Roles'],
+        ] : []),
         ['route' => 'admin.billing', 'label' => 'Billing'],
         ['route' => 'admin.picks', 'label' => 'Picks ledger'],
         ['route' => 'admin.ai', 'label' => 'AI cost'],

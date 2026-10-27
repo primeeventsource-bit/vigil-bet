@@ -92,15 +92,34 @@ class AdminController extends Controller
     public function users(Request $request): View
     {
         $search = trim((string) $request->query('q', ''));
+        $role = trim((string) $request->query('role', ''));
+        $tier = trim((string) $request->query('tier', ''));
+        $status = trim((string) $request->query('status', ''));
+
+        $roles = [config('roles.super_admin'), config('roles.admin'), config('roles.user')];
 
         return view('admin.users', [
             'search' => $search,
+            'role' => $role,
+            'tier' => $tier,
+            'status' => $status,
+            'roles' => $roles,
+            'tiers' => array_keys((array) config('plans.tiers')),
             'users' => User::query()
-                ->with('subscription')
+                ->with(['subscription', 'roles'])
                 ->when($search !== '', fn ($q) => $q->where(function ($q) use ($search): void {
                     $q->where('email', 'like', '%'.$search.'%')
                         ->orWhere('name', 'like', '%'.$search.'%');
                 }))
+                // Validated against the known list rather than passed
+                // through: a role name arriving from a query string is
+                // whatever somebody typed.
+                ->when(in_array($role, $roles, true),
+                    fn ($q) => $q->whereHas('roles', fn ($r) => $r->where('name', $role)))
+                ->when(array_key_exists($tier, (array) config('plans.tiers')),
+                    fn ($q) => $q->whereHas('subscription', fn ($s) => $s->where('tier', $tier)))
+                ->when($status === 'suspended', fn ($q) => $q->whereNotNull('suspended_at'))
+                ->when($status === 'unverified', fn ($q) => $q->whereNull('email_verified_at'))
                 ->orderByDesc('id')
                 ->paginate(30)
                 ->withQueryString(),
@@ -119,7 +138,7 @@ class AdminController extends Controller
     public function user(User $user): View
     {
         return view('admin.user', [
-            'customer' => $user->load(['subscription', 'entitlementOverrides']),
+            'customer' => $user->load(['subscription', 'entitlementOverrides', 'roles', 'suspendedBy']),
             'billing' => BillingEvent::query()
                 ->where('user_id', $user->id)
                 ->orderByDesc('occurred_at')->orderByDesc('id')

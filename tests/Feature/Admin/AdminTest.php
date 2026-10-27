@@ -19,23 +19,52 @@ function admin(): User
         'password' => 'correct-horse-battery-staple',
         'email_verified_at' => now(),
         'is_admin' => true,
+        'two_factor_secret' => 'JBSWY3DPEHPK3PXP',
+        'two_factor_confirmed_at' => now(),
     ]);
 }
 
-/** Every GET page under /admin, read from the router. */
-function adminPages(): array
+/**
+ * Every GET page under /admin, read from the router.
+ *
+ * Super Admin pages are excluded by default, because an ordinary ADMIN
+ * is correctly 404'd from those and a test asserting 200 for all of them
+ * would be asserting a hole. Pass true to get the full list for a Super
+ * Admin, which is how the separation itself is tested.
+ */
+function adminPages(bool $includeSuperAdmin = false): array
 {
+    $superAdminOnly = ['admin.admins', 'admin.roles'];
     $pages = [];
 
     foreach (Route::getRoutes() as $route) {
-        if (in_array('GET', $route->methods(), true)
-            && str_starts_with((string) $route->getName(), 'admin.')
-            && ! str_contains((string) $route->uri(), '{')) {
-            $pages[] = $route->getName();
+        $name = (string) $route->getName();
+
+        if (! in_array('GET', $route->methods(), true)
+            || ! str_starts_with($name, 'admin.')
+            || str_contains((string) $route->uri(), '{')) {
+            continue;
         }
+
+        if (! $includeSuperAdmin && in_array($name, $superAdminOnly, true)) {
+            continue;
+        }
+
+        $pages[] = $name;
     }
 
     return $pages;
+}
+
+/** An operator with full authority, enrolled so /admin opens. */
+function superAdmin(): User
+{
+    $user = admin();
+    $user->assignRole(config('roles.super_admin'));
+    $user->load('roles');
+    $user->syncAdminFlag();
+
+    return $user->refresh();
 }
 
 /*
@@ -72,6 +101,45 @@ it('lets an admin into every page', function () {
     foreach (adminPages() as $page) {
         $this->actingAs($ops)->get(route($page))->assertOk();
     }
+});
+
+it('keeps the super admin pages out of an ordinary admin, as a 404', function () {
+    /*
+     * 404 rather than 403, same as every other admin page. A 403 tells
+     * an operator there is a page here they are not allowed to open,
+     * which is the start of a question they will go and find an answer
+     * to. Spatie's own role middleware aborts 403, which is why it is
+     * not the thing guarding these.
+     */
+    $ops = admin();
+
+    $this->actingAs($ops)->get(route('admin.admins'))->assertNotFound();
+    $this->actingAs($ops)->get(route('admin.roles'))->assertNotFound();
+});
+
+it('lets a super admin into every page including their own', function () {
+    $boss = superAdmin();
+
+    foreach (adminPages(includeSuperAdmin: true) as $page) {
+        $this->actingAs($boss)->get(route($page))->assertOk();
+    }
+});
+
+it('sends an admin without a second factor to enrol rather than into the product', function () {
+    /*
+     * The spec requires MFA for administrative access. Requiring
+     * something means refusing without it - but refusing has to leave a
+     * way forward, or the first operator through after this shipped
+     * would be locked out of the product they run.
+     */
+    $ops = admin();
+    $ops->forceFill(['two_factor_secret' => null, 'two_factor_confirmed_at' => null])->save();
+
+    $this->actingAs($ops)->get(route('admin.overview'))
+        ->assertRedirect(route('two-factor.show'));
+
+    // And the page that fixes it stays reachable, or the redirect loops.
+    $this->actingAs($ops)->get(route('two-factor.show'))->assertOk();
 });
 
 it('refuses every admin write to a customer', function () {
@@ -287,9 +355,15 @@ it('has no route that edits a bet, a pick, a billing event or an audit entry', f
 
     /*
      * An admin area that can change anything is an admin area that
-     * eventually does. These five are the only writes, and the tables
-     * behind everything else are append-only in the database - this
-     * controller could not write them if it tried.
+     * eventually does. This is the complete list, and the point of the
+     * test is that adding to it has to be deliberate.
+     *
+     * Note what is still absent after account administration arrived:
+     * nothing edits a bet, a published pick, a billing event or an audit
+     * entry. Those tables are append-only in the database and these
+     * controllers could not write them if they tried. And there is no
+     * delete and no impersonate - UserPolicy refuses both to everybody,
+     * including a Super Admin, so neither was given a route.
      */
     expect($writes->all())->toEqualCanonicalizing([
         'admin.override',
@@ -297,6 +371,20 @@ it('has no route that edits a bet, a pick, a billing event or an audit entry', f
         'admin.tier',
         'admin.refund',
         'admin.flag',
+
+        // Account administration. Each one authorized by UserPolicy
+        // rather than by having reached the admin group.
+        'admin.users.store',
+        'admin.users.update',
+        'admin.users.role',
+        'admin.users.suspend',
+        'admin.users.reinstate',
+        'admin.users.revoke',
+        'admin.users.reset',
+
+        // Super Admin only, behind their own middleware as well.
+        'admin.admins.permissions',
+        'admin.admins.revoke',
     ]);
 });
 

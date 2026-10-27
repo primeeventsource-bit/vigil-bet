@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\AdminActionController;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\AdminManagementController;
+use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
@@ -323,7 +325,14 @@ Route::middleware('auth')->group(function (): void {
          * first is a question and none of it can change anything; every
          * write in the second is audited and requires a typed reason.
          */
-        Route::middleware('admin')->prefix('admin')->name('admin.')->group(function (): void {
+        /*
+         * `admin-2fa` sits beside `admin`: holding the role is not
+         * enough, the account has to have enrolled a second factor.
+         * It redirects to enrolment rather than refusing, so the first
+         * administrator through after this shipped is sent to set it up
+         * rather than locked out of the product they run.
+         */
+        Route::middleware(['admin', 'admin-2fa'])->prefix('admin')->name('admin.')->group(function (): void {
             Route::get('/', [AdminController::class, 'overview'])->name('overview');
             Route::get('users', [AdminController::class, 'users'])->name('users');
             Route::get('users/{user}', [AdminController::class, 'user'])->name('user');
@@ -348,12 +357,42 @@ Route::middleware('auth')->group(function (): void {
             Route::get('learning', LearningCenterController::class)->name('learning');
             Route::get('sync-health', SyncHealthController::class)->name('sync-health');
 
+            /*
+             * Administering the administrators. Behind `super-admin`,
+             * which 404s like `admin` does - an ordinary operator does
+             * not learn the page exists.
+             */
+            Route::middleware('super-admin')->group(function (): void {
+                Route::get('admins', [AdminManagementController::class, 'index'])->name('admins');
+                Route::get('roles', [AdminManagementController::class, 'roles'])->name('roles');
+            });
+
             Route::middleware('throttle:30,1')->group(function (): void {
                 Route::post('users/{user}/override', [AdminActionController::class, 'override'])->name('override');
                 Route::delete('users/{user}/override', [AdminActionController::class, 'removeOverride'])->name('override.remove');
                 Route::post('users/{user}/tier', [AdminActionController::class, 'tier'])->name('tier');
                 Route::post('refund', [AdminActionController::class, 'refund'])->name('refund');
                 Route::post('flag', [AdminActionController::class, 'flag'])->name('flag');
+
+                /*
+                 * Account administration. Each one is authorized by
+                 * UserPolicy rather than by having reached this group -
+                 * the middleware says you may be here, the policy says
+                 * whether you may do this to this person. That is what
+                 * stops an ADMIN touching a SUPER_ADMIN.
+                 */
+                Route::post('users', [UserManagementController::class, 'store'])->name('users.store');
+                Route::post('users/{user}/edit', [UserManagementController::class, 'update'])->name('users.update');
+                Route::post('users/{user}/role', [UserManagementController::class, 'role'])->name('users.role');
+                Route::post('users/{user}/suspend', [UserManagementController::class, 'suspend'])->name('users.suspend');
+                Route::post('users/{user}/reinstate', [UserManagementController::class, 'reinstate'])->name('users.reinstate');
+                Route::post('users/{user}/revoke-sessions', [UserManagementController::class, 'revokeSessions'])->name('users.revoke');
+                Route::post('users/{user}/send-reset', [UserManagementController::class, 'sendReset'])->name('users.reset');
+
+                Route::middleware('super-admin')->group(function (): void {
+                    Route::post('admins/{user}/permissions', [AdminManagementController::class, 'permissions'])->name('admins.permissions');
+                    Route::post('admins/{user}/revoke', [AdminManagementController::class, 'revoke'])->name('admins.revoke');
+                });
             });
         });
 

@@ -211,7 +211,7 @@ it('keeps the shadow page behind the admin gate', function () {
     $this->actingAs($customer)->get(route('admin.shadow'))->assertNotFound();
 
     $admin = betUser('pro');
-    $admin->forceFill(['is_admin' => true])->save();
+    $admin->forceFill(['is_admin' => true, 'two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
 
     $this->actingAs($admin)->get(route('admin.shadow'))
         ->assertOk()
@@ -222,7 +222,7 @@ it('keeps the shadow page behind the admin gate', function () {
 
 it('shows no win rate until something has been graded', function () {
     $admin = betUser('pro');
-    $admin->forceFill(['is_admin' => true])->save();
+    $admin->forceFill(['is_admin' => true, 'two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
 
     shadowCandidate();
     app(ShadowRecorder::class)->record();
@@ -248,7 +248,7 @@ it('groups by sport without selecting ungrouped columns', function () {
      * than this one instance of it.
      */
     $admin = betUser('pro');
-    $admin->forceFill(['is_admin' => true])->save();
+    $admin->forceFill(['is_admin' => true, 'two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
 
     shadowCandidate();
     app(ShadowRecorder::class)->record();
@@ -273,7 +273,7 @@ it('groups by sport without selecting ungrouped columns', function () {
 
 it('shows a settled sport in the by-sport table', function () {
     $admin = betUser('pro');
-    $admin->forceFill(['is_admin' => true])->save();
+    $admin->forceFill(['is_admin' => true, 'two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
 
     $bet = shadowCandidate(hoursToKickoff: 2);
     app(ShadowRecorder::class)->record();
@@ -380,7 +380,7 @@ it('counts one bet per selection even with duplicates already stored', function 
         ->and(ShadowPick::query()->canonical()->sole()->id)->toBe($first->id);
 
     $admin = betUser('pro');
-    $admin->forceFill(['is_admin' => true])->save();
+    $admin->forceFill(['is_admin' => true, 'two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
 
     // The tile reads selections, not rows.
     $this->actingAs($admin)->get(route('admin.shadow'))
