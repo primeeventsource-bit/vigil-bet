@@ -44,6 +44,8 @@
          */
         ['route' => 'odds', 'label' => 'Odds Comparison', 'icon' => 'search', 'feature' => 'lineshopping'],
         ['route' => 'player-iq', 'label' => 'Player IQ', 'icon' => 'target', 'feature' => 'playeriq'],
+        ['route' => 'prop-projections', 'label' => 'Projected Props', 'icon' => 'cpu', 'feature' => 'props.projected'],
+        ['route' => 'my-picks', 'label' => 'My Picks', 'icon' => 'file'],
         /*
          * Results was pointing at the public marketing page, which
          * showed the engine's record and never the customer's own. It

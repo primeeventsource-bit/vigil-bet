@@ -28,9 +28,11 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\ParlayController;
 use App\Http\Controllers\PerformanceController;
 use App\Http\Controllers\PlayerIqController;
+use App\Http\Controllers\PropProjectionController;
 use App\Http\Controllers\PropsController;
 use App\Http\Controllers\RecordController;
 use App\Http\Controllers\SafetyController;
+use App\Http\Controllers\SavedPickController;
 use App\Http\Controllers\SyncHealthController;
 use App\Http\Controllers\ToolsController;
 use App\Http\Controllers\UpgradeController;
@@ -307,6 +309,29 @@ Route::middleware('auth')->group(function (): void {
          * claim anything Pro did not already have - the ratings have
          * been computed nightly since launch and displayed nowhere.
          */
+        /*
+         * Projected props. Elite's other grant, and a separate page
+         * from Props on purpose - that controller states an invariant
+         * that no probability or edge may ever appear on it, because
+         * its quotes come from a mirror the model pipeline is
+         * structurally forbidden to read. This is the other pipeline.
+         */
+        Route::get('prop-projections', PropProjectionController::class)
+            ->middleware('entitled:props.projected')->name('prop-projections');
+
+        /*
+         * My Picks: opinions a customer kept. Ungated, because a
+         * shortlist of things the product already showed them is not
+         * something to sell, and gating it would mean a downgrade
+         * silently emptying a list somebody built.
+         */
+        Route::get('my-picks', [SavedPickController::class, 'index'])->name('my-picks');
+
+        Route::middleware('throttle:60,1')->group(function (): void {
+            Route::post('my-picks/{opinion}', [SavedPickController::class, 'store'])->name('my-picks.save');
+            Route::delete('my-picks/{opinion}', [SavedPickController::class, 'destroy'])->name('my-picks.remove');
+        });
+
         Route::get('player-iq', [PlayerIqController::class, 'index'])
             ->middleware('entitled:playeriq')->name('player-iq');
 
