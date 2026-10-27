@@ -1,8 +1,11 @@
 <?php
 
 use App\Http\Middleware\EnforceSelfExclusion;
+use App\Http\Middleware\EnforceSuspension;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureEntitled;
+use App\Http\Middleware\EnsureSuperAdmin;
+use App\Http\Middleware\RequireAdminTwoFactor;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -25,6 +28,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'entitled' => EnsureEntitled::class,
             'admin' => EnsureAdmin::class,
+            // Both 404 rather than 403, matching EnsureAdmin. Spatie
+            // ships its own role middleware that aborts 403; it is not
+            // used here, because a 403 confirms the page exists.
+            'super-admin' => EnsureSuperAdmin::class,
+            'admin-2fa' => RequireAdminTwoFactor::class,
         ]);
 
         /*
@@ -34,6 +42,18 @@ return Application::configure(basePath: dirname(__DIR__))
          * web group rather than being applied route by route.
          */
         $middleware->appendToGroup('web', EnforceSelfExclusion::class);
+
+        /*
+         * Suspension, on the same terms and for the same reason. The
+         * terms page has promised this since launch; until now nothing
+         * could carry it out.
+         *
+         * Ordered after self-exclusion on purpose. If somebody is both
+         * excluded and suspended, the exclusion message is the one they
+         * should see - it is theirs, it has an end date, and it is the
+         * one the regulator cares about.
+         */
+        $middleware->appendToGroup('web', EnforceSuspension::class);
 
         /*
          * Payment processors do not carry CSRF tokens, and cannot: a

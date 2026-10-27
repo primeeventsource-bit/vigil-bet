@@ -8,15 +8,18 @@ use App\Services\Entitlements\Entitlements;
 use App\Services\Security\Totp;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use SensitiveParameter;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
-    use HasFactory, Notifiable;
+    use HasFactory, HasRoles, Notifiable;
 
     protected $fillable = ['name', 'email', 'password'];
 
@@ -32,6 +35,13 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            // Was missing, and isAdmin() has been compensating with a
+            // manual (bool) ever since. Postgres hands back a real
+            // boolean and SQLite hands back 0/1, so the cast is what
+            // makes `=== true` mean the same thing on both.
+            'is_admin' => 'boolean',
+            'suspended_at' => 'datetime',
+            'last_login_at' => 'datetime',
             // Encrypted, not hashed: both have to be readable again, the
             // secret to check a code against and the codes to show once.
             'two_factor_secret' => 'encrypted',
@@ -57,13 +67,75 @@ class User extends Authenticatable implements MustVerifyEmail
     /**
      * Whether this person runs the product rather than uses it.
      *
-     * A column rather than a role, because there are two kinds of
-     * person here and a permissions system for two cases is one nobody
-     * maintains.
+     * Still a column, and still the thing EnsureAdmin reads. Roles came
+     * later and sit beside it rather than replacing it: the middleware
+     * guarding every admin route answers in one already-loaded boolean
+     * instead of a join, and the 404-not-403 behaviour that AdminTest
+     * enumerates route by route is unchanged.
+     *
+     * The column is kept true to the roles by syncAdminFlag() below, so
+     * there is exactly one writer and no way for the two to drift.
      */
     public function isAdmin(): bool
     {
-        return (bool) $this->is_admin;
+        return $this->is_admin === true;
+    }
+
+    /**
+     * Full authority. One account type, deliberately hard to acquire.
+     *
+     * Nothing in the HTTP layer can grant this - not registration, not
+     * the admin pages, not an ADMIN with every permission ticked. Only
+     * the console command does, and the policies refuse every edit,
+     * demotion, deletion and impersonation aimed at somebody holding it.
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole(config('roles.super_admin'));
+    }
+
+    /**
+     * Keep `is_admin` answerable to the roles.
+     *
+     * Called from the model's saved hook and after any role change. The
+     * flag is a cache of "holds an administrative role", and a cache
+     * that can disagree with its source is worse than no cache: the
+     * middleware would let somebody through whose role had been taken
+     * away that morning.
+     */
+    public function syncAdminFlag(): void
+    {
+        $shouldBeAdmin = $this->hasAnyRole([
+            config('roles.super_admin'),
+            config('roles.admin'),
+        ]);
+
+        if ($this->is_admin !== $shouldBeAdmin) {
+            $this->forceFill(['is_admin' => $shouldBeAdmin])->saveQuietly();
+        }
+    }
+
+    /** Signed out of every device, everywhere, at once. */
+    public function revokeSessions(): int
+    {
+        return DB::table('sessions')->where('user_id', $this->getKey())->delete();
+    }
+
+    /**
+     * Locked out by an operator, as distinct from locked out by choice.
+     *
+     * Self-exclusion is the customer's own decision and has no end date
+     * anybody here can shorten. This is the other one - the capability
+     * the terms have promised since launch and the code has never had.
+     */
+    public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
+    }
+
+    public function suspendedBy(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'suspended_by');
     }
 
     public function tier(): string

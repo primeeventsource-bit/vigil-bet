@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Auth\Events\Lockout;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -159,6 +160,19 @@ class LoginController extends Controller
         if (! RateLimiter::tooManyAttempts($key, 5)) {
             return;
         }
+
+        /*
+         * Announce it. This controller throttles by hand rather than
+         * through Laravel's trait, so nothing was firing the event the
+         * framework defines for exactly this moment - and the audit
+         * listener that records lockouts would have sat silent forever.
+         *
+         * The lockout is the only sign-in failure recorded. Individual
+         * wrong passwords are counted by the limiter and forgotten,
+         * because audit_log is append-only and un-prunable, so a row per
+         * guess is storage an attacker gets to choose the size of.
+         */
+        event(new Lockout($request));
 
         throw ValidationException::withMessages([
             $scope === 'login' ? 'email' : 'code' => 'Too many attempts. Try again in '
