@@ -57,6 +57,37 @@
         -webkit-font-smoothing: antialiased;
     }
 
+    /*
+     * A slim scrollbar in the palette's own colours.
+     *
+     * The default on Windows is a wide pale trough, which on a near-black
+     * page is the brightest thing on screen and sits down the full height
+     * of it. Tokens rather than hexes, so it follows the theme into light
+     * mode instead of staying dark there.
+     */
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--vg-line) var(--vg-night);
+    }
+
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: var(--vg-night);
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--vg-line);
+        border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--vg-muted);
+    }
+
     h1, h2, h3, h4 {
         font-family: var(--font-display);
         letter-spacing: -0.01em;
@@ -206,10 +237,26 @@ html[data-theme='light'] {
         background-color: color-mix(in srgb, var(--vg-warning) 16%, transparent);
     }
 
+    /*
+     * The surface everything sits on.
+     *
+     * The shadow is what separates a panel from the page now that the
+     * border is the layout's darker seam. That rule is very nearly
+     * invisible against the canvas, which is the look, but with nothing
+     * behind it a card stops reading as a card at all. Cast downward and
+     * heavily diffused, so it reads as the panel being lifted rather
+     * than as a drawn edge.
+     */
     .panel {
         background-color: var(--vg-navy);
         border: 1px solid var(--vg-line);
         border-radius: 0.75rem;
+        box-shadow: 0 8px 30px rgb(0 0 0 / 0.85);
+    }
+
+    /* No lift on a white page, where a black shadow is just grime. */
+    html[data-theme='light'] .panel {
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
     }
 
     .skip-link {

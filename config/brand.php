@@ -91,7 +91,7 @@ return [
         // The page itself. Stealth Black's canvas.
         'night' => '#0A0A0A',
         // Panels. The surface the .panel class paints with.
-        'navy' => '#111315',
+        'navy' => '#12141A',
         /*
          * The elevated surface, for a card sitting on a panel.
          *
@@ -101,18 +101,28 @@ return [
          * a surface toward the light, so a tile on a panel reads as
          * nearer rather than as a hole cut into it.
          */
-        'slate_dark' => '#1E1F22',
+        'slate_dark' => '#181B24',
         // Borders, rules and the seams between panels.
-        'line' => '#2D2F32',
+        'line' => '#1E222D',
 
-        'green' => '#5FD39A',
-        'blue' => '#6AA8E0',
+        'green' => '#10B981',
+        'blue' => '#06B6D4',
 
-        // Type. White for headings and primary text, silver beneath
-        // it, and a third step for captions and table rules.
+        /*
+         * Type. White for headings and primary text, silver beneath it,
+         * and a third step for captions and table rules.
+         *
+         * The two silvers moved up a stop when the palette took the
+         * layout's values, and the lower one needed to: `muted` was
+         * #74777C, which is 4.4:1 on this canvas and so under AA for the
+         * 11px captions it is mostly used on. It is now the layout's
+         * subtle-label silver at 7.5:1, and `slate` is the layout's
+         * secondary-text silver at 13.3:1. Faithful to the reference and
+         * legible, which happened to be the same choice.
+         */
         'paper' => '#FFFFFF',
-        'slate' => '#A7A7AB',
-        'muted' => '#74777C',
+        'slate' => '#CBD5E1',
+        'muted' => '#94A3B8',
 
         /*
          * Charts are drawn in white and silver, which is both the look and
@@ -127,11 +137,11 @@ return [
          * means anything and the one colour that does must not also be
          * the wallpaper.
          */
-        'decor' => '#A7A7AB',
+        'decor' => '#94A3B8',
 
         'chart_line' => '#FFFFFF',
-        'chart_fill' => '#A7A7AB',
-        'chart_grid' => '#2D2F32',
+        'chart_fill' => '#94A3B8',
+        'chart_grid' => '#1E222D',
 
         /*
          * Semantic, and restrained to suit the field around them. Green is
@@ -140,9 +150,9 @@ return [
          * in greyscale and to the roughly one man in twelve who cannot
          * separate the green from the red.
          */
-        'edge' => '#5FD39A',
-        'loss' => '#E8736F',
-        'warning' => '#D9A441',
+        'edge' => '#10B981',
+        'loss' => '#EF4444',
+        'warning' => '#F59E0B',
 
         /*
          * Light mode, which is supported and is not the default. The same
