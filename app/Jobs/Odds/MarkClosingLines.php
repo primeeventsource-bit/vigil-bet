@@ -26,6 +26,12 @@ class MarkClosingLines implements ShouldQueue
 
     public int $tries = 2;
 
+    // Not an immediate retry. Both the database and the application
+    // hibernate, so the failure this guards against is a connection
+    // dropped by something that is still waking up - and a second
+    // attempt in the same second meets exactly the same dead socket.
+    public int $backoff = 60;
+
     /**
      * Events per round trip.
      *
