@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Opinion;
 use App\Models\VlBoardEntry;
 use App\Services\EdgeLab\SyncHealth;
+use App\Services\Odds\GameMarkets;
 use App\Services\Record\OpinionRecord;
 use App\Services\Record\PublicRecord;
 use Illuminate\View\View;
@@ -20,8 +21,25 @@ use Illuminate\View\View;
  */
 class PageController extends Controller
 {
-    public function home(OpinionRecord $opinions): View
+    public function home(OpinionRecord $opinions, GameMarkets $markets): View
     {
+        /*
+         * The ticker, which the reference layout draws as "LIVE
+         * SURVEILLANCE FEED" over Bills vs Chiefs at odds somebody typed
+         * in. None of that was data. These are real upcoming games at
+         * real consensus prices, and if there are none the band does not
+         * render at all - an empty ticker says the feed is broken, and a
+         * ticker with invented games in it says something worse.
+         *
+         * A short window on purpose. The board holds 8,000 scheduled
+         * fixtures; a strip across the top of a marketing page is about
+         * what is on tonight, not about March.
+         */
+        $ticker = $markets->upcoming(null, 36)
+            ->filter(static fn (array $game): bool => ($game['markets']['h2h'] ?? []) !== [])
+            ->take(12)
+            ->values();
+
         /*
          * The three steps live here rather than in the template because
          * they are copy, and copy that sits in a Blade loop is copy nobody
@@ -29,6 +47,26 @@ class PageController extends Controller
          */
         return view('marketing.home', [
             'record' => $this->publicRecord(),
+
+            'ticker' => $ticker,
+            'tickerPricedAt' => $ticker->isEmpty() ? null : $markets->lastPricedAt(),
+
+            /*
+             * The callout ribbon from the reference layout. Copy lives
+             * here for the same reason the three steps do, and every line
+             * of it names something that exists: the engine publishes
+             * opinions, the odds are pulled from every tracked book, bets
+             * are recorded and settled, and parlays are built and graded.
+             * The reference ribbon's sixth claim was steam alerts over
+             * Telegram, which is why there are five of these.
+             */
+            'features' => [
+                ['icon' => 'cpu', 'heading' => 'AI predictions', 'body' => 'Independent analysis'],
+                ['icon' => 'activity', 'heading' => 'Real-time odds', 'body' => 'Live market data'],
+                ['icon' => 'chart', 'heading' => 'Track your bets', 'body' => 'Full performance history'],
+                ['icon' => 'layers', 'heading' => 'Build parlays', 'body' => 'Create and record'],
+                ['icon' => 'target', 'heading' => 'Data-driven edge', 'body' => 'Not guesswork'],
+            ],
 
             /*
              * Today's published opinions, on the front page.

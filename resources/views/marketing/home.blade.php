@@ -80,6 +80,15 @@
     </section>
 
     {{--
+        Hero, then what the product does, then what the market is doing
+        right now - the reference layout's order, and the order that
+        answers a stranger's questions in the order they ask them.
+    --}}
+    <x-marketing.feature-ribbon :features="$features" />
+
+    <x-marketing.odds-ticker :games="$ticker" :priced-at="$tickerPricedAt" />
+
+    {{--
         The brand band, from the supplied asset pack.
 
         Used whole rather than as a background plate. At 801x174 it is a

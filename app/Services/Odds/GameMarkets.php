@@ -6,6 +6,7 @@ namespace App\Services\Odds;
 
 use App\Models\Event;
 use App\Services\Parlay\ParlaySlip;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -66,6 +67,14 @@ class GameMarkets
                 'starts_at' => $event->starts_at,
                 'home' => $event->homeTeam?->display_name ?? 'Home',
                 'away' => $event->awayTeam?->display_name ?? 'Away',
+                /*
+                 * Short forms too, for places that have to fit a price
+                 * beside the team. They fall back to the full name
+                 * rather than to an empty label - a nameless price is
+                 * worse than a wide one.
+                 */
+                'home_short' => $event->homeTeam?->abbreviation ?: ($event->homeTeam?->display_name ?? 'Home'),
+                'away_short' => $event->awayTeam?->abbreviation ?: ($event->awayTeam?->display_name ?? 'Away'),
                 'markets' => $prices[$event->id] ?? [],
             ])
             ->filter(static fn (array $game): bool => $game['markets'] !== [])
@@ -76,6 +85,25 @@ class GameMarkets
     public function sportsWithGames(int $hours = 72): Collection
     {
         return $this->upcoming(null, $hours)->pluck('sport')->unique()->sort()->values();
+    }
+
+    /**
+     * When the newest price on show was pulled.
+     *
+     * For the one line of copy that says how fresh the prices are. The
+     * reference layout writes "Updated 12s ago" into the markup, which
+     * would be a lie the moment it was true once; this is the actual
+     * timestamp, and null when there is nothing fresh enough to show -
+     * in which case the caller has nothing to date and should say
+     * nothing rather than guess.
+     */
+    public function lastPricedAt(): ?Carbon
+    {
+        $at = DB::table('odds_snapshots')
+            ->where('pulled_at', '>', now()->subHours(self::FRESH_HOURS))
+            ->max('pulled_at');
+
+        return $at === null ? null : Carbon::parse($at);
     }
 
     /**
