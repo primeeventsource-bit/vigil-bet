@@ -22,6 +22,16 @@ return [
         'key' => env('RESEND_API_KEY'),
     ],
 
+    /*
+     * MaxMind, for the approximate location recorded against a trial
+     * activation. Optional in the strongest sense: without a key the
+     * databases are never downloaded, Geo returns nulls, and every
+     * other part of the product behaves identically.
+     */
+    'maxmind' => [
+        'license_key' => env('MAXMIND_LICENSE_KEY', ''),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

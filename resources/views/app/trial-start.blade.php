@@ -39,9 +39,13 @@
 
             <form method="POST" action="{{ route('trial.activate') }}" class="mt-6">
                 @csrf
+                {{-- The same characters as the pricing card, because a
+                     button that changes wording between the page that
+                     offered it and the page that presses it is two
+                     different offers. --}}
                 <button type="submit"
-                        class="rounded-lg bg-[var(--vg-paper)] px-6 py-3 font-bold uppercase tracking-wide text-[var(--vg-night)]">
-                    Start free {{ $hours }}-hour trial
+                        class="rounded-lg bg-[var(--vg-paper)] px-6 py-3 font-bold tracking-wide text-[var(--vg-night)]">
+                    ACTIVATE MY FREE TRIAL
                 </button>
             </form>
 

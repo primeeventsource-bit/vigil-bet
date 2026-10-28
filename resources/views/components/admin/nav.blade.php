@@ -12,6 +12,7 @@
             ['route' => 'admin.admins', 'label' => 'Administrators'],
             ['route' => 'admin.roles', 'label' => 'Roles'],
         ] : []),
+        ['route' => 'admin.trials', 'label' => 'Trials'],
         ['route' => 'admin.billing', 'label' => 'Billing'],
         ['route' => 'admin.picks', 'label' => 'Picks ledger'],
         ['route' => 'admin.ai', 'label' => 'AI cost'],

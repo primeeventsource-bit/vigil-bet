@@ -81,9 +81,18 @@
                             page; everybody else registers first, which
                             is the whole of "account required".
                         --}}
+                        {{--
+                            Written in capitals rather than uppercased
+                            in CSS. The brand name is uppercased by
+                            stylesheet elsewhere so a rename survives,
+                            but this string carries no brand and the
+                            specification names it exactly - a reader
+                            checking the page against the spec should
+                            find the same characters in the markup.
+                        --}}
                         <a href="{{ auth()->check() ? route('trial') : route('register') }}"
-                           class="mt-6 block rounded-lg bg-[var(--vg-paper)] px-4 py-3 text-center text-sm font-bold uppercase tracking-wide text-[var(--vg-night)]">
-                            Start free {{ config('plans.trial_hours') }}-hour trial
+                           class="mt-6 block rounded-lg bg-[var(--vg-paper)] px-4 py-3 text-center text-sm font-bold tracking-wide text-[var(--vg-night)]">
+                            START FREE {{ config('plans.trial_hours') }}-HOUR TRIAL
                         </a>
 
                         {{--

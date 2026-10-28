@@ -385,6 +385,15 @@ it('has no route that edits a bet, a pick, a billing event or an audit entry', f
         // Super Admin only, behind their own middleware as well.
         'admin.admins.permissions',
         'admin.admins.revoke',
+
+        /*
+         * Granting or extending a trial. It does not delete the
+         * redemption that made somebody ineligible - trial_redemptions
+         * is append-only, enforced by a Postgres trigger - so the
+         * exception is recorded as an exception rather than as the
+         * absence of a record.
+         */
+        'admin.trials.grant',
     ]);
 });
 

@@ -6,6 +6,10 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\AdminActionController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminManagementController;
+// Aliased: there is a customer-facing TrialController too, and two
+// classes with one name in a routes file is a mistake waiting to be
+// made at the worst moment.
+use App\Http\Controllers\Admin\TrialController as AdminTrialController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Auth\EmailVerificationController;
@@ -444,6 +448,12 @@ Route::middleware('auth')->group(function (): void {
             Route::get('audit', [AdminController::class, 'audit'])->name('audit');
 
             /*
+             * The trial funnel and what it converted to. A read page;
+             * its one write is in the throttled group below.
+             */
+            Route::get('trials', [AdminTrialController::class, 'index'])->name('trials');
+
+            /*
              * The shadow record: what the engine would have bet without
              * the verdict gate. Inside the admin group and nowhere else -
              * these rows are an experiment, not results, and a customer
@@ -490,6 +500,14 @@ Route::middleware('auth')->group(function (): void {
                 Route::post('users/{user}/reinstate', [UserManagementController::class, 'reinstate'])->name('users.reinstate');
                 Route::post('users/{user}/revoke-sessions', [UserManagementController::class, 'revokeSessions'])->name('users.revoke');
                 Route::post('users/{user}/send-reset', [UserManagementController::class, 'sendReset'])->name('users.reset');
+
+                /*
+                 * Granting or extending a trial. One action rather than
+                 * two, because both end at the same place - a new
+                 * expiry in the future - and two routes doing one thing
+                 * is two places for the audit entry to differ.
+                 */
+                Route::post('trials/{user}', [AdminTrialController::class, 'grant'])->name('trials.grant');
 
                 Route::middleware('super-admin')->group(function (): void {
                     Route::post('admins/{user}/permissions', [AdminManagementController::class, 'permissions'])->name('admins.permissions');

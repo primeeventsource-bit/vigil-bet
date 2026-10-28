@@ -20,6 +20,7 @@ use App\Services\Odds\PullCadence;
 use App\Services\Odds\TheOddsApiClient;
 use App\Services\Ops\ApiMeter;
 use App\Services\Teams\NameNormalizer;
+use App\Services\Trial\Geo;
 use App\Support\Money;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -268,7 +269,48 @@ class DoctorCommand extends Command
             }
         }
 
+        $this->geoip();
+
         return self::SUCCESS;
+    }
+
+    /**
+     * The GeoIP databases, which the product runs fine without.
+     *
+     * Reported rather than warned about, and deliberately not coloured
+     * red when missing. Their absence costs one advisory column on the
+     * admin trials page; it refuses nothing and breaks nothing, so a
+     * red line here would train somebody to ignore red lines.
+     */
+    private function geoip(): void
+    {
+        $this->newLine();
+        $this->line('<comment>GeoIP (trial location signal)</comment>');
+
+        if ((string) config('services.maxmind.license_key') === '') {
+            $this->line('  no MAXMIND_LICENSE_KEY - location is not recorded, and nothing else changes');
+
+            return;
+        }
+
+        foreach (['GeoLite2-City.mmdb', 'GeoLite2-ASN.mmdb'] as $file) {
+            $path = Geo::path($file);
+
+            if (! is_file($path)) {
+                $this->line(sprintf('  %s: <fg=yellow>not downloaded</> - run vigil:geoip-update', $file));
+
+                continue;
+            }
+
+            $age = (int) round((time() - filemtime($path)) / 86400);
+
+            $this->line(sprintf(
+                '  %s: %s MB, %s',
+                $file,
+                number_format(filesize($path) / 1048576, 1),
+                $age === 0 ? 'updated today' : $age.' day(s) old'.($age > 14 ? ' <fg=yellow>(stale)</>' : ''),
+            ));
+        }
     }
 
     /**

@@ -18,7 +18,31 @@
         <li>Bets you log, and your bankroll settings, if you use those features.</li>
         <li>Billing records: what you were charged and when. See the next section about cards.</li>
         <li>Basic request data — IP address and browser — for security and rate limiting.</li>
+        <li>
+            <strong>If you start a free trial:</strong> when it started and when it ends, and an
+            approximate location — country and region, worked out from your IP address using a
+            local MaxMind database. Your IP address is not sent anywhere to do this.
+        </li>
     </ul>
+
+    <h2 class="font-[family-name:var(--font-display)] text-xl font-semibold">The free trial record</h2>
+
+    <p>
+        One trial is available per person, so we have to keep a record that outlasts any single
+        account. That record holds <strong>a one-way hash of your email address, not the address
+        itself</strong> — enough to recognise that a trial has been used, and not enough to read
+        back as a list of who signed up. The same is true of the IP address: we store a hash, so
+        we can see that several trials came from one network without keeping another copy of
+        where you were.
+    </p>
+
+    <p>
+        The approximate location is kept for one purpose, and it is worth being plain about what
+        that purpose is not. It does not decide whether you get a trial — nobody is refused
+        because of where they are, and a shared office or a university network is not treated as
+        one person. It is there so we can see unusual patterns and so we know which country an
+        account is in, which matters because betting law is not the same everywhere.
+    </p>
 
     <h2 class="font-[family-name:var(--font-display)] text-xl font-semibold">Card details</h2>
 

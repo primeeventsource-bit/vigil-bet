@@ -570,3 +570,24 @@ Schedule::command('queue:prune-failed --hours='.(24 * (int) config('edge.retenti
     ->dailyAt('04:45')
     ->name('prune-failed-jobs')
     ->withoutOverlapping(60);
+
+/*
+ * The GeoLite2 databases, which MaxMind publish weekly.
+ *
+ * Sunday, well away from everything else, because this is the least
+ * important job in the file - a stale database degrades one advisory
+ * column on the admin trials page and nothing else. The command never
+ * throws, so a failure here cannot take the scheduler down with it.
+ *
+ * Skipped entirely without a licence key, so an environment that has
+ * not configured MaxMind does not wake up to attempt a download it
+ * cannot make.
+ */
+Schedule::command('vigil:geoip-update')
+    ->weeklyOn(0, '03:20')
+    ->name('geoip-update')
+    ->skip(fn () => (string) config('services.maxmind.license_key') === '')
+    // Ten, not longer. Two downloads with a two-minute timeout each
+    // cannot legitimately take more, and ScheduleMutexTest is right
+    // that a long lock turns one killed process into hours of silence.
+    ->withoutOverlapping(10);
