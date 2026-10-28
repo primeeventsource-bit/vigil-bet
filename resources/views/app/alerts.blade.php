@@ -144,7 +144,7 @@
             </div>
         </section>
 
-        <button type="submit" class="rounded-lg bg-[var(--vg-paper)] px-4 py-2.5 font-bold text-[var(--vg-night)]">
+        <button type="submit" class="rounded-lg bg-[var(--vg-green)] px-4 py-2.5 font-bold text-[var(--vg-night)]">
             Save
         </button>
     </form>

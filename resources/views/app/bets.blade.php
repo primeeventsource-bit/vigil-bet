@@ -90,7 +90,7 @@
             <p class="mt-2 text-xs text-[var(--vg-slate)]">
                 Your plan tracks <strong data-numeric>{{ $tracked }}</strong> of
                 <strong data-numeric>{{ $trackedLimit }}</strong> bets.
-                <a class="text-[var(--vg-blue)] underline"
+                <a class="text-[var(--vg-link)] underline"
                    href="{{ route('upgrade', ['feature' => 'bets.roi']) }}">A paid plan tracks every bet</a>.
             </p>
         @endif
@@ -158,7 +158,7 @@
 
             <div class="sm:col-span-2 lg:col-span-4">
                 <button type="submit" @disabled((bool) $blocked)
-                        class="rounded-lg bg-[var(--vg-paper)] px-4 py-2.5 font-bold text-[var(--vg-night)] disabled:opacity-40">
+                        class="rounded-lg bg-[var(--vg-green)] px-4 py-2.5 font-bold text-[var(--vg-night)] disabled:opacity-40">
                     Log it
                 </button>
             </div>

@@ -183,7 +183,7 @@
 
             @unless ($onTopTier)
                 <a href="{{ route('pricing') }}"
-                   class="mt-2.5 block rounded-lg bg-[var(--vg-paper)] px-3 py-1.5 text-center text-[11px] font-bold text-[var(--vg-night)] transition hover:opacity-90">
+                   class="mt-2.5 block rounded-lg bg-[var(--vg-green)] px-3 py-1.5 text-center text-[11px] font-bold text-[var(--vg-night)] transition hover:opacity-90">
                     Compare plans
                 </a>
             @endunless

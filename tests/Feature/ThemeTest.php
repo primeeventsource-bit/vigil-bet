@@ -128,7 +128,10 @@ it('keeps a light value for every colour the dark theme uses', function () {
      */
     $colors = config('brand.colors');
 
-    $needsLight = ['edge', 'loss', 'warning', 'blue', 'decor', 'chart_line', 'chart_fill', 'chart_grid'];
+    // `blue` became `link` when the palette went black, silver and
+    // money green - the electric blue is gone entirely, and `emerald`
+    // arrived as its own token because it cannot carry text.
+    $needsLight = ['edge', 'loss', 'warning', 'link', 'emerald', 'decor', 'chart_line', 'chart_fill', 'chart_grid'];
 
     foreach ($needsLight as $token) {
         expect($colors)->toHaveKey($token)

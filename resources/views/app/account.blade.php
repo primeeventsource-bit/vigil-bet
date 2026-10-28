@@ -52,7 +52,7 @@
 
             <form method="POST" action="{{ route('billing.resume') }}" class="mt-4">
                 @csrf
-                <button type="submit" class="rounded-lg bg-[var(--vg-paper)] px-4 py-2 text-sm font-bold text-[var(--vg-night)]">
+                <button type="submit" class="rounded-lg bg-[var(--vg-green)] px-4 py-2 text-sm font-bold text-[var(--vg-night)]">
                     Keep my subscription
                 </button>
             </form>
@@ -138,7 +138,7 @@
                     </div>
                 @endunless
 
-                <button type="submit" class="rounded-lg bg-[var(--vg-paper)] px-4 py-2.5 font-bold text-[var(--vg-night)]">
+                <button type="submit" class="rounded-lg bg-[var(--vg-green)] px-4 py-2.5 font-bold text-[var(--vg-night)]">
                     {{ $subscription?->gateway_subscription_id ? 'Change plan' : 'Subscribe' }}
                 </button>
             </form>
@@ -146,7 +146,7 @@
             @if ($portalAvailable)
                 <form method="POST" action="{{ route('billing.portal') }}" class="mt-4">
                     @csrf
-                    <button type="submit" class="text-sm text-[var(--vg-blue)] underline">
+                    <button type="submit" class="text-sm text-[var(--vg-link)] underline">
                         Manage your card at {{ $gatewayName }}
                     </button>
                 </form>
@@ -163,7 +163,7 @@
             <p class="mt-2 text-sm text-[var(--vg-slate)]">
                 Paid plans are not on sale yet. No market has passed the gate, so there is
                 nothing here worth charging for.
-                <a class="text-[var(--vg-blue)] underline" href="{{ route('pricing') }}">See the plans</a>.
+                <a class="text-[var(--vg-link)] underline" href="{{ route('pricing') }}">See the plans</a>.
             </p>
         </div>
     @endif
@@ -204,7 +204,7 @@
             cancelled by you or by support.
         </p>
         <p class="mt-3">
-            <a class="text-[var(--vg-blue)] underline" href="{{ route('safety') }}">
+            <a class="text-[var(--vg-link)] underline" href="{{ route('safety') }}">
                 Self-exclusion and support
             </a>
         </p>
@@ -217,7 +217,7 @@
             <strong>{{ $user->hasTwoFactorEnabled() ? 'on' : 'off' }}</strong>.
         </p>
         <p class="mt-3">
-            <a class="text-[var(--vg-blue)] underline" href="{{ route('two-factor.show') }}">
+            <a class="text-[var(--vg-link)] underline" href="{{ route('two-factor.show') }}">
                 Manage two-factor authentication
             </a>
         </p>

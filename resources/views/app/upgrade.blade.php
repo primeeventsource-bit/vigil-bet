@@ -46,12 +46,12 @@
             --}}
             <p class="mt-6 rounded-lg border border-dashed border-[var(--vg-line)] px-4 py-3 text-center text-xs text-[var(--vg-slate)]">
                 Paid plans are not on sale yet — no market is proven, so there is nothing here
-                worth charging for. <a class="text-[var(--vg-blue)] underline" href="{{ route('pricing') }}">See the plans</a>.
+                worth charging for. <a class="text-[var(--vg-link)] underline" href="{{ route('pricing') }}">See the plans</a>.
             </p>
         </div>
 
         <p class="mt-5 text-sm">
-            <a class="text-[var(--vg-blue)] underline" href="{{ route('today') }}">Back to the dashboard</a>
+            <a class="text-[var(--vg-link)] underline" href="{{ route('today') }}">Back to the dashboard</a>
         </p>
     </div>
 </x-layouts.app>

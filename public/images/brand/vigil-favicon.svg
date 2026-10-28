@@ -16,6 +16,6 @@
     At 16px the notch and the inner aperture close up into noise, so the
     mark is simplified rather than shrunk.
   -->
-  <rect width="64" height="64" rx="14" fill="#12141A"/>
-  <path fill="#10B981" d="M12 13h11.7l8.3 23.4L40.3 13H52L35.1 55h-6.2L12 13Z"/>
+  <rect width="64" height="64" rx="14" fill="#151917"/>
+  <path fill="#24C76A" d="M12 13h11.7l8.3 23.4L40.3 13H52L35.1 55h-6.2L12 13Z"/>
 </svg>

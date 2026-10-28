@@ -151,7 +151,7 @@
                                         and would otherwise hear it twice.
                                     --}}
                                     <span class="h-1.5 w-20 overflow-hidden rounded-full bg-[var(--vg-slate-dark)]" aria-hidden="true">
-                                        <span class="block h-full rounded-full bg-[var(--vg-paper)]"
+                                        <span class="block h-full rounded-full bg-[var(--vg-green)]"
                                               style="width: {{ $opinion->confidencePercent() }}%"></span>
                                     </span>
                                 </div>

@@ -1,6 +1,6 @@
 <x-layouts.marketing>
-    {{-- Hero --}}
-    <section class="relative isolate overflow-hidden border-b border-[var(--vg-line)]">
+    {{-- Hero. Black into emerald, with the grid and the glow over it. --}}
+    <section class="fx-hero relative isolate overflow-hidden border-b border-[var(--vg-line)]">
         <span aria-hidden="true" class="fx-grid"></span>
         <x-fx.circuit class="opacity-70" />
         <x-fx.section-glow class="left-1/2 top-0 h-[26rem] w-[52rem] -translate-x-1/2 -translate-y-1/2" />
@@ -59,7 +59,7 @@
                     anything would be arguing the opposite.
                 --}}
                 <a href="#todays-picks"
-                   class="group relative inline-flex items-center gap-2 rounded-lg bg-[var(--vg-paper)] px-6 py-3 font-bold text-[var(--vg-night)] shadow-[0_0_32px_-8px_color-mix(in_srgb,var(--vg-paper)_55%,transparent)] transition hover:shadow-[0_0_44px_-6px_color-mix(in_srgb,var(--vg-paper)_65%,transparent)]">
+                   class="group relative inline-flex items-center gap-2 rounded-lg bg-[var(--vg-green)] px-6 py-3 font-bold text-[var(--vg-night)] shadow-[0_0_32px_-8px_color-mix(in_srgb,var(--vg-paper)_55%,transparent)] transition hover:shadow-[0_0_44px_-6px_color-mix(in_srgb,var(--vg-paper)_65%,transparent)]">
                     View today's picks
                     <span aria-hidden="true" class="transition group-hover:translate-x-0.5">&rarr;</span>
                 </a>

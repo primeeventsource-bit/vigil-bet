@@ -10,7 +10,7 @@
 
         @if ($slipCount > 0)
             <a href="{{ route('parlays') }}"
-               class="rounded-lg bg-[var(--vg-paper)] px-4 py-2.5 text-sm font-bold text-[var(--vg-night)]">
+               class="rounded-lg bg-[var(--vg-green)] px-4 py-2.5 text-sm font-bold text-[var(--vg-night)]">
                 Slip ({{ $slipCount }})
             </a>
         @endif
@@ -25,7 +25,7 @@
             <a href="{{ route('games') }}"
                @class([
                    'rounded-full border px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wide',
-                   'border-[var(--vg-paper)] bg-[var(--vg-paper)] text-[var(--vg-night)]' => $sport === null,
+                   'border-[var(--vg-paper)] bg-[var(--vg-green)] text-[var(--vg-night)]' => $sport === null,
                    'border-[var(--vg-line)] text-[var(--vg-slate)]' => $sport !== null,
                ])>All</a>
 
@@ -33,7 +33,7 @@
                 <a href="{{ route('games', ['sport' => $option]) }}"
                    @class([
                        'rounded-full border px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wide',
-                       'border-[var(--vg-paper)] bg-[var(--vg-paper)] text-[var(--vg-night)]' => $sport === $option,
+                       'border-[var(--vg-paper)] bg-[var(--vg-green)] text-[var(--vg-night)]' => $sport === $option,
                        'border-[var(--vg-line)] text-[var(--vg-slate)]' => $sport !== $option,
                    ])>{{ $option }}</a>
             @endforeach
@@ -153,7 +153,7 @@
     --}}
     @if ($slipCount > 0)
         <a href="{{ route('parlays') }}"
-           class="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 rounded-full bg-[var(--vg-paper)] px-5 py-3 text-sm font-bold text-[var(--vg-night)] shadow-lg sm:hidden">
+           class="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 rounded-full bg-[var(--vg-green)] px-5 py-3 text-sm font-bold text-[var(--vg-night)] shadow-lg sm:hidden">
             {{ $slipCount }} of {{ $maxLegs }} on slip &middot; open builder
         </a>
     @endif

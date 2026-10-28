@@ -15,7 +15,23 @@
         ->all();
     // `:brand` resolves at render time; see config/plans.php.
     $brand = fn (string $text) => str_replace(':brand', config('brand.name'), $text);
-    $money = fn (int $cents) => $cents === 0 ? 'Free' : '$'.rtrim(rtrim(number_format($cents / 100, 2), '0'), '.');
+    /*
+     * Whole pounds lose their ".00", and nothing else loses anything.
+     *
+     * This used to strip trailing zeros unconditionally, which was
+     * invisible while every price ended in 9 - and then the yearly
+     * figures became 29990 and 59990 and the page started advertising
+     * "$299.9/year", which reads as a typo rather than a price.
+     */
+    $money = function (int $cents): string {
+        if ($cents === 0) {
+            return 'Free';
+        }
+
+        return '$'.($cents % 100 === 0
+            ? number_format($cents / 100)
+            : number_format($cents / 100, 2));
+    };
 @endphp
 
 <section class="relative isolate overflow-hidden border-b border-[var(--vg-line)] bg-[var(--vg-navy)]">
@@ -30,12 +46,22 @@
 
         <div @class(['grid gap-5 lg:grid-cols-4', 'mt-10' => ! $compact])>
             @foreach ($tiers as $key => $tier)
+                {{--
+                    Black cards with silver borders, and the recommended
+                    one picked out in money green - its border, its badge
+                    and the emerald wash behind it.
+
+                    The green ring is the only green on this row, which
+                    is what makes it mean "this one". Ringing all four
+                    would be decoration, and then the recommendation
+                    would have to be made again in words.
+                --}}
                 <div @class([
-                    'fx-panel fx-panel-lift relative flex flex-col p-6',
-                    'ring-1 ring-[color-mix(in_srgb,var(--vg-edge)_45%,transparent)]' => $tier['highlight'] ?? false,
+                    'fx-panel fx-panel-lift fx-brushed relative flex flex-col p-6',
+                    'fx-premium ring-1 ring-[var(--vg-edge)]' => $tier['highlight'] ?? false,
                 ])>
                     @if ($tier['highlight'] ?? false)
-                        <span class="absolute -top-2.5 left-6 rounded-full bg-[var(--vg-paper)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--vg-night)]">
+                        <span class="absolute -top-2.5 left-6 rounded-full bg-[var(--vg-edge)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--vg-night)]">
                             Most popular
                         </span>
                     @endif
@@ -91,7 +117,7 @@
                             find the same characters in the markup.
                         --}}
                         <a href="{{ auth()->check() ? route('trial') : route('register') }}"
-                           class="mt-6 block rounded-lg bg-[var(--vg-paper)] px-4 py-3 text-center text-sm font-bold tracking-wide text-[var(--vg-night)]">
+                           class="mt-6 block rounded-lg bg-[var(--vg-green)] px-4 py-3 text-center text-sm font-bold tracking-wide text-[var(--vg-night)]">
                             START FREE {{ config('plans.trial_hours') }}-HOUR TRIAL
                         </a>
 

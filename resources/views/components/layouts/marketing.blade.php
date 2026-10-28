@@ -37,11 +37,11 @@
                 <x-theme-toggle />
 
                 @auth
-                    <a class="rounded-md bg-[var(--vg-paper)] px-3 py-1.5 font-semibold text-[var(--vg-night)]"
+                    <a class="rounded-md bg-[var(--vg-green)] px-3 py-1.5 font-semibold text-[var(--vg-night)]"
                        href="{{ route('today') }}">Open {{ config('brand.name') }}</a>
                 @else
                     <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('login') }}">Sign in</a>
-                    <a class="rounded-md bg-[var(--vg-paper)] px-3 py-1.5 font-semibold text-[var(--vg-night)]"
+                    <a class="rounded-md bg-[var(--vg-green)] px-3 py-1.5 font-semibold text-[var(--vg-night)]"
                        href="{{ route('register') }}">Get started</a>
                 @endauth
             </div>

@@ -189,7 +189,7 @@
             </div>
 
             <p class="mt-4 text-sm">
-                <a class="text-[var(--vg-blue)] underline" href="{{ route('opinions') }}">
+                <a class="text-[var(--vg-link)] underline" href="{{ route('opinions') }}">
                     Every published pick, and whether the confidence was true &rarr;
                 </a>
             </p>
@@ -238,7 +238,7 @@
                     it, and nothing has met that bar yet.
                 </p>
                 <p class="mt-6">
-                    <a class="text-[var(--vg-blue)] underline" href="{{ route('how-it-works') }}">
+                    <a class="text-[var(--vg-link)] underline" href="{{ route('how-it-works') }}">
                         How the gate works
                     </a>
                 </p>

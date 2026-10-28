@@ -20,8 +20,8 @@
     BrandingTest asserts both values against config('brand.colors'), and
     asserts the rendered PNG's corner pixel is the same navy.
   -->
-  <rect width="64" height="64" fill="#12141A"/>
+  <rect width="64" height="64" fill="#151917"/>
   <g transform="translate(32,32) scale(0.88) translate(-32,-34)">
-    <path fill="#10B981" d="M12 13h11.7l8.3 23.4L40.3 13H52L35.1 55h-6.2L12 13Z"/>
+    <path fill="#24C76A" d="M12 13h11.7l8.3 23.4L40.3 13H52L35.1 55h-6.2L12 13Z"/>
   </g>
 </svg>

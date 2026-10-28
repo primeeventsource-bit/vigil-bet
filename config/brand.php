@@ -88,91 +88,136 @@ return [
     |
     */
     'colors' => [
-        // The page itself. Stealth Black's canvas.
-        'night' => '#0A0A0A',
-        // Panels. The surface the .panel class paints with.
-        'navy' => '#12141A',
+        /*
+         * Black, silver and money green.
+         *
+         * Six brand colours, each with one job. The three greys are not
+         * interchangeable shades of the same idea - they are three
+         * distances from the reader, and swapping them is how a caption
+         * ends up louder than a heading.
+         *
+         * Every value here was checked against the two blacks before it
+         * was written down. Deep Emerald is the one that cannot carry
+         * text: 3.02 on Primary Black and 2.70 on Carbon, both under
+         * the 4.5 that small type needs. It is a gradient and a surface,
+         * never a word, and `emerald` exists as its own token so that
+         * stays true by construction rather than by memory.
+         */
+
+        // Primary Black. The canvas.
+        'night' => '#080A09',
+
+        // Carbon Black. Panels - the surface .panel paints with.
+        'navy' => '#151917',
+
         /*
          * The elevated surface, for a card sitting on a panel.
          *
-         * Lighter than the panel rather than darker, which is the one
-         * place this palette differs from the old one in direction and
-         * not just in value: Stealth Black separates depth by lifting
-         * a surface toward the light, so a tile on a panel reads as
-         * nearer rather than as a hole cut into it.
+         * Lighter than the panel rather than darker, because depth here
+         * reads by lifting a surface toward the light: a tile on a panel
+         * should look nearer than it, not like a hole cut into it.
+         *
+         * Derived rather than given - the brand has two blacks and this
+         * is the step between Carbon and the first border.
          */
-        'slate_dark' => '#181B24',
-        // Borders, rules and the seams between panels.
-        'line' => '#1E222D',
-
-        'green' => '#10B981',
-        'blue' => '#06B6D4',
+        'slate_dark' => '#1C211E',
 
         /*
-         * Type. White for headings and primary text, silver beneath it,
-         * and a third step for captions and table rules.
+         * Borders, rules and the seams between panels. Brushed silver at
+         * the darkness a hairline needs: 1.47 against the canvas, which
+         * is visible as an edge and invisible as a shape.
+         */
+        'line' => '#2A302C',
+
+        /*
+         * Money Green, and the one colour in this file that means
+         * something. It marks a proven edge, a primary action and an
+         * active page - and nothing else. The moment it decorates, it
+         * stops being a signal and the thing it was signalling has
+         * nowhere left to be said.
          *
-         * The two silvers moved up a stop when the palette took the
-         * layout's values, and the lower one needed to: `muted` was
-         * #74777C, which is 4.4:1 on this canvas and so under AA for the
-         * 11px captions it is mostly used on. It is now the layout's
-         * subtle-label silver at 7.5:1, and `slate` is the layout's
-         * secondary-text silver at 13.3:1. Faithful to the reference and
-         * legible, which happened to be the same choice.
+         * 8.94 on the canvas, so it carries text as well as a button.
+         */
+        'green' => '#24C76A',
+        'edge' => '#24C76A',
+
+        /*
+         * Deep Emerald. Gradients and premium surfaces only.
+         *
+         * Its own token because it fails text contrast on both blacks,
+         * and a colour that cannot be read needs a name that says so
+         * rather than sharing one with something that can.
+         */
+        'emerald' => '#116B3B',
+
+        /*
+         * Links, which used to be the electric blue this palette
+         * removes.
+         *
+         * Platinum rather than green: green is reserved for an edge and
+         * an action, and if every inline link were green the one green
+         * thing that mattered on a page would be the twelfth. Links are
+         * underlined as well as coloured, so they are findable without
+         * relying on the colour at all.
+         */
+        'link' => '#E7EBE8',
+
+        /*
+         * Type, in three steps away from the reader.
+         *
+         * White for headings and anything that must be read first.
+         * Platinum for body and secondary text, at 16.49 on the canvas -
+         * the most readable thing in the palette after white itself.
+         * Muted Gray for captions and sample sizes, at 6.10, which
+         * clears AA while sitting clearly behind the two above it.
          */
         'paper' => '#FFFFFF',
-        'slate' => '#CBD5E1',
-        'muted' => '#94A3B8',
+        'slate' => '#E7EBE8',
+        'muted' => '#87918B',
 
         /*
-         * Charts are drawn in white and silver, which is both the look and
-         * a correction: they used to be drawn in `edge`, the green below,
-         * so every bankroll line and every gauge was painted in the colour
-         * this file reserves for a proven edge. Series now have their own
-         * tokens and the semantic green went back to meaning one thing.
+         * Brushed Silver: icons, rules, the hero grid, chart fills.
+         * Decoration and data ink, never a semantic state. The one
+         * colour that means something is above, and the wallpaper must
+         * not be it.
          */
-        /*
-         * Decoration: the hero glow, the engineering grid, the rising
-         * trace behind the marketing hero. Silver, because none of it
-         * means anything and the one colour that does must not also be
-         * the wallpaper.
-         */
-        'decor' => '#94A3B8',
+        'decor' => '#BFC5C2',
 
-        'chart_line' => '#FFFFFF',
-        'chart_fill' => '#94A3B8',
-        'chart_grid' => '#1E222D',
+        'chart_line' => '#E7EBE8',
+        'chart_fill' => '#BFC5C2',
+        'chart_grid' => '#2A302C',
 
         /*
-         * Semantic, and restrained to suit the field around them. Green is
-         * reserved for a real edge; it never decorates. Every one of these
-         * is paired with a word in the markup, so the product still reads
-         * in greyscale and to the roughly one man in twelve who cannot
+         * Semantic, and restrained to suit the field around them. Both
+         * clear AA on the canvas - 5.28 and 9.24 - and both are paired
+         * with a word in the markup, so the product still reads in
+         * greyscale and to the roughly one man in twelve who cannot
          * separate the green from the red.
          */
-        'edge' => '#10B981',
         'loss' => '#EF4444',
         'warning' => '#F59E0B',
 
         /*
-         * Light mode, which is supported and is not the default. The same
-         * terminal inverted: near-white page, white panels, the matte
-         * black above as ink. The semantic hues are darkened, because a
-         * colour legible on black is not legible on white.
+         * Light mode, which is supported and is not the default. The
+         * same terminal inverted: near-white page, white panels, the
+         * matte black above as ink. The semantic hues are darkened,
+         * because a colour legible on black is not legible on white -
+         * Money Green at #24C76A is 1.9 on white and unreadable.
          */
-        'light_bg' => '#F7F7F8',
+        'light_bg' => '#F4F6F5',
         'light_panel' => '#FFFFFF',
-        'light_line' => '#E2E3E6',
-        'light_text' => '#101113',
-        'light_muted' => '#5E6269',
-        'light_edge' => '#1A7F4B',
+        'light_line' => '#DCE1DE',
+        'light_text' => '#080A09',
+        'light_muted' => '#5C645F',
+        'light_edge' => '#0F7A43',
         'light_loss' => '#B4403C',
         'light_warning' => '#8A6212',
-        'light_blue' => '#1F6FB8',
-        'light_decor' => '#5E6269',
-        'light_chart_line' => '#101113',
-        'light_chart_fill' => '#5E6269',
-        'light_chart_grid' => '#E2E3E6',
+        'light_emerald' => '#116B3B',
+        'light_link' => '#0F5C33',
+        'light_decor' => '#5C645F',
+        'light_chart_line' => '#080A09',
+        'light_chart_fill' => '#5C645F',
+        'light_chart_grid' => '#DCE1DE',
     ],
 
     /*

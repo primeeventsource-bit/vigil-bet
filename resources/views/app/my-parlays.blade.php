@@ -41,7 +41,7 @@
         <div class="panel mt-6 px-5 py-12 text-center">
             <p class="text-sm text-[var(--vg-slate)]">
                 Nothing saved yet. Build a slip on the
-                <a class="text-[var(--vg-blue)] underline" href="{{ route('parlays') }}">parlay builder</a>
+                <a class="text-[var(--vg-link)] underline" href="{{ route('parlays') }}">parlay builder</a>
                 and save it to start a record.
             </p>
         </div>

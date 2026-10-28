@@ -145,7 +145,7 @@
                     --}}
                     <p class="border-t border-[var(--vg-line)] px-5 py-3 text-xs text-[var(--vg-slate)]">
                         {{ $picksWithheld }} more {{ Str::plural('pick', $picksWithheld) }} from proven markets today.
-                        <a class="font-semibold text-[var(--vg-blue)] underline"
+                        <a class="font-semibold text-[var(--vg-link)] underline"
                            href="{{ route('upgrade', ['feature' => 'card.daily']) }}">See every one</a>.
                     </p>
                 @endif

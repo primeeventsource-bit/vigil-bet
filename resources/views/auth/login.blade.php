@@ -12,18 +12,18 @@
         </label>
 
         <button type="submit"
-                class="w-full rounded-md bg-[var(--vg-paper)] px-4 py-2.5 font-semibold text-[var(--vg-night)]">
+                class="w-full rounded-md bg-[var(--vg-green)] px-4 py-2.5 font-semibold text-[var(--vg-night)]">
             Sign in
         </button>
     </form>
 
     <div class="mt-6 space-y-2 text-sm">
         <p>
-            <a class="text-[var(--vg-blue)] underline" href="{{ route('password.request') }}">Forgot your password?</a>
+            <a class="text-[var(--vg-link)] underline" href="{{ route('password.request') }}">Forgot your password?</a>
         </p>
         <p class="text-[var(--vg-slate)]">
             No account?
-            <a class="text-[var(--vg-blue)] underline" href="{{ route('register') }}">Create one</a>
+            <a class="text-[var(--vg-link)] underline" href="{{ route('register') }}">Create one</a>
         </p>
     </div>
 </x-auth-card>

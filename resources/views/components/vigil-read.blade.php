@@ -33,7 +33,7 @@
             You have used today's {{ config('brand.name') }} Read.
         </p>
         <p class="mt-1 text-xs text-[var(--vg-slate)]">
-            <a class="text-[var(--vg-blue)] underline"
+            <a class="text-[var(--vg-link)] underline"
                href="{{ route('upgrade', ['feature' => 'card.daily']) }}">A Read on every pick</a>
             comes with a paid plan. The one you have already opened today stays open.
         </p>

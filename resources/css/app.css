@@ -34,7 +34,7 @@
     --color-edge: var(--vg-edge);
     --color-loss: var(--vg-loss);
     --color-warning: var(--vg-warning);
-    --color-signal: var(--vg-blue);
+    --color-signal: var(--vg-link);
 
     /* Series are white and silver; the grid is the same rule colour. */
     --color-chart-line: var(--vg-chart-line);
@@ -109,7 +109,7 @@
      * keyboard user locked out of the product.
      */
     :focus-visible {
-        outline: 2px solid var(--vg-blue);
+        outline: 2px solid var(--vg-link);
         outline-offset: 2px;
         border-radius: 2px;
     }
@@ -177,9 +177,24 @@ html[data-theme='light'] {
     --vg-paper: var(--vg-light-text);
     --vg-slate: var(--vg-light-muted);
     --vg-edge: var(--vg-light-edge);
+    /*
+     * The button green, darkened for light mode.
+     *
+     * A primary button is `bg-green` with `text-night`, and `night`
+     * flips to the near-white page colour here - so the bright money
+     * green would end up carrying near-white text at about 1.9:1 and
+     * be unreadable. The darker edge green carries it at 4.98:1.
+     *
+     * Same hex as `edge` in both themes today, and a separate token
+     * anyway: one means "a proven edge" and the other means "press
+     * this", and a product that ever wants to tell them apart should
+     * not have to find thirty-four buttons first.
+     */
+    --vg-green: var(--vg-light-edge);
     --vg-loss: var(--vg-light-loss);
     --vg-warning: var(--vg-light-warning);
-    --vg-blue: var(--vg-light-blue);
+    --vg-link: var(--vg-light-link);
+    --vg-emerald: var(--vg-light-emerald);
     --vg-decor: var(--vg-light-decor);
     --vg-chart-line: var(--vg-light-chart-line);
     --vg-chart-fill: var(--vg-light-chart-fill);
@@ -272,7 +287,7 @@ html[data-theme='light'] {
         top: 1rem;
         z-index: 100;
         padding: 0.5rem 0.75rem;
-        background-color: var(--vg-blue);
+        background-color: var(--vg-link);
         color: #fff;
         border-radius: 0.375rem;
     }
@@ -372,8 +387,72 @@ html[data-theme='light'] {
         pointer-events: none;
     }
 
-        .fx-glow-edge { background: var(--vg-decor); }
+    /*
+     * Deep Emerald behind a hero, brushed silver everywhere else.
+     *
+     * This is the one place emerald belongs. It fails text contrast on
+     * both blacks - 3.02 and 2.70 - so it can never be a word, but
+     * blurred to 120px at 0.22 opacity it is not being read, it is
+     * being lit by. The silver variant stays for sections where a green
+     * cast would imply the page is about a result.
+     */
+    .fx-glow-edge { background: var(--vg-emerald); }
     .fx-glow-signal { background: var(--vg-decor); }
+
+    /*
+     * Premium surfaces: a card lifted off the page by a black-to-emerald
+     * wash rather than by a border.
+     *
+     * The emerald sits at 14% and only in the corner it starts from, so
+     * the card is still Carbon Black everywhere text actually lands.
+     * Anything stronger and the type on top loses the contrast the
+     * palette was chosen for.
+     */
+    .fx-premium {
+        background-image: linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--vg-emerald) 14%, var(--vg-navy)) 0%,
+            var(--vg-navy) 55%
+        );
+    }
+
+    /*
+     * The hero wash. Same idea at section scale, and anchored to the
+     * top so the page darkens as it descends into the content.
+     */
+    .fx-hero {
+        background-image: linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--vg-emerald) 10%, var(--vg-night)) 0%,
+            var(--vg-night) 70%
+        );
+    }
+
+    /*
+     * Brushed metal, kept quiet.
+     *
+     * A hairline of light across the top edge of a surface, which is
+     * what "metallic" means at this size - the spec asks for silver
+     * effects without excessive shine, and a gradient sweeping a whole
+     * panel is the shine it is asking to avoid.
+     */
+    .fx-brushed {
+        position: relative;
+    }
+
+    .fx-brushed::before {
+        content: '';
+        position: absolute;
+        inset-inline: 0;
+        top: 0;
+        height: 1px;
+        background: linear-gradient(
+            90deg,
+            transparent,
+            color-mix(in srgb, var(--vg-decor) 38%, transparent) 50%,
+            transparent
+        );
+    }
 
     /* Engineering grid. Fades out as it rises, so it reads as depth. */
     .fx-grid {

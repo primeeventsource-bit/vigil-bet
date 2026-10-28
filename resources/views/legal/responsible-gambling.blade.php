@@ -8,7 +8,7 @@
     <ul class="list-disc space-y-2 pl-5">
         <li>
             <strong>1-800-GAMBLER</strong> — free, confidential, 24 hours, every day.
-            <a class="text-[var(--vg-blue)] underline" href="{{ config('vigil.helpline.url') }}">
+            <a class="text-[var(--vg-link)] underline" href="{{ config('vigil.helpline.url') }}">
                 {{ config('vigil.helpline.url') }}
             </a>
         </li>

@@ -153,7 +153,7 @@
         </p>
 
         <p class="mt-6">
-            <a class="text-[var(--vg-blue)] underline" href="{{ route('record') }}">
+            <a class="text-[var(--vg-link)] underline" href="{{ route('record') }}">
                 &larr; The whole record
             </a>
         </p>

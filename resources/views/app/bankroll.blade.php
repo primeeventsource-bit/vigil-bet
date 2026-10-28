@@ -96,7 +96,7 @@
             </label>
 
             <div class="sm:col-span-2">
-                <button type="submit" class="rounded-lg bg-[var(--vg-paper)] px-4 py-2.5 font-bold text-[var(--vg-night)]">
+                <button type="submit" class="rounded-lg bg-[var(--vg-green)] px-4 py-2.5 font-bold text-[var(--vg-night)]">
                     Save
                 </button>
                 {{--

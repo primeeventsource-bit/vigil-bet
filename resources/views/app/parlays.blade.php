@@ -22,7 +22,7 @@
 
             @if ($legs->isEmpty())
                 <p class="px-5 py-10 text-center text-sm text-[var(--vg-slate)]">
-                    Nothing on the slip yet. Pick a market from <a class="text-[var(--vg-blue)] underline" href="{{ route('games') }}">today's games</a>.
+                    Nothing on the slip yet. Pick a market from <a class="text-[var(--vg-link)] underline" href="{{ route('games') }}">today's games</a>.
                 </p>
             @else
                 <ul class="divide-y divide-[var(--vg-line)]">
@@ -79,7 +79,7 @@
                     <form method="POST" action="{{ route('parlays.grade') }}">
                         @csrf
                         <button type="submit" @disabled($legs->count() < 2)
-                                class="rounded-lg bg-[var(--vg-paper)] px-4 py-2.5 font-bold text-[var(--vg-night)] disabled:opacity-40">
+                                class="rounded-lg bg-[var(--vg-green)] px-4 py-2.5 font-bold text-[var(--vg-night)] disabled:opacity-40">
                             Grade this slip
                         </button>
                     </form>
@@ -94,7 +94,7 @@
                         <p class="text-xs text-[var(--vg-slate)]">
                             <span data-numeric>{{ $gradesToday }}</span> of
                             <span data-numeric>{{ $gradeLimit }}</span> grades used today.
-                            <a class="text-[var(--vg-blue)] underline"
+                            <a class="text-[var(--vg-link)] underline"
                                href="{{ route('upgrade', ['feature' => 'card.daily']) }}">Unlimited on a paid plan</a>.
                         </p>
                     @endif
@@ -286,7 +286,7 @@
     <section class="panel mt-5 overflow-hidden">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--vg-line)] px-5 py-3.5">
             <h2 class="font-[family-name:var(--font-display)] font-semibold">Add a leg</h2>
-            <a class="text-xs text-[var(--vg-blue)] underline" href="{{ route('games') }}">All of today's games</a>
+            <a class="text-xs text-[var(--vg-link)] underline" href="{{ route('games') }}">All of today's games</a>
         </div>
 
         @if ($addable->isEmpty())

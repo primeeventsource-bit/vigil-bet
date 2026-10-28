@@ -20,7 +20,7 @@
                 It ends {{ Clock::format($expiresAt, 'l j F, g:i A') }}.
             </p>
             <a href="{{ route('today') }}"
-               class="mt-5 inline-block rounded-lg bg-[var(--vg-paper)] px-6 py-3 font-bold text-[var(--vg-night)]">
+               class="mt-5 inline-block rounded-lg bg-[var(--vg-green)] px-6 py-3 font-bold text-[var(--vg-night)]">
                 Go to the dashboard
             </a>
         </section>
@@ -44,7 +44,7 @@
                      offered it and the page that presses it is two
                      different offers. --}}
                 <button type="submit"
-                        class="rounded-lg bg-[var(--vg-paper)] px-6 py-3 font-bold tracking-wide text-[var(--vg-night)]">
+                        class="rounded-lg bg-[var(--vg-green)] px-6 py-3 font-bold tracking-wide text-[var(--vg-night)]">
                     ACTIVATE MY FREE TRIAL
                 </button>
             </form>
@@ -96,12 +96,12 @@
             <div class="mt-5 flex flex-wrap gap-3">
                 @if ($reason === 'unverified')
                     <a href="{{ route('verification.notice') }}"
-                       class="rounded-lg bg-[var(--vg-paper)] px-6 py-3 font-bold text-[var(--vg-night)]">
+                       class="rounded-lg bg-[var(--vg-green)] px-6 py-3 font-bold text-[var(--vg-night)]">
                         Confirm my email
                     </a>
                 @else
                     <a href="{{ route('pricing') }}"
-                       class="rounded-lg bg-[var(--vg-paper)] px-6 py-3 font-bold text-[var(--vg-night)]">
+                       class="rounded-lg bg-[var(--vg-green)] px-6 py-3 font-bold text-[var(--vg-night)]">
                         See the plans
                     </a>
                 @endif

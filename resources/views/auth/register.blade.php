@@ -44,24 +44,24 @@
                    @checked(old('terms'))>
             <span>
                 I accept the
-                <a class="text-[var(--vg-blue)] underline" href="{{ route('legal.terms') }}">terms</a>,
+                <a class="text-[var(--vg-link)] underline" href="{{ route('legal.terms') }}">terms</a>,
                 the
-                <a class="text-[var(--vg-blue)] underline" href="{{ route('legal.privacy') }}">privacy policy</a>
+                <a class="text-[var(--vg-link)] underline" href="{{ route('legal.privacy') }}">privacy policy</a>
                 and the
-                <a class="text-[var(--vg-blue)] underline" href="{{ route('legal.disclaimer') }}">disclaimer</a>.
+                <a class="text-[var(--vg-link)] underline" href="{{ route('legal.disclaimer') }}">disclaimer</a>.
                 I understand there are no guarantees.
             </span>
         </label>
 
         <button type="submit"
-                class="w-full rounded-md bg-[var(--vg-paper)] px-4 py-2.5 font-semibold text-[var(--vg-night)]">
+                class="w-full rounded-md bg-[var(--vg-green)] px-4 py-2.5 font-semibold text-[var(--vg-night)]">
             Create account
         </button>
     </form>
 
     <p class="mt-6 text-sm text-[var(--vg-slate)]">
         Already have an account?
-        <a class="text-[var(--vg-blue)] underline" href="{{ route('login') }}">Sign in</a>
+        <a class="text-[var(--vg-link)] underline" href="{{ route('login') }}">Sign in</a>
     </p>
 
     <p class="mt-4 text-xs text-[var(--vg-slate)]">{{ config('vigil.responsible_gambling_line') }}</p>

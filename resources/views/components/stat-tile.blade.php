@@ -31,7 +31,7 @@
     @if ($sample !== null)
         <p class="mt-0.5 text-[11px] text-[var(--vg-slate)]" data-numeric>
             @if ($locked && $href)
-                <a class="text-[var(--vg-blue)] underline" href="{{ $href }}">{{ $sample }}</a>
+                <a class="text-[var(--vg-link)] underline" href="{{ $href }}">{{ $sample }}</a>
             @else
                 {{ $sample }}
             @endif

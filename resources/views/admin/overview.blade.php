@@ -171,9 +171,9 @@
             @endif
 
             <p class="mt-4 text-xs text-[var(--vg-slate)]">
-                <a class="text-[var(--vg-blue)] underline" href="{{ route('admin.picks') }}">The ledger</a>
+                <a class="text-[var(--vg-link)] underline" href="{{ route('admin.picks') }}">The ledger</a>
                 &middot;
-                <a class="text-[var(--vg-blue)] underline" href="{{ route('record') }}">The public page</a>
+                <a class="text-[var(--vg-link)] underline" href="{{ route('record') }}">The public page</a>
             </p>
         </section>
     </div>
@@ -182,7 +182,7 @@
     <section class="panel mt-5 p-5">
         <div class="flex flex-wrap items-baseline justify-between gap-3">
             <h2 class="font-[family-name:var(--font-display)] font-semibold">Edge Lab feeds</h2>
-            <a class="text-xs text-[var(--vg-blue)] underline" href="{{ route('admin.sync-health') }}">
+            <a class="text-xs text-[var(--vg-link)] underline" href="{{ route('admin.sync-health') }}">
                 Full sync health
             </a>
         </div>
@@ -255,7 +255,7 @@
     <section class="panel mt-5 p-5">
         <div class="flex flex-wrap items-baseline justify-between gap-3">
             <h2 class="font-[family-name:var(--font-display)] font-semibold">Last changed</h2>
-            <a class="text-xs text-[var(--vg-blue)] underline" href="{{ route('admin.audit') }}">
+            <a class="text-xs text-[var(--vg-link)] underline" href="{{ route('admin.audit') }}">
                 The whole audit log
             </a>
         </div>

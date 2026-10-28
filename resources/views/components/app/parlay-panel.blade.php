@@ -22,7 +22,7 @@
 
     <div class="mt-3 flex items-center gap-3">
         <a href="{{ route('parlays') }}"
-           class="rounded-lg bg-[var(--vg-paper)] px-4 py-2 text-sm font-bold text-[var(--vg-night)]">
+           class="rounded-lg bg-[var(--vg-green)] px-4 py-2 text-sm font-bold text-[var(--vg-night)]">
             Analyse Parlay
         </a>
 

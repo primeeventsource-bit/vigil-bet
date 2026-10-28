@@ -75,7 +75,7 @@
         <div class="mx-auto max-w-5xl px-6 py-14">
             <div class="flex flex-wrap items-center gap-4">
                 <a href="{{ route('pricing') }}"
-                   class="rounded-lg bg-[var(--vg-paper)] px-6 py-3 font-bold text-[var(--vg-night)]">
+                   class="rounded-lg bg-[var(--vg-green)] px-6 py-3 font-bold text-[var(--vg-night)]">
                     Compare plans
                 </a>
                 <a href="{{ route('how-it-works') }}"
