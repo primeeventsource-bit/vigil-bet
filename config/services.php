@@ -29,7 +29,22 @@ return [
      * other part of the product behaves identically.
      */
     'maxmind' => [
-        'license_key' => env('MAXMIND_LICENSE_KEY', ''),
+        /*
+         * Two names, because the environment already had one of them.
+         *
+         * MaxMind call this a licence key and their download endpoint
+         * takes it as `license_key`, so that is the name this config
+         * prefers. But the production environment was set up with
+         * MAXMIND_API_KEY, and a key that exists under a name nothing
+         * reads is the quietest kind of broken - the feature simply
+         * never works and nothing anywhere says why.
+         *
+         * edge:doctor already carries a whole routine for diagnosing
+         * exactly this, which is a good sign it happens often enough
+         * to be worth accepting both spellings rather than insisting
+         * on one.
+         */
+        'license_key' => env('MAXMIND_LICENSE_KEY') ?: env('MAXMIND_API_KEY', ''),
     ],
 
     'ses' => [
