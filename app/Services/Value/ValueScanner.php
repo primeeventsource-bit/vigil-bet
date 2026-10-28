@@ -74,7 +74,27 @@ class ValueScanner
             'edge_threshold' => (float) ($settings?->edge_threshold ?? config('edge.value.edge_threshold')),
             'min_book_count' => (int) ($settings?->min_book_count ?? config('edge.value.min_book_count')),
             'min_win_probability' => (float) ($settings?->min_win_probability ?? config('edge.value.min_win_probability')),
-            'require_proven_market' => (bool) ($settings?->require_proven_market ?? config('edge.value.require_proven_market')),
+            /*
+             * Config only. `bankroll_settings.require_proven_market` is
+             * no longer consulted, and that is the fix rather than an
+             * oversight.
+             *
+             * Publication policy and staking policy are different
+             * questions, and this one had its authority in the staking
+             * table - where a row seeded on install day said `true` and
+             * went on saying it. So the gate was removed in config,
+             * deployed, verified as false, and then kept firing: 34 rows
+             * in the first scan after the release still passed with
+             * `market_unproven`, while the best edge on the board was
+             * 6.57% against a 3% bar.
+             *
+             * One question, one authority. The column stays for the
+             * record and is read by nothing; `publishable_verdicts`
+             * beside this is where the policy lives, and
+             * `require_proven_market` in config is the strict-mode
+             * switch for an install that wants the old rule.
+             */
+            'require_proven_market' => (bool) config('edge.value.require_proven_market'),
             'max_quote_age_minutes' => (int) config('edge.value.max_quote_age_minutes'),
             'vig_method' => (string) config('edge.value.vig_method'),
             'pricing_book' => $pricingBook?->key,

@@ -194,7 +194,19 @@ it('records every candidate, not just the ones it liked', function () {
         ->and($away->edge_at_price)->toBeLessThan(0.0);
 });
 
-it('passes when the model has not proven itself here', function () {
+it('withholds an unproven market only while strict mode is on', function () {
+    /*
+     * This asserted the default once, and the default has moved: an
+     * unproven market now publishes, because requiring a market to have
+     * beaten the close before it may state an opinion is a rule the
+     * product no longer applies - and one it could never satisfy, since
+     * the evidence only accumulates by publishing.
+     *
+     * The behaviour still exists as an opt-in, so it is still tested,
+     * from the one place that now decides it.
+     */
+    config()->set('edge.value.require_proven_market', true);
+
     $event = board(0.65, Verdict::Unproven);
     wholeBoard($event, -110);
 
@@ -207,15 +219,34 @@ it('passes when the model has not proven itself here', function () {
         ->and(homePick()->edge_at_price)->toBeGreaterThan(0.0);
 });
 
-it('bets an unproven market when the owner turns the gate off', function () {
-    // Settings are append-only: a change is a newer row, and current()
-    // reads the newest one that has taken effect.
-    $relaxed = BankrollSetting::current()->replicate();
-    $relaxed->require_proven_market = false;
-    $relaxed->effective_from = now();
-    $relaxed->created_at = now();
-    $relaxed->save();
+it('ignores a stale strict-mode flag left in the bankroll settings', function () {
+    /*
+     * The bug this exists for, and it cost a release.
+     *
+     * The gate was removed in config, deployed, and verified false -
+     * and then kept firing. `bankroll_settings.require_proven_market`
+     * was still being read, and the row seeded on install day said
+     * true, so 34 rows in the first scan after the release passed with
+     * `market_unproven` while the best edge on the board was 6.57%
+     * against a 3% bar.
+     *
+     * Publication policy and staking policy are different questions and
+     * now have one authority each. A row in the staking table must not
+     * be able to silence the engine.
+     */
+    $stale = BankrollSetting::current()->replicate();
+    $stale->require_proven_market = true;
+    $stale->effective_from = now();
+    $stale->created_at = now();
+    $stale->save();
 
+    $event = board(0.80, Verdict::Unproven);
+    wholeBoard($event, -110);
+
+    expect($this->scanner->scan(Sport::Nfl)->picks)->toBe(1);
+});
+
+it('bets an unproven market, which is the default now', function () {
     /*
      * 0.80 rather than 0.65, because an unproven market is now shrunk
      * toward the book before any edge is taken: 0.65 comes back as 0.538
