@@ -32,19 +32,28 @@
         off the page - no edge percentage, no verdict string, no model
         version, no stake, no confidence figure dressed as precision.
 
-        "No proven picks today" stays, in those words. It is not a
-        disclaimer about promises - §0.3 asks for the label because an
-        unproven market must appear as analysis rather than a pick, and
-        because the brand is a model: an opinion from the product reads as the
-        model's considered output, so what the model has been measured to
-        do is part of describing the opinion rather than a hedge against
-        it. Five tests assert this line.
+        It used to lead with "No proven picks today", and that line was
+        load-bearing while `proven` was the only tier allowed to
+        publish: a customer seeing an empty board was owed the reason,
+        and the reason was the gate.
+
+        The gate is gone, so the sentence is wrong twice over. It names
+        a criterion the product no longer applies, and this panel now
+        appears only when there are no predictions at all - which is a
+        quiet slate or a feed not yet scanned, not a statement about
+        what any market has proved.
+
+        What stays is the framing: these are near misses, they are
+        opinions, and the model has not beaten the market's own price.
+        That last clause is still true of every market here and is the
+        thing a reader needs, so it survives the rewrite.
     --}}
     <p class="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--vg-slate)]">
-        <strong class="text-[var(--vg-paper)]">No proven picks today.</strong>
-        These are the games {{ config('brand.name') }} came closest to backing, with what is known about both
-        sides. Read them as <strong class="text-[var(--vg-paper)]">an opinion</strong>,
-        not a pick - the model behind them has not yet beaten the market's own price.
+        <strong class="text-[var(--vg-paper)]">No predictions are currently available.</strong>
+        Check back as new games are analyzed. Below are the games {{ config('brand.name') }} came
+        closest to backing, with what is known about both sides. Read them as
+        <strong class="text-[var(--vg-paper)]">an opinion</strong>, not a guarantee &mdash; the
+        model behind them has not beaten the market's own price.
     </p>
 
     @if ($nearMisses->isEmpty())

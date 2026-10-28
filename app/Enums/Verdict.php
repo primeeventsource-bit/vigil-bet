@@ -37,9 +37,30 @@ enum Verdict: string
     case Negative = 'negative';
     case Insufficient = 'insufficient_data';
 
+    /**
+     * Whether this tier may produce a customer-facing pick.
+     *
+     * Read from configuration rather than fixed at `Proven`, which is
+     * what it used to be. That single tier meant the engine could not
+     * show a pick from any market, because nothing has beaten the
+     * closing line - so the dashboard, the board and the parlay builder
+     * were empty for everybody, including subscribers.
+     *
+     * It also could not change: a market only earns `proven` by
+     * accumulating closing-line evidence, and it only accumulates that
+     * evidence once it is publishing. The gate was the reason the gate
+     * could never open.
+     *
+     * This is about permission to speak. It is NOT about what may be
+     * claimed - see `claimsEdge()` below, which is still `Proven` alone
+     * and is what stops any of this reading as "we beat the book".
+     */
     public function allowsRecommendation(): bool
     {
-        return $this === self::Proven;
+        /** @var array<int, string> $publishable */
+        $publishable = config('edge.value.publishable_verdicts', [self::Proven->value]);
+
+        return in_array($this->value, $publishable, true);
     }
 
     /**

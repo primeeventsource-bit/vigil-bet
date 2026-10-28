@@ -28,7 +28,7 @@
             working rather than failing.
         --}}
         <div class="panel mt-6 p-6">
-            <p class="badge badge-pass">No proven picks today</p>
+            <p class="badge badge-pass">No predictions are currently available</p>
 
             <p class="mt-3 text-[var(--vg-paper)]">
                 No market has beaten the closing line by enough, often enough, to be worth

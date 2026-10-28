@@ -72,13 +72,39 @@ it('sells a pick only when the market is proven', function () {
     expect(VlBoardEntry::query()->sellablePicks()->count())->toBe(1);
 });
 
-it('refuses to sell a bet from a market that is not proven', function (string $verdict) {
-    mirrorEntry(['id' => 1, 'recommendation' => 'bet', 'market_verdict' => $verdict]);
+it('refuses to sell a bet from a market measured as losing', function () {
+    mirrorEntry(['id' => 1, 'recommendation' => 'bet', 'market_verdict' => 'negative']);
 
-    // The engine said bet. The gate says the market never earned it.
+    /*
+     * The one tier still refused, and the dataset this test used to run
+     * over told the old story: `unproven` and `insufficient_data` were
+     * refused beside it, which meant the engine could sell from no
+     * market at all.
+     *
+     * `negative` stays out because it is not unvalidated. It has been
+     * measured and the finding is that the model loses to the price
+     * there - a different thing from having no record yet.
+     */
     expect(VlBoardEntry::query()->sellablePicks()->count())->toBe(0)
         ->and(VlBoardEntry::firstOrFail()->isSellablePick())->toBeFalse();
-})->with(['unproven', 'negative', 'insufficient_data']);
+});
+
+it('sells a bet from a market that simply has not proved itself yet', function (string $verdict) {
+    mirrorEntry(['id' => 1, 'recommendation' => 'bet', 'market_verdict' => $verdict]);
+
+    /*
+     * The change this release is for. These markets have not beaten the
+     * closing line - most never will - and the product does not claim
+     * they have. What it does is show the engine's opinion, which is
+     * the thing customers subscribe to.
+     *
+     * The card carries the verdict in words beside the confidence
+     * figure, so "not yet proven" reaches the reader at the same moment
+     * the pick does.
+     */
+    expect(VlBoardEntry::query()->sellablePicks()->count())->toBe(1)
+        ->and(VlBoardEntry::firstOrFail()->isSellablePick())->toBeTrue();
+})->with(['calibrated', 'unproven', 'insufficient_data']);
 
 it('shows no picks and says so when nothing is proven', function () {
     freshBoardSync();
@@ -86,7 +112,7 @@ it('shows no picks and says so when nothing is proven', function () {
 
     $this->actingAs(signedInUser())->get(route('today'))
         ->assertOk()
-        ->assertSee('No proven picks today')
+        ->assertSee('No predictions are currently available')
         ->assertDontSee('Pick · proven market', escape: false);
 });
 
@@ -96,7 +122,7 @@ it('labels a near miss a pass every time it is shown', function () {
 
     $this->actingAs(signedInUser())->get(route('today'))
         ->assertOk()
-        ->assertSee('No proven picks today')
+        ->assertSee('No predictions are currently available')
         ->assertSee('Pass')
         ->assertSee('Model unproven here.');
 });

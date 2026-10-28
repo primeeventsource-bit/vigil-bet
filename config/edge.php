@@ -362,7 +362,56 @@ return [
         'min_win_probability' => (float) env('EDGE_MIN_WIN_PROBABILITY', 0.55),
         'min_book_count' => 3,
         'vig_method' => 'multiplicative',
-        'require_proven_market' => true,
+        /*
+        |------------------------------------------------------------------
+        | Which market verdicts may produce a customer-facing pick
+        |------------------------------------------------------------------
+        |
+        | This was `require_proven_market => true`, which meant one tier:
+        | a market had to have beaten the no-vig closing line before the
+        | engine would show a pick from it. Nothing ever has, so the
+        | member dashboard, the board and the parlay builder showed
+        | nothing to anybody, including people paying.
+        |
+        | That gate answered the wrong question. Vigil sells its analysis,
+        | not guaranteed outcomes, and requiring a market to have already
+        | been profitable before it may state an opinion is both a claim
+        | nobody made and a circularity - a market cannot accumulate the
+        | evidence that would prove it while it is forbidden from
+        | speaking.
+        |
+        | `negative` is left out, and that exclusion is not a
+        | profitability test. The other three are unvalidated to varying
+        | degrees; `negative` is validated, and the finding is that the
+        | model loses to the price there. Publishing a recommendation
+        | from a market the engine itself rates as losing is not showing
+        | an unproven opinion, it is showing one measured to be bad.
+        | Changing that is one line here.
+        |
+        | What this does NOT change: `Verdict::claimsEdge()` still admits
+        | only `proven`, so nothing on the product may say it beats the
+        | book. Publishing an opinion and claiming an edge are different
+        | acts and only the first is opened up here.
+        |
+        */
+        /*
+         * An opt-in return to the old behaviour, per install.
+         *
+         * `bankroll_settings.require_proven_market` is a real column and
+         * an operator may have set it. Now that the gate no longer
+         * consults it, leaving it in place would be a switch on the
+         * settings page that silently does nothing - so it still means
+         * something, and what it means is "proven only", the rule this
+         * release replaced. Off by default.
+         */
+        'require_proven_market' => false,
+
+        'publishable_verdicts' => [
+            'proven',
+            'calibrated',
+            'unproven',
+            'insufficient_data',
+        ],
         // A quote older than this is stale: no recommendation, ever.
         'max_quote_age_minutes' => 20,
         'max_picks_shown' => 10,

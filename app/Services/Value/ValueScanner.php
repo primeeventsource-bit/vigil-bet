@@ -315,7 +315,16 @@ class ValueScanner
          * still reads market_unproven, and still reaches a customer as a
          * decline.
          */
-        if ($rules['require_proven_market'] && ! $verdict->allowsRecommendation()) {
+        /*
+         * `require_proven_market` is the per-install strict mode: an
+         * operator who wants the old rule back gets `proven` alone.
+         * Everything else asks the configured publication list.
+         */
+        $permitted = $rules['require_proven_market']
+            ? $verdict->claimsEdge()
+            : $verdict->allowsRecommendation();
+
+        if (! $permitted) {
             [$shadowRec, $shadowReason] = $this->decideOnMerits(
                 $shopped, $modelProb, $edgeAtPrice, $rules, $bankrollCents, $settings
             );

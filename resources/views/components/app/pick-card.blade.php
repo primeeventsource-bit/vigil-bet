@@ -27,7 +27,24 @@
         <span class="font-[family-name:var(--font-mono)] text-2xl font-bold tabular-nums text-[var(--vg-edge)]" data-numeric>
             {{ $pick->model_prob === null ? '—' : round($pick->model_prob * 100).'%' }}
         </span>
-        <span class="text-xs text-[var(--vg-slate)]">Confidence</span>
+        {{--
+            Confidence and evidence, side by side and never merged.
+
+            The model's stated probability is one claim; how much graded
+            history stands behind the market that produced it is a
+            different one. A 72% from a market with ten graded
+            predictions and a 72% from one with four thousand look
+            identical until the second number is printed, which is why
+            it is printed.
+        --}}
+        <span class="text-xs leading-tight text-[var(--vg-slate)]">
+            Confidence
+            @if (($sample = \App\Models\VlModel::sampleFor($pick->sport, $pick->market)) !== null)
+                <span class="block font-[family-name:var(--font-mono)] text-[10px] text-[var(--vg-muted)]" data-numeric>
+                    from {{ number_format($sample) }} graded
+                </span>
+            @endif
+        </span>
 
         <span class="ml-auto h-1.5 w-20 overflow-hidden rounded-full bg-[var(--vg-line)]">
             @if ($pick->model_prob !== null)
@@ -61,9 +78,40 @@
                 </li>
             @endif
 
+            {{--
+                The market's actual verdict, not a fixed sentence.
+
+                This line used to read "Market verdict: proven against
+                the closing line" with a green tick, on every card,
+                hardcoded. That was true while `proven` was the only
+                tier allowed to publish. It stopped being true the
+                moment the other tiers opened, and would have put the
+                strongest claim a sports model can make - we beat the
+                no-vig close - onto picks from markets that have beaten
+                nothing and, in the insufficient tier, have not yet been
+                measured at all.
+
+                So it reads the verdict off the row, and the tick is
+                green only where it was earned. The specification asks
+                for unvalidated predictions to be clearly distinguished
+                from those with historical evidence; this is where a
+                customer meets that distinction, one line under the
+                confidence figure.
+            --}}
+            @php
+                $verdict = \App\Enums\Verdict::tryFrom((string) $pick->market_verdict);
+                $earned = $verdict?->claimsEdge() ?? false;
+            @endphp
+
             <li class="flex gap-2">
-                <span class="text-[var(--vg-edge)]" aria-hidden="true">&check;</span>
-                <span>Market verdict: proven against the closing line</span>
+                <span @class([
+                    'text-[var(--vg-edge)]' => $earned,
+                    'text-[var(--vg-muted)]' => ! $earned,
+                ]) aria-hidden="true">{{ $earned ? '✓' : '·' }}</span>
+                <span>
+                    Market verdict: {{ $verdict?->label() ?? 'Unknown' }}.
+                    <span class="text-[var(--vg-muted)]">{{ $verdict?->description() }}</span>
+                </span>
             </li>
 
             @if ($pick->reason)
