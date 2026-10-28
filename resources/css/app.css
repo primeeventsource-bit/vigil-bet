@@ -176,6 +176,12 @@ html[data-theme='light'] {
     --vg-line: var(--vg-light-line);
     --vg-paper: var(--vg-light-text);
     --vg-slate: var(--vg-light-muted);
+    /*
+     * The tier below slate, which this map used to leave out entirely -
+     * so `muted` kept its dark value and every dimmed figure on a light
+     * page sat at 3.25:1. See the note on `light_dim` in brand.php.
+     */
+    --vg-muted: var(--vg-light-dim);
     --vg-edge: var(--vg-light-edge);
     /*
      * The button green, darkened for light mode.
@@ -199,6 +205,60 @@ html[data-theme='light'] {
     --vg-chart-line: var(--vg-light-chart-line);
     --vg-chart-fill: var(--vg-light-chart-fill);
     --vg-chart-grid: var(--vg-light-chart-grid);
+}
+
+/*
+|----------------------------------------------------------------------
+| The navigation drawer's open state, deliberately outside every layer
+|----------------------------------------------------------------------
+|
+| The same trap as the theme block above, and found the same way: the
+| rule looked right, read right, and did nothing.
+|
+| It has to beat the panel's own `-translate-x-full`. That utility lives
+| in @layer utilities, and a rule inside @layer components loses to it
+| however specific it is - so while this sat in `components` the drawer
+| stayed parked off the left edge. It reported itself open the whole
+| time: the class was applied, aria-expanded said true, focus moved into
+| the panel, and getBoundingClientRect put it at x = -288. Every signal
+| but the pixels.
+|
+| Two separate mistakes had to be fixed together. Tailwind 4 compiles
+| `-translate-x-full` to the standalone `translate` property rather than
+| into a `transform` matrix, so overriding `transform` was a declaration
+| about a property nothing was reading; and even once it named
+| `translate`, a layered rule could not win. Hence unlayered, and hence
+| both properties named.
+|
+| Scoped under the sidebar's breakpoint so it cannot reach a desktop
+| sidebar that is always in place. The script closes the drawer on the
+| way up to `lg`, and this means a missed resize event still could not
+| strand the overlay there.
+|
+*/
+@media (width < 64rem) {
+    html.nav-open [data-nav-panel] {
+        /*
+         * `translate` alone, and `0` rather than `none`.
+         *
+         * Both halves are forced by the minifier. `none` is the
+         * initial value, so it is dropped as redundant - and the very
+         * declaration that has to survive is the one that looks
+         * redundant. Worse, with a `transform` beside it Lightning CSS
+         * folds the two into a single `transform: translate(0)`, which
+         * leaves the rule setting no `translate` at all and hands the
+         * utility back its -100%.
+         *
+         * So: one property, named exactly, with a value that survives.
+         */
+        translate: 0;
+    }
+
+    /* The page behind a drawer does not scroll. */
+    html.nav-open,
+    html.nav-open body {
+        overflow: hidden;
+    }
 }
 
 @layer components {
@@ -256,26 +316,6 @@ html[data-theme='light'] {
         box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
     }
 
-    /*
-     * The navigation drawer's open state.
-     *
-     * A rule rather than a utility because it has to beat the panel's own
-     * `-translate-x-full`, and scoped under the sidebar's breakpoint so
-     * it cannot reach a desktop sidebar that is always in place - the
-     * script closes the drawer on the way up to `lg`, and this means a
-     * missed resize event still could not strand the overlay there.
-     */
-    @media (width < 64rem) {
-        html.nav-open [data-nav-panel] {
-            transform: translateX(0);
-        }
-
-        /* The page behind a drawer does not scroll. */
-        html.nav-open,
-        html.nav-open body {
-            overflow: hidden;
-        }
-    }
 
     .skip-link {
         position: absolute;

@@ -91,6 +91,7 @@ Route::get('/opinions', OpinionRecordController::class)->name('opinions');
  */
 Route::get('/about', [PageController::class, 'about'])->name('about');
 Route::get('/features', [PageController::class, 'features'])->name('features');
+Route::get('/contact', [PageController::class, 'contact'])->name('contact');
 Route::get('/sports-analytics', [PageController::class, 'sportsAnalytics'])->name('sports-analytics');
 
 Route::get('/legal/{page}', [PageController::class, 'legal'])

@@ -8,7 +8,16 @@
 
         <div class="relative mx-auto grid max-w-6xl items-center gap-16 px-6 py-24 sm:py-32 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
             <div>
-            <p class="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--vg-decor)_35%,transparent)] bg-[color-mix(in_srgb,var(--vg-decor)_10%,transparent)] px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-[var(--vg-slate)]">
+            {{--
+                Border, no fill.
+
+                The 10%% decor wash lifted the background toward the
+                text and took the eyebrow to 4.29:1 on the light hero -
+                under AA at this size. Without it the same slate sits at
+                4.86:1, and the chip still reads as a chip because the
+                border is what was drawing it.
+            --}}
+            <p class="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--vg-decor)_35%,transparent)] px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-[var(--vg-slate)]">
                 <span class="relative inline-flex h-1.5 w-1.5 text-[var(--vg-slate)]">
                     <span class="fx-pulse absolute inset-0 rounded-full"></span>
                     <span class="relative inline-block h-1.5 w-1.5 rounded-full bg-current"></span>
@@ -36,15 +45,25 @@
                 nobody a win. The copy stays on the right side of §0.7
                 without having to be edited into doing so.
             --}}
+            {{--
+                Shortened to one sentence that names the tools, from
+                three paragraphs that described the engine. The page was
+                asking a visitor to read an essay before it showed them
+                anything, and the console beside this is a better
+                argument than the paragraph it replaced.
+
+                Every noun in it is something that exists: the odds are
+                pulled from every tracked book, Player IQ holds real
+                ratings, and picks are saved, tracked and graded.
+            --}}
             <p class="mt-6 max-w-xl text-lg leading-relaxed text-[var(--vg-slate)]">
-                {{ config('brand.name') }} doesn't chase picks. It creates its own. A proprietary
-                prediction engine reads real-time odds, historical results, team and player
-                performance and statistical trends to identify potential betting opportunities.
+                AI-powered sports intelligence, real-time odds, advanced player analytics, and
+                powerful tools to research, analyze, and track your picks.
             </p>
 
             <p class="mt-4 max-w-xl text-sm leading-relaxed text-[var(--vg-slate)]">
-                Every prediction is backed by data, measured against actual results, and evaluated
-                to improve the models behind tomorrow's picks.
+                Every prediction is measured against what actually happened &mdash; and when nothing
+                clears the bar, {{ config('brand.name') }} says so instead of inventing a pick.
             </p>
 
             <p class="mt-6 font-[family-name:var(--font-display)] text-sm font-semibold uppercase tracking-[0.14em] text-[var(--vg-paper)]">
@@ -53,20 +72,38 @@
 
             <div class="mt-9 flex flex-wrap items-center gap-3">
                 {{--
-                    Straight to the picks rather than to a sign-up form.
-                    The page argues that this product shows its work, and
-                    a primary button asking for a card before showing
-                    anything would be arguing the opposite.
+                    The trial is the primary action now, where it used to
+                    be the picks anchor.
+                    
+                    The old comment here argued that asking for a sign-up
+                    before showing anything contradicts a page built on
+                    showing its work. That argument is still right, which
+                    is why the picks link survives as the third control
+                    below rather than being deleted: the page can ask for
+                    the trial first and still not hide the product behind
+                    it.
+
+                    Capitals in the markup, not uppercased in CSS - the
+                    specification names this string exactly. The hour
+                    count comes from config, so the button cannot
+                    advertise a different trial from the one the product
+                    grants.
                 --}}
-                <a href="#todays-picks"
+                <a href="{{ auth()->check() ? route('trial') : route('register') }}"
                    class="group relative inline-flex items-center gap-2 rounded-lg bg-[var(--vg-green)] px-6 py-3 font-bold text-[var(--vg-night)] shadow-[0_0_32px_-8px_color-mix(in_srgb,var(--vg-paper)_55%,transparent)] transition hover:shadow-[0_0_44px_-6px_color-mix(in_srgb,var(--vg-paper)_65%,transparent)]">
-                    View today's picks
+                    START FREE {{ config('plans.trial_hours') }}-HOUR TRIAL
                     <span aria-hidden="true" class="transition group-hover:translate-x-0.5">&rarr;</span>
                 </a>
 
-                <a href="{{ route('how-it-works') }}"
+                <a href="#platform"
                    class="rounded-lg border border-[var(--vg-line)] px-6 py-3 font-semibold text-[var(--vg-paper)] transition hover:border-[color-mix(in_srgb,var(--vg-decor)_45%,transparent)]">
-                    Explore {{ config('brand.name') }} AI
+                    EXPLORE THE PLATFORM
+                </a>
+
+                <a href="#todays-picks"
+                   class="group inline-flex items-center gap-1.5 px-1 py-3 text-sm font-semibold text-[var(--vg-link)] underline decoration-[color-mix(in_srgb,var(--vg-link)_40%,transparent)] underline-offset-4 transition hover:decoration-[var(--vg-link)]">
+                    or see today's picks first
+                    <span aria-hidden="true" class="transition group-hover:translate-x-0.5">&rarr;</span>
                 </a>
             </div>
 
@@ -298,21 +335,37 @@
         </div>
     </section>
 
-    {{-- Three steps --}}
-    <section class="relative isolate overflow-hidden border-b border-[var(--vg-line)]">
+    <x-marketing.command-center :games="$board" :leagues="$leagues" :opinions="$boardOpinions" :priced-at="$boardPricedAt" />
+
+    <x-marketing.platform />
+
+    {{-- How it works: four stages, numbered. --}}
+    <section id="how" class="relative isolate scroll-mt-20 overflow-hidden border-b border-[var(--vg-line)]">
         <x-fx.section-glow class="left-1/2 top-0 h-64 w-[36rem] -translate-x-1/2 -translate-y-1/2 opacity-30" />
 
-        <div class="relative mx-auto max-w-6xl px-6 py-20">
-            <h2 class="font-[family-name:var(--font-display)] text-3xl font-bold">How it works</h2>
+        <div class="relative mx-auto max-w-7xl px-6 py-20">
+            <h2 class="font-[family-name:var(--font-display)] text-3xl font-bold sm:text-4xl">How it works</h2>
             <div class="fx-rule mt-5 max-w-xs"></div>
 
-            <ol class="mt-10 grid gap-5 md:grid-cols-3">
+            <ol class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 @foreach ($steps as $i => $step)
-                    <li class="fx-panel fx-panel-lift relative p-6">
-                        <span class="font-[family-name:var(--font-mono)] text-sm font-bold text-[var(--vg-slate)]" data-numeric>
-                            {{ str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT) }}
-                        </span>
-                        <h3 class="mt-3 font-[family-name:var(--font-display)] text-lg font-semibold">
+                    {{--
+                        The connecting line between stages, drawn only
+                        between them and only once they are in a row -
+                        it is the sequence being shown, and at one card
+                        per row there is no sequence to draw.
+                    --}}
+                    <li class="fx-panel fx-panel-lift group relative p-6 lg:not-last:after:absolute lg:not-last:after:right-0 lg:not-last:after:top-11 lg:not-last:after:h-px lg:not-last:after:w-5 lg:not-last:after:translate-x-full lg:not-last:after:bg-[var(--vg-line)]">
+                        <div class="flex items-baseline gap-2.5">
+                            <span class="font-[family-name:var(--font-mono)] text-sm font-bold text-[var(--vg-green)]" data-numeric>
+                                {{ str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT) }}
+                            </span>
+                            <span class="font-[family-name:var(--font-display)] text-xs font-bold uppercase tracking-[0.18em] text-[var(--vg-muted)]">
+                                {{ $step['label'] }}
+                            </span>
+                        </div>
+
+                        <h3 class="mt-3.5 font-[family-name:var(--font-display)] text-lg font-semibold">
                             {{ $step['heading'] }}
                         </h3>
                         <p class="mt-2 text-sm leading-relaxed text-[var(--vg-slate)]">{{ $step['body'] }}</p>

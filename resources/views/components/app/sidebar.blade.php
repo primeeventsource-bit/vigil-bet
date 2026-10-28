@@ -126,7 +126,7 @@
            // Off-canvas until opened, and permanently in place from `lg`.
            // The open state is a CSS rule in app.css, scoped below `lg`,
            // rather than a utility: it has to beat `-translate-x-full`.
-           '-translate-x-full transition-transform duration-200 ease-out',
+           '-translate-x-full transition-[translate] duration-200 ease-out',
            'lg:static lg:translate-x-0',
        ])>
     <div class="flex items-center justify-between px-5 py-4">

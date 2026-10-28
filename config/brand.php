@@ -209,6 +209,24 @@ return [
         'light_line' => '#DCE1DE',
         'light_text' => '#080A09',
         'light_muted' => '#5C645F',
+        /*
+         * The dimmest readable text on a light page.
+         *
+         * `muted` is a tier below `slate` in the dark palette - paper,
+         * slate, decor, muted, brightest to dimmest - and the light map
+         * had no value for it at all, so it kept the dark #87918B and
+         * sat on white at 3.25:1. Every timestamp, every book count,
+         * every step label, below AA on every light page, since light
+         * mode began working.
+         *
+         * It cannot reuse `light_muted` above, which despite the name is
+         * what `slate` resolves to here: that would collapse two tiers
+         * into one and lose the hierarchy the dark palette has.
+         *
+         * 5.25:1 on a panel and 4.84:1 on the page background, and still
+         * visibly dimmer than slate's 6.10. Checked by ThemeTest.
+         */
+        'light_dim' => '#666E69',
         'light_edge' => '#0F7A43',
         'light_loss' => '#B4403C',
         'light_warning' => '#8A6212',

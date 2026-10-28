@@ -232,3 +232,44 @@ it('renders those overrides on a page that actually paginates', function () {
 
     expect($html)->not->toContain('dark:bg-gray-800');
 });
+
+it('assigns a light value for every token that carries text', function () {
+    /*
+     * The companion to the test above, and the gap it left.
+     *
+     * That one checks config/brand.php holds a `light_*` key for each
+     * colour. This checks the light map in app.css actually *assigns*
+     * it - which is a different question, and the one that went wrong:
+     * `light_muted` existed and was even used, as the source for
+     * `--vg-slate`, while `--vg-muted` itself was never reassigned at
+     * all. So it kept its dark #87918B and sat on a white panel at
+     * 3.25:1, below AA, on every light page since light mode began
+     * working.
+     *
+     * A key existing is not the same as a key being wired up. Only the
+     * second one is what a reader sees.
+     */
+    $css = (string) file_get_contents(resource_path('css/app.css'));
+
+    $start = mb_strpos($css, "html[data-theme='light'] {");
+    expect($start)->not->toBeFalse();
+
+    $map = mb_substr($css, $start, (int) mb_strpos($css, "\n}", $start) - $start);
+
+    /*
+     * Every token that is ever used as a text colour. Backgrounds and
+     * decoration are not here: `emerald` carries no text by design, and
+     * is checked for a light value by the test above rather than for an
+     * assignment here.
+     */
+    $carriesText = ['paper', 'slate', 'muted', 'decor', 'green', 'edge', 'link', 'loss', 'warning'];
+
+    $missing = array_values(array_filter(
+        $carriesText,
+        fn (string $token): bool => ! str_contains($map, '--vg-'.$token.':'),
+    ));
+
+    expect($missing)->toBe([],
+        'The light map never reassigns: '.implode(', ', $missing)
+        .'. Those tokens keep their dark value on a white page.');
+});

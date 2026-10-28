@@ -47,6 +47,13 @@
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('legal.privacy') }}">Privacy</a>
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('legal.responsible-gambling') }}">Responsible gambling</a>
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('legal.disclaimer') }}">Disclaimer</a>
+                {{--
+                    Straight to the heading rather than to a page of its
+                    own - see the comment on it in the cancellation
+                    policy for why there is only one copy of this rule.
+                --}}
+                <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('legal.cancellation') }}#refunds">Refund policy</a>
+                <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('contact') }}">Contact</a>
             </nav>
         </div>
 
