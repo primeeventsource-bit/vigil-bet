@@ -130,13 +130,52 @@ it('puts a sample size beside the confidence tile', function () {
     $this->actingAs(dashUser())->get(route('today'))->assertOk()->assertSee('n = 1');
 });
 
-it('never offers a bet button for an unproven market', function () {
+it('offers an unproven market as a pick, and says that it is unproven', function () {
+    /*
+     * This test used to assert the opposite, and the opposite was the
+     * business problem: an unproven market produced no pick, nothing is
+     * proven, so subscribers saw an empty dashboard.
+     *
+     * What replaces the gate is disclosure. The pick appears; the card
+     * carries the verdict in words, in the same list as the price and
+     * the book, one line under the confidence figure. A customer is
+     * told what they are looking at rather than shown nothing.
+     */
     dashPick(['id' => 1, 'market_verdict' => 'unproven']);
 
     $this->actingAs(dashUser())->get(route('today'))
         ->assertOk()
-        ->assertSee('No proven picks today')
-        ->assertDontSee('Add to Bet Slip');
+        ->assertSee('Add to Bet Slip')
+        ->assertSee('Market verdict: Unproven')
+        // The description, so "unproven" is not left as jargon.
+        ->assertSee('Has not beaten the closing line yet')
+        // And no version of the old hardcoded sentence survives.
+        ->assertDontSee('proven against the closing line');
+});
+
+it('never tells a customer an unvalidated market beat the book', function () {
+    /*
+     * The line this release could most easily have got wrong. The card
+     * printed "Market verdict: proven against the closing line" with a
+     * green tick, hardcoded, on every pick - correct while `proven` was
+     * the only tier that could publish, and a false claim on every card
+     * the moment the others could.
+     *
+     * Asserted across every publishable tier rather than one, because
+     * the failure would be a sentence that is right for one of them.
+     */
+    // One account for the whole loop: dashUser() writes a fixed address.
+    $user = dashUser();
+
+    foreach (['calibrated', 'unproven', 'insufficient_data'] as $verdict) {
+        VlBoardEntry::query()->delete();
+        dashPick(['id' => 1, 'market_verdict' => $verdict]);
+
+        $this->actingAs($user)->get(route('today'))
+            ->assertOk()
+            ->assertDontSee('proven against the closing line')
+            ->assertDontSee('Edge proven');
+    }
 });
 
 it('logs a bet rather than placing one', function () {

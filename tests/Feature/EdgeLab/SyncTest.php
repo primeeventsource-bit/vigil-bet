@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\Verdict;
 use App\Jobs\EdgeLab\SyncBoard;
 use App\Jobs\EdgeLab\SyncEvents;
 use App\Jobs\EdgeLab\SyncModels;
@@ -142,7 +143,15 @@ it('mirrors the schedule and the models', function () {
         ->and($event->home_name)->toBe('Buffalo Bills')
         ->and($event->away_abbreviation)->toBe('MIA')
         ->and($model->verdict)->toBe('insufficient_data')
-        ->and($model->allows_picks)->toBeFalse();
+        /*
+         * True now, and it is the mirror doing its job rather than a
+         * slackened assertion: `allows_picks` is written from
+         * Verdict::allowsRecommendation(), and a market with too small
+         * a sample may state an opinion while claiming nothing. What it
+         * still may not do is claim an edge.
+         */
+        ->and($model->allows_picks)->toBeTrue()
+        ->and(Verdict::from($model->verdict)->claimsEdge())->toBeFalse();
 });
 
 it('re-reads every model rather than paging past one whose verdict moved', function () {

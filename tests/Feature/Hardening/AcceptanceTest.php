@@ -104,7 +104,7 @@ it('13.2: with no proven market the daily card shows zero picks and says so', fu
 
     $this->actingAs($user)->get(route('today'))
         ->assertOk()
-        ->assertSee('No proven picks today')
+        ->assertSee('No predictions are currently available')
         // And no bet button anywhere on it.
         ->assertDontSee('Add to Bet Slip');
 });

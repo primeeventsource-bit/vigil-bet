@@ -42,15 +42,61 @@ function sourceFilesGating(): array
 }
 
 it('asks one question about which verdicts may publish', function () {
+    /*
+     * The set is configuration now, not a fixed tier. It was `Proven`
+     * alone, which meant the engine could show a pick from no market at
+     * all - nothing has beaten the closing line - so the dashboard, the
+     * board and the parlay builder were empty for subscribers, and the
+     * one tier that could open the gate could only be earned by
+     * publishing through it.
+     *
+     * What stays fixed is that the question is asked once.
+     */
     expect(Verdict::Proven->allowsRecommendation())->toBeTrue()
-        // Calibrated states an honest probability and is still losing to
-        // the close. It governs the opinions, where that is the whole
-        // claim; it does not open this gate, because everything past
-        // this point writes a recommendation.
-        ->and(Verdict::Calibrated->allowsRecommendation())->toBeFalse()
-        ->and(Verdict::Unproven->allowsRecommendation())->toBeFalse()
-        ->and(Verdict::Negative->allowsRecommendation())->toBeFalse()
-        ->and(Verdict::Insufficient->allowsRecommendation())->toBeFalse();
+        ->and(Verdict::Calibrated->allowsRecommendation())->toBeTrue()
+        ->and(Verdict::Unproven->allowsRecommendation())->toBeTrue()
+        ->and(Verdict::Insufficient->allowsRecommendation())->toBeTrue();
+});
+
+it('still refuses the one tier that was measured and found wanting', function () {
+    /*
+     * `negative` is not an unvalidated market. It is a validated one
+     * whose finding is that the model loses to the price. Publishing a
+     * recommendation from it would not be showing an unproven opinion,
+     * it would be showing one already measured as bad - which is a
+     * different thing from the historical-profitability gate this
+     * release removed.
+     *
+     * It is configuration, so this is overridable in one line. It is
+     * tested so that overriding it is a decision rather than an
+     * accident.
+     */
+    expect(Verdict::Negative->allowsRecommendation())->toBeFalse()
+        ->and(config('edge.value.publishable_verdicts'))->not->toContain('negative');
+});
+
+it('never lets publication become a claim of edge', function () {
+    /*
+     * The boundary this whole release turns on, and the one thing that
+     * must not move.
+     *
+     * Four tiers may now publish. Exactly one may claim to beat the
+     * closing line, and it is the one that has. If these two sets ever
+     * become the same set, the product is telling customers that an
+     * unvalidated market beat the book - which is the failure the
+     * Verdict docblock records happening once already.
+     */
+    $publishable = array_filter(Verdict::cases(), fn (Verdict $v): bool => $v->allowsRecommendation());
+    $claiming = array_filter(Verdict::cases(), fn (Verdict $v): bool => $v->claimsEdge());
+
+    expect($claiming)->toHaveCount(1)
+        ->and(Verdict::Proven->claimsEdge())->toBeTrue()
+        ->and(count($publishable))->toBeGreaterThan(count($claiming),
+            'Publication and the edge claim have collapsed into one set.');
+
+    foreach ([Verdict::Calibrated, Verdict::Unproven, Verdict::Insufficient, Verdict::Negative] as $verdict) {
+        expect($verdict->claimsEdge())->toBeFalse();
+    }
 });
 
 it('derives the publishable list from the enum rather than restating it', function () {

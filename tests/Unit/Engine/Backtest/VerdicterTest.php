@@ -18,7 +18,7 @@ it('refuses a verdict on too small a sample', function () {
 
     // Even results this good prove nothing over 120 games.
     expect($result->verdict)->toBe(Verdict::Insufficient)
-        ->and($result->allowsRecommendation())->toBeFalse()
+        ->and($result->verdict->claimsEdge())->toBeFalse()
         ->and($result->reason)->toContain('120 of 300');
 });
 
@@ -45,7 +45,7 @@ it('proves a model that beats the market on log loss and is calibrated with it',
     );
 
     expect($result->verdict)->toBe(Verdict::Proven)
-        ->and($result->allowsRecommendation())->toBeTrue()
+        ->and($result->verdict->claimsEdge())->toBeTrue()
         ->and($result->logLossImprovement)->toEqualWithDelta(0.015, 1e-9)
         ->and($result->calibrationGap)->toEqualWithDelta(-0.002, 1e-9);
 });
@@ -70,7 +70,7 @@ it('refuses to prove a sharper model whose probabilities are miscalibrated', fun
     );
 
     expect($result->verdict)->toBe(Verdict::Unproven)
-        ->and($result->allowsRecommendation())->toBeFalse()
+        ->and($result->verdict->claimsEdge())->toBeFalse()
         ->and($result->reason)->toContain('worse calibrated');
 });
 
@@ -97,7 +97,7 @@ it('calls a model calibrated when it does not beat the market, and says it does 
 
     expect($result->verdict)->toBe(Verdict::Calibrated)
         // Measured, and still not a recommendation.
-        ->and($result->allowsRecommendation())->toBeFalse()
+        ->and($result->verdict->claimsEdge())->toBeFalse()
         ->and($result->verdict->claimsEdge())->toBeFalse()
         ->and($result->reason)->toContain('loses to the closing line');
 });
@@ -136,7 +136,7 @@ it('still condemns a model that is both worse than the market and miscalibrated'
     );
 
     expect($result->verdict)->toBe(Verdict::Negative)
-        ->and($result->allowsRecommendation())->toBeFalse()
+        ->and($result->verdict->claimsEdge())->toBeFalse()
         ->and($result->reason)->toContain('Do not bet this market');
 });
 

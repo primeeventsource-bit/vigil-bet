@@ -69,7 +69,7 @@ it('reaches the calibrated tier for exactly the markets whose own numbers hold u
     // Whether the tier is reached, not whether a pick may follow from
     // it. Nothing here beats the close, so none of them may.
     expect($result->verdict === Verdict::Calibrated)->toBe($expected)
-        ->and($result->verdict->allowsRecommendation())->toBeFalse();
+        ->and($result->verdict->claimsEdge())->toBeFalse();
 })->with('live markets');
 
 it('never lets the weaker tier claim an edge', function () {
@@ -88,9 +88,9 @@ it('never lets the weaker tier claim an edge', function () {
         // edge claim however the page is worded, so the tier that may
         // not claim one may not issue them either.
         ->and($result->verdict->claimsEdge())->toBeFalse()
-        ->and($result->verdict->allowsRecommendation())->toBeFalse()
+        ->and($result->verdict->claimsEdge())->toBeFalse()
         ->and(Verdict::Proven->claimsEdge())->toBeTrue()
-        ->and(Verdict::Proven->allowsRecommendation())->toBeTrue();
+        ->and(Verdict::Proven->claimsEdge())->toBeTrue();
 });
 
 it('says in the reason that it still loses to the market', function () {
@@ -126,7 +126,7 @@ it('still needs a real sample before any tier opens', function () {
     );
 
     expect($result->verdict)->toBe(Verdict::Insufficient)
-        ->and($result->verdict->allowsRecommendation())->toBeFalse();
+        ->and($result->verdict->claimsEdge())->toBeFalse();
 });
 
 it('will not publish a market whose calibration was never measured', function () {
@@ -139,7 +139,7 @@ it('will not publish a market whose calibration was never measured', function ()
         improvementTStat: -3.1,
     );
 
-    expect($result->verdict->allowsRecommendation())->toBeFalse();
+    expect($result->verdict->claimsEdge())->toBeFalse();
 });
 
 it('keeps the proven tier available for anything that ever earns it', function () {

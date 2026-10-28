@@ -62,6 +62,27 @@
                 {{ config('vigil.responsible_gambling_line') }}
             </p>
 
+            {{--
+                The prediction disclaimer, on every page.
+
+                It belongs here rather than only on the disclaimer page
+                because the product now publishes opinions from markets
+                that have proved nothing. The gate used to do this work
+                silently - a market that had not beaten the close could
+                not produce a pick at all - and with that gone, the
+                sentence has to be said rather than enforced.
+
+                "Not guarantees of outcomes or profitability" is the
+                load-bearing clause. Everything else here was already
+                true and already said.
+            --}}
+            <p class="mt-3">
+                {{ config('brand.name') }} provides AI-generated sports analytics, predictions and
+                opinions for informational purposes. Predictions are not guarantees of outcomes or
+                profitability, and past performance does not guarantee future results.
+                {{ config('brand.name') }} does not accept or place wagers.
+            </p>
+
             <p class="mt-3">
                 {{ config('brand.name') }} sells information and tools. It does not take bets, hold
                 funds, or run contests. You are responsible for knowing whether betting is legal

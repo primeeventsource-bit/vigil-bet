@@ -63,9 +63,57 @@ class VlModel extends Model
         return once(fn (): bool => self::query()->current()->proven()->exists());
     }
 
+    /**
+     * Markets that have beaten the closing line. Strictly that.
+     *
+     * This used to read `recommendableVerdicts()`, which was the same
+     * list while only `proven` could recommend. It is not the same list
+     * any more: publication opened up to the unvalidated tiers and the
+     * edge claim did not, so the two questions needed separating.
+     *
+     * Everything that asks this one is asking about a *claim* - whether
+     * the homepage may show a track record, whether /record exists at
+     * all. Pointing it at the publication list would put a win rate back
+     * on a marketing page for markets that have proved nothing, which is
+     * the exact bug Verdict's own docblock records.
+     */
+    /**
+     * How many graded, out-of-sample predictions stand behind a market.
+     *
+     * The number the verdict was computed from, which is the honest
+     * companion to a confidence figure: a stated 72% from a market with
+     * ten graded predictions and the same 72% from one with four
+     * thousand are not the same claim, and the product should not let
+     * them look alike.
+     *
+     * One query for the whole board, memoised per request. A dashboard
+     * draws ten cards and each would otherwise ask the same question.
+     *
+     * @return array<string, int>
+     */
+    public static function sampleSizes(): array
+    {
+        return once(fn (): array => self::query()
+            ->current()
+            ->get(['sport', 'market', 'predictions'])
+            ->mapWithKeys(fn (self $model): array => [
+                $model->sport.'|'.$model->market => (int) $model->predictions,
+            ])
+            ->all());
+    }
+
+    /** The sample behind one market, or null when we hold no model for it. */
+    public static function sampleFor(?string $sport, ?string $market): ?int
+    {
+        return self::sampleSizes()[$sport.'|'.$market] ?? null;
+    }
+
     public function scopeProven(Builder $query): Builder
     {
-        return $query->whereIn('verdict', VlBoardEntry::recommendableVerdicts());
+        return $query->whereIn('verdict', array_values(array_map(
+            static fn (Verdict $verdict): string => $verdict->value,
+            array_filter(Verdict::cases(), static fn (Verdict $verdict): bool => $verdict->claimsEdge()),
+        )));
     }
 
     /**

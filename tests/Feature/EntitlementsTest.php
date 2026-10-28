@@ -708,7 +708,7 @@ it('does not tell a free user why the engine declined a game', function () {
     // there is nothing to sell today, which is true, and nothing more.
     $this->actingAs(userOn(null))->get(route('today'))
         ->assertOk()
-        ->assertSee('No proven picks today')
+        ->assertSee('No predictions are currently available')
         ->assertDontSee('Model unproven here.');
 
     $this->actingAs(userOn('daily'))->get(route('today'))
