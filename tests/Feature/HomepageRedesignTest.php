@@ -370,3 +370,65 @@ it('keeps the drawer override alive through minification', function () {
     expect($css)->toMatch('/nav-open\s*\[data-nav-panel\]\{[^}]*translate:\s*0/',
         'The built CSS has lost the translate override; the drawer will not open.');
 });
+
+it('lays the dashboard out without inventing a single figure', function () {
+    /*
+     * A dashboard mockup wants to be covered in numbers, and every one
+     * of them would be a claim: a win rate, units won, an average
+     * confidence. The spec allows explicitly-labelled demonstration
+     * data; this section declines even that, because the live figures
+     * are further up the same page and a second invented set would have
+     * the illustration arguing with them.
+     *
+     * So: the navigation and panel headings are the product's own, the
+     * values are bars, and the caption says so.
+     */
+    $page = $this->get('/');
+
+    $page->assertOk()
+        // The seven areas the specification names.
+        ->assertSee('My Parlays')
+        ->assertSee('Player IQ')
+        ->assertSee('Performance')
+        // The real column headings, which are facts about the product.
+        ->assertSee('Confidence')
+        ->assertSee('Closing line value')
+        ->assertSee('Layout illustration.');
+
+    /*
+     * No percentage anywhere in the illustration. Written as a regex
+     * over the section rather than a string match, because the failure
+     * this guards against is somebody adding "74%" to make it look
+     * livelier - which is exactly the thing that would read as a result.
+     */
+    $html = $page->getContent();
+    $from = (int) mb_strpos($html, 'id="dashboard"');
+    $section = mb_substr($html, $from, (int) mb_strpos($html, 'Layout illustration.', $from) - $from);
+
+    expect($section)->not->toMatch('/>\s*\d+(\.\d+)?%/',
+        'The dashboard illustration is printing a figure. Those are claims.');
+});
+
+it('draws its own sports artwork rather than borrowing anybody\'s', function () {
+    /*
+     * The spec asks for original sports imagery and forbids league
+     * marks and identifiable players - which rules out stock
+     * photography almost by definition, since a usable stadium shot has
+     * a sponsor board in it and a usable action shot has a face.
+     *
+     * So the hero art is geometry, drawn from palette tokens. This
+     * asserts the two properties that matter: it is ours, and it is
+     * decorative - a screen reader does not need a stadium read out.
+     */
+    $html = $this->get('/')->assertOk()->getContent();
+
+    $from = (int) mb_strpos($html, 'id="fx-arena-pitch"');
+
+    expect($from)->toBeGreaterThan(0, 'The hero artwork is gone.');
+
+    // Inline and token-coloured: no external asset, nothing licensed,
+    // and it repaints with the theme like everything else.
+    expect($html)
+        ->toContain('var(--vg-emerald)')
+        ->and(mb_substr($html, max(0, $from - 400), 400))->toContain('aria-hidden="true"');
+});

@@ -3,6 +3,14 @@
     <section class="fx-hero relative isolate overflow-hidden border-b border-[var(--vg-line)]">
         <span aria-hidden="true" class="fx-grid"></span>
         <x-fx.circuit class="opacity-70" />
+        {{--
+            Original artwork, drawn from palette tokens: no league mark,
+            no likeness, nothing licensed. Sits right and low so the
+            headline keeps the left of the hero to itself, and is hidden
+            below `md` where it would be behind the text rather than
+            beside it.
+        --}}
+        <x-fx.arena class="-bottom-24 -right-16 hidden h-[26rem] w-[46rem] opacity-40 lg:block" />
         <x-fx.section-glow class="left-1/2 top-0 h-[26rem] w-[52rem] -translate-x-1/2 -translate-y-1/2" />
         <x-fx.section-glow tone="signal" class="right-0 top-40 h-72 w-[34rem] translate-x-1/4" />
 
@@ -338,6 +346,8 @@
     <x-marketing.command-center :games="$board" :leagues="$leagues" :opinions="$boardOpinions" :priced-at="$boardPricedAt" />
 
     <x-marketing.platform />
+
+    <x-marketing.dashboard-preview />
 
     {{-- How it works: four stages, numbered. --}}
     <section id="how" class="relative isolate scroll-mt-20 overflow-hidden border-b border-[var(--vg-line)]">
