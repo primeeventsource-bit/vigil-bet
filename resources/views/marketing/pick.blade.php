@@ -8,6 +8,19 @@
             {{ $pick->selection }}
         </h1>
 
+        @if ($historical)
+            {{--
+                Said here as well as on the index, because a permalink
+                is the one page somebody arrives at from a link rather
+                than from the explanation.
+            --}}
+            <p class="mt-3 rounded-lg border-l-2 border-[var(--vg-warning)] bg-[var(--vg-navy)] px-4 py-3 text-xs text-[var(--vg-slate)]">
+                Archived. This pick was published when its market met an earlier standard. No
+                market currently meets the one required to publish a pick, so read this as a
+                record of what happened rather than as a claim about today.
+            </p>
+        @endif
+
         <p class="mt-2 text-sm text-[var(--vg-slate)]">
             {{ $pick->matchup ?? 'Game '.$pick->edge_lab_event_id }}
             &middot; {{ strtoupper($pick->sport) }}

@@ -322,6 +322,16 @@
         </div>
     </section>
 
+    {{--
+        Left on the proven gate alone, deliberately, where the other
+        links were opened up.
+
+        This is a strip of headline figures on the homepage with no room
+        to explain itself. The record page can carry "this is an archive"
+        above the numbers; a hero strip cannot, and a win rate on a
+        homepage is read as a claim about the product no matter what is
+        written under it.
+    --}}
     @if (\App\Models\VlModel::anyMarketProven())
         <x-marketing.track-record-strip :record="$record" />
     @endif

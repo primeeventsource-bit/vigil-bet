@@ -31,12 +31,9 @@ use App\Services\Record\OpinionPublisher;
 |
 */
 
-it('does not serve the public record while no market has beaten the close', function () {
-    $this->get(route('record'))->assertNotFound();
-});
-
-it('does not serve a pick permalink either', function () {
-    $pick = PublishedPick::create([
+function archivedPick(): PublishedPick
+{
+    return PublishedPick::create([
         'edge_lab_event_id' => 1,
         'sport' => 'nfl', 'market' => 'h2h', 'side' => 'home', 'selection' => 'Chiefs',
         'price_american' => -110,
@@ -44,10 +41,13 @@ it('does not serve a pick permalink either', function () {
         'published_at' => now(),
         'created_at' => now(),
     ]);
+}
 
-    // A permanent address for a claim we are no longer making is just
-    // the claim, still being made, one link deeper.
-    $this->get(route('record.pick', $pick))->assertNotFound();
+it('does not serve the public record when nothing was ever published', function () {
+    // Still a 404, and this is the case the gate was written for: a
+    // page of absences is not a record, and an empty table under a
+    // heading about a track record is a claim with no rows.
+    $this->get(route('record'))->assertNotFound();
 });
 
 it('offers no link to a record that is not there', function () {
@@ -55,6 +55,62 @@ it('offers no link to a record that is not there', function () {
         ->assertOk()
         ->assertDontSee('Track record')
         ->assertDontSee(route('record'), false);
+});
+
+/* ----------------------------------------------------------------------
+ | What was published stays readable, labelled for what it is
+ ---------------------------------------------------------------------- */
+
+it('serves the record as an archive once picks exist, gate or no gate', function () {
+    /*
+     * The decision this file used to hold was that no market being
+     * proven meant no record page at all. That was right about the
+     * claim and wrong about the facts: eight picks had been published
+     * before kickoff and graded afterwards, and the gate tightening
+     * later does not reach back and unmake the games.
+     *
+     * So the page opens. What keeps the original promise is the
+     * labelling, asserted below.
+     */
+    archivedPick();
+
+    $this->get(route('record'))->assertOk();
+});
+
+it('says it is an archive before it shows a single figure', function () {
+    archivedPick();
+
+    $page = $this->get(route('record'))->assertOk()->getContent();
+
+    expect($page)->toContain('This is an archive. Nothing here is being published today.');
+
+    // And the sentence that stops the figures reading as a claim.
+    expect($page)->toContain('Read these figures as history, not as a claim.');
+
+    // Said above the numbers, not below them. A caveat under a win rate
+    // is a caveat most readers never reach.
+    expect(mb_strpos($page, 'This is an archive'))
+        ->toBeLessThan(mb_strpos($page, 'Published picks'));
+});
+
+it('labels a pick permalink too, since that is where links land', function () {
+    $pick = archivedPick();
+
+    $this->get(route('record.pick', $pick))
+        ->assertOk()
+        ->assertSee('Archived.');
+});
+
+it('does not put an archived win rate on the home page', function () {
+    /*
+     * The one place still gated on the verdict alone. The record page
+     * can carry "this is an archive" above its numbers; a hero strip
+     * has no room to, and a win rate on a homepage reads as a claim
+     * about the product whatever is written beneath it.
+     */
+    archivedPick();
+
+    $this->get('/')->assertOk()->assertDontSee('Public record');
 });
 
 /* ----------------------------------------------------------------------

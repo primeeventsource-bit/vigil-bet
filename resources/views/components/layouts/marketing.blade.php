@@ -23,7 +23,10 @@
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('features') }}">Features</a>
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('how-it-works') }}">How it works</a>
                 {{-- The page 404s while nothing has passed the gate, so the nav goes with it. --}}
-                @if (\App\Models\VlModel::anyMarketProven())
+                {{-- Linked when the page exists, which is now also the
+                     case when picks were published under an earlier
+                     standard. The page says so itself, at the top. --}}
+                @if (\App\Models\VlModel::anyMarketProven() || \App\Models\PublishedPick::anyPublished())
                     <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('record') }}">Track record</a>
                 @endif
                 <a class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" href="{{ route('pricing') }}">Pricing</a>

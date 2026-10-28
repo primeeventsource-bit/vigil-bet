@@ -25,12 +25,26 @@ class RecordController extends Controller
     public function index(Request $request, PublicRecord $record, OpinionRecord $opinions): View
     {
         /*
-         * Nothing the engine produced is shown while no market has
-         * passed the gate. Not an empty table and not a page explaining
-         * the absence - the page is not part of the site until there is
-         * something it can honestly hold.
+         * Open when there is something true to show, which is either a
+         * market publishing now or picks that were published before.
+         *
+         * This used to be `anyMarketProven()` alone, and the reasoning
+         * was sound: a track record quoting a win rate while no market
+         * had cleared the gate reads as "we beat the book" however
+         * carefully it is worded. But the gate later tightened to admit
+         * only proven markets, and eight picks that had been published
+         * and graded under the old bar went with it. A real record of
+         * real games became a 404, which is not caution - the games
+         * happened, the picks were published before kickoff, and the
+         * results are what they are.
+         *
+         * So the page opens, and `historical` below is what keeps the
+         * original promise: when nothing is publishing today, the page
+         * says so at the top, before any figure.
          */
-        abort_unless(VlModel::anyMarketProven(), 404);
+        abort_unless(VlModel::anyMarketProven() || PublishedPick::anyPublished(), 404);
+
+        $historical = ! VlModel::anyMarketProven();
 
         $options = $record->filterOptions();
 
@@ -51,6 +65,15 @@ class RecordController extends Controller
             'curve' => $record->curve($filters),
             'options' => $options,
             'filters' => $filters,
+
+            /*
+             * True when no market currently clears the gate, so every
+             * figure on this page is about picks from markets that are
+             * not publishing now. The view leads with that rather than
+             * footnoting it - a caveat below a win rate is a caveat
+             * most readers will never reach.
+             */
+            'historical' => $historical,
             // Kept for the hero strip on the home page, which reads the
             // unfiltered figures.
             'overall' => $record->summary(),
@@ -89,14 +112,21 @@ class RecordController extends Controller
      */
     public function show(PublishedPick $pick): View
     {
-        // The permalink too. §7 wants one per pick that never moves, and
-        // it will be there again the moment a market passes - but a
-        // permanent address for a claim we are no longer making is just
-        // the claim, still being made, one link deeper.
-        abort_unless(VlModel::anyMarketProven(), 404);
+        /*
+         * The permalink follows the page. §7 asks for one address per
+         * pick that never moves, and a pick that was published before
+         * kickoff and graded afterwards has a permanent fact attached
+         * to it whatever the gate says this week.
+         *
+         * It carries the same flag, so a pick from a market that is no
+         * longer publishing says so on its own page rather than only on
+         * the index somebody may not have come from.
+         */
+        abort_unless(VlModel::anyMarketProven() || PublishedPick::anyPublished(), 404);
 
         return view('marketing.pick', [
             'pick' => $pick->load('result'),
+            'historical' => ! VlModel::anyMarketProven(),
         ]);
     }
 

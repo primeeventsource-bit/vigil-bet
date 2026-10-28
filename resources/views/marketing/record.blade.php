@@ -15,6 +15,51 @@
         </div>
     </section>
 
+    @if ($historical)
+        {{--
+            Before any figure, not after.
+
+            This page used to 404 outright whenever no market cleared
+            the gate, and the reasoning was right: a win rate shown
+            while nothing has been proved reads as "we beat the book"
+            however carefully the surrounding words are chosen. But the
+            gate tightened after these picks were published, and a 404
+            meant the only honest thing the site said about eight real,
+            graded games was nothing at all.
+
+            So the page opens and leads with this. A caveat printed
+            below a headline number is a caveat most readers never
+            reach.
+        --}}
+        <section class="border-b border-[var(--vg-line)] bg-[var(--vg-navy)]">
+            <div class="mx-auto max-w-3xl px-6 py-8">
+                <h2 class="font-[family-name:var(--font-display)] text-lg font-bold text-[var(--vg-paper)]">
+                    This is an archive. Nothing here is being published today.
+                </h2>
+                <div class="mt-3 space-y-3 text-sm text-[var(--vg-slate)]">
+                    <p>
+                        These picks were published before kickoff and graded afterwards, and the
+                        results below are exactly what happened. What has changed is the bar: no
+                        market currently meets the standard required to publish a pick, so the
+                        engine is publishing none.
+                    </p>
+                    <p>
+                        <strong class="text-[var(--vg-paper)]">Read these figures as history, not as a claim.</strong>
+                        They come from markets that cleared an earlier, lower bar. They are not
+                        evidence that {{ config('brand.name') }} beats the closing line today,
+                        because no market has yet shown that.
+                    </p>
+                    <p>
+                        What the engine is publishing instead is opinions, which are governed by
+                        calibration rather than by that gate, and every one of them is graded in
+                        public &mdash;
+                        <a href="{{ route('opinions') }}" class="underline hover:text-[var(--vg-paper)]">see the opinion record</a>.
+                    </p>
+                </div>
+            </div>
+        </section>
+    @endif
+
     {{-- The headline figures, or the honest absence of them. --}}
     <section class="border-b border-[var(--vg-line)]">
         <div class="mx-auto grid max-w-5xl gap-4 px-6 py-10 sm:grid-cols-2 lg:grid-cols-4">
