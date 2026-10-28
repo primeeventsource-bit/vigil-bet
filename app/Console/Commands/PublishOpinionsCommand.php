@@ -28,7 +28,7 @@ class PublishOpinionsCommand extends Command
     {
         $outcome = $publisher->run();
 
-        $this->info("published {$outcome['published']}");
+        $this->info("published {$outcome['published']} of {$outcome['candidates']} publishable candidates");
 
         foreach ($outcome['skipped'] as $reason => $count) {
             if ($count > 0) {

@@ -103,8 +103,45 @@ it('refuses a game inside the playable lead', function () {
 
     $outcome = app(OpinionPublisher::class)->run();
 
+    /*
+     * Not a candidate at all, rather than a candidate that was fetched
+     * and then refused.
+     *
+     * The distinction is the whole of the fix: the query carries a
+     * two-hundred row ceiling, the board is rescanned hourly, and every
+     * scan leaves another row for a selection that is still bet-worthy.
+     * Those rows go on sorting to the top of `flagged_at desc` long
+     * after the game has started, so the ceiling filled with games that
+     * could never publish - a real run returned `published 0, too late
+     * 200` while anything playable sat below the cut.
+     */
     expect($outcome['published'])->toBe(0)
-        ->and($outcome['skipped']['too_late'])->toBe(1);
+        ->and($outcome['candidates'])->toBe(0)
+        ->and($outcome['skipped']['too_late'])->toBe(0);
+});
+
+it('does not spend the candidate ceiling on opinions it has already published', function () {
+    /*
+     * The companion to the above, for the other way the ceiling used to
+     * be wasted. A published selection stays bet-worthy and keeps being
+     * rescanned, and the publisher's only defence was to fetch the row,
+     * attempt the insert, and let the unique index refuse it.
+     *
+     * The index is still there and still the only thing that can settle
+     * a race. It should simply not be load-bearing once an hour.
+     */
+    opinionCandidate();
+
+    $publisher = app(OpinionPublisher::class);
+
+    expect($publisher->run())
+        ->published->toBe(1)
+        ->candidates->toBe(1);
+
+    expect($publisher->run())
+        ->published->toBe(0)
+        ->candidates->toBe(0)
+        ->and(Opinion::count())->toBe(1);
 });
 
 it('publishes a selection once, however often it runs', function () {

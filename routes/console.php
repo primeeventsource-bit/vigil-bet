@@ -574,17 +574,33 @@ Schedule::command('queue:prune-failed --hours='.(24 * (int) config('edge.retenti
 /*
  * The GeoLite2 databases, which MaxMind publish weekly.
  *
- * Sunday, well away from everything else, because this is the least
- * important job in the file - a stale database degrades one advisory
- * column on the admin trials page and nothing else. The command never
- * throws, so a failure here cannot take the scheduler down with it.
+ * Hourly, which is not that cadence and is not meant to be. These files
+ * live in storage/app, and storage/app is container-local overlay: a
+ * deploy starts from the built image, so the 57 MB this downloads is
+ * erased by the next push. It had in fact been absent from production
+ * for two days before anybody went looking.
  *
- * Skipped entirely without a licence key, so an environment that has
- * not configured MaxMind does not wake up to attempt a download it
- * cannot make.
+ * So the interval is set by how long the product should run without the
+ * signal after a deploy, not by how often the data upstream changes. An
+ * hour. This is also why the job cannot just be appended to the deploy
+ * command: that step writes to a release container which is discarded,
+ * whereas the scheduler writes to the filesystem the application reads.
+ *
+ * At :35, which is clear of every other cadence here - the ten-minute
+ * odds pull owns the tens, events :10, the graders :05 and :20, the
+ * board :55. A download that normally no-ops is still a download.
+ *
+ * Running every hour costs one stat() whenever the file is current -
+ * the command compares mtime against its own staleness window and
+ * returns - so the frequency buys recovery and spends nothing.
+ *
+ * The command never throws, so a failure here cannot take the scheduler
+ * down with it. Skipped entirely without a licence key, so an
+ * environment that has not configured MaxMind does not wake up to
+ * attempt a download it cannot make.
  */
 Schedule::command('vigil:geoip-update')
-    ->weeklyOn(0, '03:20')
+    ->hourlyAt(35)
     ->name('geoip-update')
     ->skip(fn () => (string) config('services.maxmind.license_key') === '')
     // Ten, not longer. Two downloads with a two-minute timeout each

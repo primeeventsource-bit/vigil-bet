@@ -44,13 +44,49 @@ class OpinionPublisher
 
     public function __construct(private readonly OpinionBar $bar) {}
 
-    /** @return array{published:int, skipped:array<string, int>} */
+    /** @return array{published:int, candidates:int, skipped:array<string, int>} */
     public function run(): array
     {
+        /*
+         * The limit is a cost ceiling, so the rows under it have to be
+         * rows that could actually publish.
+         *
+         * Without the two filters below it was spent on candidates that
+         * could not: the board is rescanned hourly and every scan writes
+         * its own value_bets row, so one selection accumulates a row an
+         * hour for as long as it stays bet-worthy, and those rows go on
+         * sorting to the top of `flagged_at desc` after the game has
+         * kicked off and after the opinion has already gone out. A real
+         * run of this was observed returning `published 0, too late
+         * 200` - two hundred rows fetched, hydrated, and refused one at
+         * a time, while anything genuinely publishable sat at row 201.
+         *
+         * The in-loop checks in publish() stay exactly as they were.
+         * These are not a replacement for them: a game can cross the
+         * lead between this query and that check, and the unique index
+         * is still the only thing that can settle a race. They are here
+         * so the budget is spent on the right two hundred rows.
+         */
         $candidates = ValueBet::query()
             ->where('shadow_recommendation', 'bet')
             ->whereNotNull('best_price_american')
             ->whereNotNull('model_prob')
+            // Still playable, by the same lead publish() enforces.
+            ->whereExists(fn ($event) => $event->selectRaw('1')
+                ->from('events')
+                ->whereColumn('events.id', 'value_bets.event_id')
+                ->where('events.starts_at', '>', now()->addMinutes(self::MINIMUM_LEAD_MINUTES)))
+            /*
+             * Not already said. The same selection identity the unique
+             * index uses, compared null-safely because a moneyline has
+             * no line and two NULLs are distinct to that index.
+             */
+            ->whereNotExists(fn ($said) => $said->selectRaw('1')
+                ->from('opinions')
+                ->whereColumn('opinions.event_id', 'value_bets.event_id')
+                ->whereColumn('opinions.market', 'value_bets.market')
+                ->whereColumn('opinions.side', 'value_bets.side')
+                ->whereRaw('(opinions.line = value_bets.line or (opinions.line is null and value_bets.line is null))'))
             ->orderByDesc('flagged_at')
             ->limit(200)
             ->get();
@@ -94,7 +130,16 @@ class OpinionPublisher
             $skipped[$outcome] = ($skipped[$outcome] ?? 0) + 1;
         }
 
-        return ['published' => $published, 'skipped' => $skipped];
+        /*
+         * The count is reported because `published 0` on its own does
+         * not say which zero it is. "Nothing was publishable" and
+         * "everything publishable was refused" are different faults
+         * with different places to look, and the skip counters below
+         * can only describe rows that were fetched - so without this,
+         * the commonest state of a product whose gate nothing has
+         * passed prints no explanation of itself at all.
+         */
+        return ['published' => $published, 'candidates' => $candidates->count(), 'skipped' => $skipped];
     }
 
     /** Returns null on success, or the reason it was skipped. */
