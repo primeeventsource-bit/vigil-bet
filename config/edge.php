@@ -234,6 +234,36 @@ return [
         'unproven_edge_shrink' => 0.25,
 
         /*
+         * The middle tier: a market whose stated probabilities have been
+         * measured as true, but which has not beaten the close.
+         *
+         * This exists because keying the shrink on `claimsEdge()` alone
+         * rebuilt the circularity OpinionBar was written to avoid. That
+         * class refuses to ask whether a model beats the closing line,
+         * on the grounds that waiting for one means publishing nothing
+         * while the evidence that would settle it only accumulates once
+         * something is published. Then this shrink asked that exact
+         * question anyway, four files away, and cut every calibrated
+         * market to a quarter volume - so an opinion needed a 12% raw
+         * edge before the injury divisor touched it, and the engine went
+         * silent for two days without anything reporting a fault.
+         *
+         * Calibration is a different claim from edge and a measured one:
+         * it says a stated 74% comes in at roughly 74%, which is exactly
+         * what an opinion asserts. A market that has earned that has
+         * earned more than a quarter of its own voice. It has not earned
+         * all of it - it still does not beat the price, which is why
+         * this is 0.50 and not 1.00.
+         *
+         * Sized against the board rather than chosen: at 0.50, the last
+         * day's scans yield three distinct publishable selections where
+         * 0.25 yields none, and the best edge on the board moves from
+         * 1.51% to 4.73%. A trickle, which is the correct size for a
+         * market that is honest but not yet proven.
+         */
+        'calibrated_edge_shrink' => 0.50,
+
+        /*
          * How much a lopsided injury list tightens that shrink.
          *
          * The engine's probability is a power rating and has never seen

@@ -503,15 +503,31 @@ class ValueScanner
         }
 
         /*
+         * Three tiers, not two.
+         *
          * A market that beats the close has earned the right to its own
-         * number, so it starts at full trust and is not shrunk by the
-         * tier at all. What it has not earned is an exemption from the
+         * number and is not shrunk by the tier at all. A market whose
+         * stated probabilities have been measured as true - calibrated -
+         * has earned more than a quarter of its voice, even though it
+         * has not beaten the price.
+         *
+         * The middle tier is the fix for a circularity. Keyed on
+         * `claimsEdge()` alone, this asked the one question OpinionBar
+         * refuses to ask, and asked it of every market: nothing is
+         * proven, so everything was cut to a quarter, so an opinion
+         * needed a 12% raw edge, so nothing published, so nothing
+         * accumulated the closing-line evidence that is the only way a
+         * market ever becomes proven. See config/edge.php.
+         *
+         * What it has not earned either way is an exemption from the
          * team sheet: it was measured across ordinary games, and a game
          * missing a quarterback is not one of those.
          */
-        $shrink = $verdict->claimsEdge()
-            ? 1.0
-            : (float) config('edge.value.unproven_edge_shrink', 0.25);
+        $shrink = match (true) {
+            $verdict->claimsEdge() => 1.0,
+            $verdict === Verdict::Calibrated => (float) config('edge.value.calibrated_edge_shrink', 0.50),
+            default => (float) config('edge.value.unproven_edge_shrink', 0.25),
+        };
 
         /*
          * And further still when one side is missing more players than

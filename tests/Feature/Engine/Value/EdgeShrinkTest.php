@@ -93,8 +93,10 @@ function shrink(float $model, ?float $fair, Verdict $verdict, ?Event $event = nu
 it('pulls an unproven market most of the way back to the book', function () {
     config()->set('edge.value.unproven_edge_shrink', 0.25);
 
-    // The real numbers off the first calibrated board.
-    $published = shrink(0.623, 0.336, Verdict::Calibrated);
+    // The real numbers off the first calibrated board, read here
+    // against the unproven tier: `calibrated` has its own knob now,
+    // and this test is about this one.
+    $published = shrink(0.623, 0.336, Verdict::Unproven);
 
     expect(round($published, 3))->toBe(0.408)
         // 7.2 points rather than 28.7, which is a claim the evidence carries.
@@ -131,7 +133,7 @@ it('shrinks a disagreement in either direction', function () {
      */
     config()->set('edge.value.unproven_edge_shrink', 0.25);
 
-    $under = shrink(0.200, 0.500, Verdict::Calibrated);
+    $under = shrink(0.200, 0.500, Verdict::Unproven);
 
     expect(round($under, 3))->toBe(0.425)
         ->and($under)->toBeGreaterThan(0.200);
@@ -148,13 +150,13 @@ it('leaves the number alone when there is no market to shrink toward', function 
 it('can be turned off, and says so in configuration rather than in code', function () {
     config()->set('edge.value.unproven_edge_shrink', 1.0);
 
-    expect(shrink(0.623, 0.336, Verdict::Calibrated))->toBe(0.623);
+    expect(shrink(0.623, 0.336, Verdict::Unproven))->toBe(0.623);
 });
 
 it('collapses a market onto the book when set to zero', function () {
     config()->set('edge.value.unproven_edge_shrink', 0.0);
 
-    expect(shrink(0.623, 0.336, Verdict::Calibrated))->toBe(0.336);
+    expect(shrink(0.623, 0.336, Verdict::Unproven))->toBe(0.336);
 });
 
 it('ships with a ceiling that actually binds', function () {
@@ -504,4 +506,99 @@ it('ignores a report with no fetch time at all', function () {
 
     expect(shrink(0.623, 0.336, Verdict::Calibrated, $game))
         ->toBe(shrink(0.623, 0.336, Verdict::Calibrated, cleanGame()));
+});
+
+/*
+|--------------------------------------------------------------------------
+| The calibrated tier
+|--------------------------------------------------------------------------
+|
+| The middle tier exists to undo a circularity, and these hold it there.
+|
+| OpinionBar refuses to ask whether a model beats the closing line,
+| because waiting for one means publishing nothing while the evidence
+| that would settle it only accumulates once something is published.
+| This shrink then asked that exact question anyway, four files away, and
+| cut every calibrated market to a quarter - so an opinion needed a 12%
+| raw edge before the injury divisor touched it, and the engine published
+| nothing for two days while every component reported itself healthy.
+|
+*/
+
+it('gives a calibrated market more voice than an unproven one', function () {
+    /*
+     * The distinction the tier exists for. Calibration is a measured
+     * claim - a stated 74% comes in at roughly 74% - and it is the claim
+     * an opinion actually makes. A market that has earned it has earned
+     * more than a quarter of its own number.
+     */
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+    config()->set('edge.value.calibrated_edge_shrink', 0.50);
+
+    $calibrated = shrink(0.623, 0.336, Verdict::Calibrated);
+    $unproven = shrink(0.623, 0.336, Verdict::Unproven);
+
+    expect($calibrated)->toBeGreaterThan($unproven)
+        // Half the distance from the book rather than a quarter.
+        ->and(round($calibrated, 3))->toBe(0.480)
+        ->and(round($calibrated - 0.336, 3))->toBe(0.144);
+});
+
+it('still keeps a calibrated market short of its own number', function () {
+    /*
+     * The other side of it. Calibrated is not proven: it does not beat
+     * the price, and a tier that stopped shrinking it would be selling
+     * an edge nobody has measured.
+     */
+    config()->set('edge.value.calibrated_edge_shrink', 0.50);
+
+    expect(shrink(0.623, 0.336, Verdict::Calibrated))
+        ->toBeLessThan(0.623)
+        ->toBeGreaterThan(0.336);
+});
+
+it('ranks the three tiers in the order the evidence does', function () {
+    config()->set('edge.value.unproven_edge_shrink', 0.25);
+    config()->set('edge.value.calibrated_edge_shrink', 0.50);
+
+    $proven = shrink(0.623, 0.336, Verdict::Proven);
+    $calibrated = shrink(0.623, 0.336, Verdict::Calibrated);
+    $unproven = shrink(0.623, 0.336, Verdict::Unproven);
+
+    expect($proven)->toBeGreaterThan($calibrated)
+        ->and($calibrated)->toBeGreaterThan($unproven);
+});
+
+it('keeps the calibrated tier between the other two in configuration', function () {
+    /*
+     * A shipped default of 1.0 here would silently promote every
+     * calibrated market to proven, which is the claim this whole file
+     * exists to prevent; 0.25 would put the circularity back.
+     */
+    $unproven = (float) config('edge.value.unproven_edge_shrink');
+    $calibrated = (float) config('edge.value.calibrated_edge_shrink');
+
+    expect($calibrated)->toBeGreaterThan($unproven,
+        'A calibrated market is being shrunk as hard as an unproven one, which is'
+        .' what silenced the engine: nothing is proven, so nothing publishes, so'
+        .' nothing ever accumulates the evidence that would prove it.')
+        ->and($calibrated)->toBeLessThan(1.0,
+            'A calibrated market does not beat the price and must not be trusted as if it did.');
+});
+
+it('does not let a calibrated market skip the team sheet', function (): void {
+    /*
+     * Whatever the tier, a game missing a quarterback on one side is not
+     * one of the games the model was measured on.
+     */
+    config()->set('edge.value.calibrated_edge_shrink', 0.50);
+
+    config()->set('edge.value.absence_imbalance_weight', 0.25);
+
+    $whole = shrink(0.623, 0.336, Verdict::Calibrated, cleanGame());
+
+    $lopsided = cleanGame();
+    ruleOut($lopsided, 'home', 5);
+
+    expect(shrink(0.623, 0.336, Verdict::Calibrated, $lopsided))->toBeLessThan($whole);
 });
