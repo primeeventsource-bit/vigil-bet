@@ -50,7 +50,16 @@
         </li>
     </ul>
 
-    <h2 class="font-[family-name:var(--font-display)] text-xl font-semibold">Refunds</h2>
+    {{--
+        Anchored, because the footer links straight to it.
+
+        The specification asks for a Refund Policy in the footer and the
+        refund rule already lives here, three headings down. A second
+        page restating it would be two copies of a commercial promise
+        drifting apart, and the one that drifts is always the one nobody
+        is testing. One rule, in one place, with a link that lands on it.
+    --}}
+    <h2 id="refunds" class="scroll-mt-24 font-[family-name:var(--font-display)] text-xl font-semibold">Refunds</h2>
 
     <ul class="list-disc space-y-2 pl-5">
         <li>

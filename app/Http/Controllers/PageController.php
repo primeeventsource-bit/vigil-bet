@@ -57,10 +57,47 @@ class PageController extends Controller
          * fixtures; a strip across the top of a marketing page is about
          * what is on tonight, not about March.
          */
-        $ticker = $markets->upcoming(null, 36)
+        $priced = $markets->upcoming(null, 36)
             ->filter(static fn (array $game): bool => ($game['markets']['h2h'] ?? []) !== [])
-            ->take(12)
             ->values();
+
+        $ticker = $priced->take(12)->values();
+
+        /*
+         * The same fixtures again, deeper, for the command centre.
+         *
+         * One query's worth of work serves both: the strip across the
+         * top is about what is on tonight, and the board below it is
+         * the thing a visitor filters and reads. Pulling the window
+         * twice would be two round trips for one answer.
+         */
+        $board = $priced->take(18)->values();
+
+        /*
+         * The leagues that actually have something on the board, in the
+         * order the board shows them. Derived from the games rather
+         * than from a list of sports the product supports - a filter
+         * chip that matches nothing is a dead control, and an empty
+         * slate is exactly when somebody is most likely to press it.
+         */
+        $leagues = $board->pluck('sport')->unique()->values();
+
+        /*
+         * Whether the engine has published a call on each of those
+         * games, keyed by event.
+         *
+         * This is the honest answer to "AI evaluation status" per game:
+         * an opinion exists or it does not. The alternative - a
+         * confidence number beside every fixture - would mean inventing
+         * one for the games the engine passed on, which is most of
+         * them, and those passes are the product's actual claim.
+         */
+        $boardOpinions = $board->isEmpty()
+            ? collect()
+            : Opinion::query()
+                ->whereIn('event_id', $board->pluck('id')->all())
+                ->get(['id', 'public_id', 'event_id', 'selection', 'price_american'])
+                ->keyBy('event_id');
 
         /*
          * The three steps live here rather than in the template because
@@ -72,6 +109,11 @@ class PageController extends Controller
 
             'ticker' => $ticker,
             'tickerPricedAt' => $ticker->isEmpty() ? null : $markets->lastPricedAt(),
+
+            'board' => $board,
+            'leagues' => $leagues,
+            'boardOpinions' => $boardOpinions,
+            'boardPricedAt' => $board->isEmpty() ? null : $markets->lastPricedAt(),
 
             /*
              * The callout ribbon from the reference layout. Copy lives
@@ -106,18 +148,41 @@ class PageController extends Controller
              * is the shape of every tout site there has ever been.
              */
             'opinionRecord' => $opinions->summary(),
+            /*
+             * Four, named for what each stage does.
+             *
+             * It was three, ending at "we say pick or pass" - which left
+             * the loop open at exactly the point the product is unusual.
+             * Grading every published call against the closing line, and
+             * retraining off the result, is the part that earns the
+             * right to a verdict at all; stopping at the pick described
+             * a tipster instead.
+             *
+             * Every line is a thing that runs: the odds pull, the
+             * no-vig fair probability, the opinion grader, and the
+             * weekly retrain that can withdraw a verdict as well as
+             * grant one.
+             */
             'steps' => [
                 [
+                    'label' => 'Analyze',
                     'heading' => 'We read the whole market',
-                    'body' => 'Every tracked book, every couple of minutes near kickoff, so the price on the screen is the price that is there.',
+                    'body' => 'Every tracked book, every ten minutes near kickoff, so the price on the screen is the price that is actually there.',
                 ],
                 [
+                    'label' => 'Evaluate',
                     'heading' => 'We strip out the vig',
-                    'body' => "A fair probability from the market, and the model's probability beside it. The gap is the edge.",
+                    'body' => "A fair probability from the market, and the model's probability beside it. The gap is the edge, and most of the time there isn't one.",
                 ],
                 [
-                    'heading' => 'We say pick or pass',
-                    'body' => 'Most of the time it is pass, and we say so as plainly as we say pick.',
+                    'label' => 'Track',
+                    'heading' => 'We grade our own calls',
+                    'body' => 'Every published call is measured against the closing line and the final score. The record is the record, win or lose.',
+                ],
+                [
+                    'label' => 'Improve',
+                    'heading' => 'The models retrain weekly',
+                    'body' => 'A market that stops beating the close loses its verdict and publishes nothing. The gate takes permission away as readily as it grants it.',
                 ],
             ],
         ]);
@@ -272,6 +337,18 @@ class PageController extends Controller
      * Legal pages come from one place so the footer, the signup form and
      * the terms checkbox can never drift apart from each other.
      */
+    /**
+     * Contact, which is an address and a map of what is already written.
+     *
+     * No view data: everything on it is either configuration or a route,
+     * which is the point - a contact page that needed a controller to
+     * tell it who to contact would have the address in two places.
+     */
+    public function contact(): View
+    {
+        return view('marketing.contact');
+    }
+
     public function legal(string $page): View
     {
         abort_unless(in_array($page, self::LEGAL_PAGES, true), 404);
