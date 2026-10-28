@@ -42,6 +42,26 @@ function quotaUser(?string $tier = null): User
     return $user->refresh();
 }
 
+/**
+ * Somebody with a trial running.
+ *
+ * The capped daily allowance used to belong to the free tier. It is the
+ * trial's now - that is where a number between zero and unlimited
+ * actually lives - so the tests that exercise a cap exercise this.
+ */
+function trialQuotaUser(): User
+{
+    $user = quotaUser();
+
+    $user->forceFill([
+        'trial_started_at' => now(),
+        'trial_expires_at' => now()->addHours((int) config('plans.trial_hours')),
+        'trial_used_at' => now(),
+    ])->save();
+
+    return $user->fresh();
+}
+
 function aRead(int $subjectId): VigilRead
 {
     return VigilRead::create([
@@ -55,21 +75,36 @@ function aRead(int $subjectId): VigilRead
     ]);
 }
 
-it('gives a free account one read a day and says so', function () {
+it('gives an account with no trial and no plan nothing at all', function () {
+    // Registration creates no subscription and starting the trial is an
+    // explicit act. This is the state between the two, and it is the
+    // one that used to silently hand out a free Read a day.
     $user = quotaUser();
     $quota = app(ReadQuota::class);
 
-    expect($quota->viewAllowance($user))->toBe(1)
-        ->and($quota->viewsRemaining($user))->toBe(1);
-
-    expect($quota->claim($user, aRead(1)))->toBeTrue()
+    expect($quota->viewAllowance($user))->toBe(0)
         ->and($quota->viewsRemaining($user))->toBe(0)
-        // A second, different Read is refused.
-        ->and($quota->claim($user, aRead(2)))->toBeFalse();
+        ->and($quota->claim($user, aRead(1)))->toBeFalse();
+});
+
+it('gives a trial five reads a day and says so', function () {
+    $user = trialQuotaUser();
+    $quota = app(ReadQuota::class);
+
+    expect($quota->viewAllowance($user))->toBe(5)
+        ->and($quota->viewsRemaining($user))->toBe(5);
+
+    foreach (range(1, 5) as $n) {
+        expect($quota->claim($user, aRead($n)))->toBeTrue("read {$n} was refused");
+    }
+
+    // The sixth, a different Read, is refused.
+    expect($quota->viewsRemaining($user))->toBe(0)
+        ->and($quota->claim($user, aRead(6)))->toBeFalse();
 });
 
 it('does not charge a customer twice for reading the same thing twice', function () {
-    $user = quotaUser();
+    $user = trialQuotaUser();
     $quota = app(ReadQuota::class);
     $read = aRead(1);
 
@@ -80,11 +115,11 @@ it('does not charge a customer twice for reading the same thing twice', function
     // A counter could not tell this from reading three Reads, which is
     // why the key is (user, read, day) and not a number.
     expect(ReadView::count())->toBe(1)
-        ->and($quota->viewsRemaining($user))->toBe(0);
+        ->and($quota->viewsRemaining($user))->toBe(4);
 });
 
 it('lets yesterdays allowance expire without taking away what was read', function () {
-    $user = quotaUser();
+    $user = trialQuotaUser();
     $quota = app(ReadQuota::class);
     $read = aRead(1);
 
@@ -92,7 +127,7 @@ it('lets yesterdays allowance expire without taking away what was read', functio
 
     $this->travel(1)->day();
 
-    expect($quota->viewsRemaining($user))->toBe(1)
+    expect($quota->viewsRemaining($user))->toBe(5)
         // And the one already opened is still free to reopen.
         ->and($quota->claim($user, $read))->toBeTrue();
 });
@@ -117,10 +152,17 @@ it('shows nothing to a signed-out visitor', function () {
     expect(app(ReadQuota::class)->claim(null, aRead(1)))->toBeFalse();
 });
 
-it('spends the free read on the top pick rather than whichever row came first', function () {
+it('spends a trial read on the top pick rather than whichever row came first', function () {
     config()->set('ai.enabled', false);
 
-    $user = quotaUser();
+    /*
+     * One read for the length of this test, because the question is
+     * which pick an allowance is spent on and an allowance larger than
+     * the board answers nothing. The real number is five.
+     */
+    config()->set('plans.tiers.trial.limits.reads_per_day', 1);
+
+    $user = trialQuotaUser();
 
     // Two proven picks, the stronger one first by edge.
     $strong = entryFor(['id' => 1, 'recommendation' => 'bet', 'market_verdict' => 'proven', 'edge_at_price' => 0.09]);
@@ -139,13 +181,15 @@ it('spends the free read on the top pick rather than whichever row came first', 
 it('tells the customer the allowance is spent rather than showing a gap', function () {
     config()->set('ai.enabled', false);
 
-    $user = quotaUser();
+    $user = trialQuotaUser();
     $entry = entryFor(['recommendation' => 'bet', 'market_verdict' => 'proven']);
 
     app(ReadWriter::class)->forBoardEntry($entry);
 
-    // Spend it on something else first.
-    app(ReadQuota::class)->claim($user, aRead(999));
+    // Spend the whole day's allowance on something else first.
+    foreach (range(990, 994) as $n) {
+        app(ReadQuota::class)->claim($user, aRead($n));
+    }
 
     $this->actingAs($user)->get(route('today'))
         ->assertOk()

@@ -25,17 +25,29 @@ declare(strict_types=1);
 |
 | THE FREE TIER IS NOT SOLD AND MUST NOT BE REMOVED.
 |
-| Entitlements::ANONYMOUS_TIER is 'free', and tier() falls back to it for
-| every signed-out visitor and every account without a subscription row -
-| which is every account, since registration creates none. Deleting the
-| key would not "remove the free plan", it would leave the homepage, the
-| opinions page and the picks feed resolving to a tier that does not
-| exist. It is the floor the product stands on, not a product.
+| THREE UNSOLD TIERS, AND WHY THERE ARE THREE.
 |
-| What is sold is the three below it. `sellable()` is the list with a
-| price, which is what the pricing page, the checkout and the admin tier
-| picker all read - so the floor stays invisible to a customer without
-| being absent from the code.
+| `free` used to be one key doing three jobs: the tier a signed-out
+| visitor resolved to, the tier a registered account resolved to because
+| registration creates no subscription row, and the tier somebody fell
+| back to when a subscription lapsed. One name, three meanings, and no
+| way for any code to tell which one it was holding.
+|
+| The 24-hour trial made that untenable, because "has not signed up",
+| "is on the trial" and "the trial is over" have to be different answers
+| and the first and third were the same key. So:
+|
+|   guest    - signed out, or registered and not yet activated. Grants
+|              nothing, which costs nothing: not one public page in this
+|              product performs an entitlement check. The marketing
+|              views contain zero @can.
+|   trial    - 24 hours from activation. Everything Pro grants, capped.
+|   expired  - the trial is over and nothing was bought. The account is
+|              alive and its own history is readable; the product is not.
+|
+| None of the three has a price, so none appears in a checkout, a
+| pricing card or the admin tier picker - that list is sellableTiers(),
+| which is everything with monthly_cents above zero.
 |
 */
 
@@ -43,41 +55,157 @@ return [
 
     'currency' => 'USD',
 
-    'trial_days' => (int) env('VIGIL_TRIAL_DAYS', 7),
-
     /*
      * Tiers that no longer exist, mapped to the one that replaced them.
      *
      * subscriptions.tier is a free-form string with no foreign key, and
      * billing_events is append-only - the history genuinely contains
-     * 'daily' and always will. Entitlements reads this before deciding a
-     * tier is unknown, so an old row grants what it was sold rather than
-     * silently degrading its owner to free.
+     * 'daily' and 'free' and always will. Entitlements reads this before
+     * deciding a tier is unknown, so an old row grants what it was sold
+     * rather than silently degrading its owner.
+     *
+     * `free` maps to `guest` rather than to `trial`: a subscription row
+     * written before the trial existed is not evidence that anybody
+     * activated one, and resolving it as a trial would hand 24 hours of
+     * Pro to every lapsed account on the day this shipped.
      */
     'renamed' => [
         'daily' => 'core',
+        'free' => 'guest',
     ],
+
+    /*
+     * How long a trial lasts, in hours rather than days.
+     *
+     * Hours because the promise is "expires exactly 72 hours after
+     * activation", and days cannot express that: a day boundary moves
+     * with a timezone and an activation at 23:50 would lose most of
+     * its first one.
+     *
+     * The old `trial_days` key is gone. It defaulted to 7, was read by
+     * exactly one line of Blade advertising "a 7-day free trial on the
+     * paid tiers when they open", and that sentence became false the
+     * moment this existed. A key whose only reader is a promise the
+     * product does not keep is worse than no key.
+     */
+    'trial_hours' => (int) env('VIGIL_TRIAL_HOURS', 72),
 
     'tiers' => [
 
-        'free' => [
-            'name' => 'Free',
-            'blurb' => 'Try it.',
+        /*
+         * Signed out, or signed in and not yet started.
+         *
+         * Grants nothing, and that costs nothing: not one public page in
+         * this product consults an entitlement. The marketing views
+         * contain no @can, no Gate:: and no auth() beyond a sign-in
+         * button. The homepage picks feed, /opinions and /record are
+         * rendered from queries that never ask what tier is reading
+         * them, which is what makes the public record public.
+         */
+        'guest' => [
+            'name' => 'Not started',
+            'blurb' => 'Create an account to begin.',
+            'monthly_cents' => 0,
+            'yearly_cents' => 0,
+            'features' => [],
+            'grants' => [],
+            'limits' => ['reads_per_day' => 0, 'prop_analyses_per_day' => 0, 'tracked_bets' => 0, 'parlays_per_day' => 0],
+        ],
+
+        /*
+         * Seventy-two hours, and what it shows has to be worth judging.
+         *
+         * Everything Pro grants, plus Player IQ, because the features
+         * most likely to convert somebody are the ones a cheaper
+         * demonstration would hide. Capped, because a trial is a sample
+         * and the caps are what keep it one.
+         *
+         * `props.projected` is the one thing held back, and it is the
+         * only thing Elite still sells that a trialist will not have
+         * seen. That is a deliberate trade and not an oversight: the
+         * projections are the engine's live output on games that have
+         * not happened, 9,739 of them, and three days is ample time to
+         * take a copy.
+         */
+        'trial' => [
+            'name' => 'Free trial',
+            'blurb' => '72 hours, no card.',
             'monthly_cents' => 0,
             'yearly_cents' => 0,
             'features' => [
-                'Odds board for today: moneyline, spread and total',
-                'One :brand Read a day, on a pick or a pass',
-                'Bet tracker, up to 25 bets',
-                'Parlay grader, three a day',
+                "Today's games, sports statistics and the full value board",
+                'Player IQ ratings across every tracked league',
+                'AI predictions, five a day',
+                'Player prop analysis, three a day',
+                'Parlay builder, ten graded a day',
+                'Your own picks tracker and results dashboard',
+                'No card, no automatic charge, no renewal',
             ],
             'grants' => [
                 'board.today',
                 'read.view',
                 'bets.track',
                 'parlay.grade',
+                'card.daily',
+                'bets.roi',
+                'alerts',
+                'board.full',
+                'lineshopping',
+                'props',
+                'bets.clv',
+                'tools.crossbook',
+                'modellab',
+                'books.custom',
+                'bankroll',
+                /*
+                 * Available during the trial, per the feature table,
+                 * though it is otherwise an Elite grant.
+                 *
+                 * The cost is worth stating plainly: Elite sells two
+                 * things above Pro, and this is one of them. A trialist
+                 * therefore sees everything Elite has except the
+                 * projected props, so what Elite is selling them at the
+                 * end of three days is that one feature and the absence
+                 * of a clock.
+                 */
+                'playeriq',
             ],
-            'limits' => ['reads_per_day' => 1, 'tracked_bets' => 25, 'parlays_per_day' => 3],
+            /*
+             * Daily allowances are counted on the UTC calendar day and
+             * reset at midnight UTC, which is what makes "five a day"
+             * the same five for everybody rather than a number that
+             * depends where somebody is standing.
+             */
+            'limits' => [
+                'reads_per_day' => 5,
+                'prop_analyses_per_day' => 3,
+                'tracked_bets' => 25,
+                'parlays_per_day' => 10,
+            ],
+        ],
+
+        /*
+         * The trial is over and nothing was bought.
+         *
+         * `bets.track` and nothing else. The spec asks that the account
+         * stay alive and its history be preserved, and preserved data
+         * nobody can open is not preserved in any sense that matters to
+         * the person who entered it. What they lose is the product;
+         * what they keep is their own record of it.
+         *
+         * Saved picks and saved parlays are reachable too - those routes
+         * are ungated by design, for the same reason.
+         */
+        'expired' => [
+            'name' => 'Trial ended',
+            'blurb' => 'Your account and history are intact.',
+            'monthly_cents' => 0,
+            'yearly_cents' => 0,
+            'features' => [],
+            'grants' => [
+                'bets.track',
+            ],
+            'limits' => ['reads_per_day' => 0, 'prop_analyses_per_day' => 0, 'tracked_bets' => 25, 'parlays_per_day' => 0],
         ],
 
         'core' => [
@@ -104,7 +232,7 @@ return [
                 'bets.roi',
                 'alerts',
             ],
-            'limits' => ['reads_per_day' => null, 'tracked_bets' => null, 'parlays_per_day' => null],
+            'limits' => ['reads_per_day' => null, 'prop_analyses_per_day' => null, 'tracked_bets' => null, 'parlays_per_day' => null],
         ],
 
         'pro' => [
@@ -140,7 +268,7 @@ return [
                 'books.custom',
                 'bankroll',
             ],
-            'limits' => ['reads_per_day' => null, 'tracked_bets' => null, 'parlays_per_day' => null],
+            'limits' => ['reads_per_day' => null, 'prop_analyses_per_day' => null, 'tracked_bets' => null, 'parlays_per_day' => null],
         ],
 
         /*
@@ -192,7 +320,7 @@ return [
                 'playeriq',
                 'props.projected',
             ],
-            'limits' => ['reads_per_day' => null, 'tracked_bets' => null, 'parlays_per_day' => null],
+            'limits' => ['reads_per_day' => null, 'prop_analyses_per_day' => null, 'tracked_bets' => null, 'parlays_per_day' => null],
         ],
 
     ],

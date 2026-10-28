@@ -139,13 +139,16 @@ it('names the tier the customer is actually on', function (string $tier, string 
 ]);
 
 it('calls a signed-in user with no subscription what the config calls it', function () {
+    // "Not started" rather than "Free". Registration creates no
+    // subscription and starting the trial is an explicit act, so this
+    // is the state between the two and the plan card should say so.
     $this->actingAs(shellUser())->get(route('today'))
         ->assertOk()
-        ->assertSee('Free');
+        ->assertSee('Not started');
 });
 
 it('offers the prices to anybody not already on the top tier', function () {
-    $this->actingAs(shellUser('free'))->get(route('today'))
+    $this->actingAs(shellUser('core'))->get(route('today'))
         ->assertOk()
         ->assertSee('Compare plans');
 });

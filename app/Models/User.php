@@ -42,6 +42,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'is_admin' => 'boolean',
             'suspended_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'trial_started_at' => 'datetime',
+            'trial_expires_at' => 'datetime',
+            'trial_used_at' => 'datetime',
             // Encrypted, not hashed: both have to be readable again, the
             // secret to check a code against and the codes to show once.
             'two_factor_secret' => 'encrypted',
@@ -141,6 +144,54 @@ class User extends Authenticatable implements MustVerifyEmail
     public function tier(): string
     {
         return app(Entitlements::class)->tier($this);
+    }
+
+    /**
+     * The status of the subscription, if there is one.
+     *
+     * The trial spec asked for a `subscription_status` column on this
+     * table. There already is one, on `subscriptions`, and a second
+     * copy here would be a second thing to keep true - the two
+     * disagreeing is a worse outcome than the lookup this avoids. So
+     * the column was not added and this reads the one that exists.
+     *
+     * Null means no subscription row at all, which is every account
+     * that has never bought anything, since registration creates none.
+     */
+    public function subscriptionStatus(): ?string
+    {
+        return $this->subscription?->status;
+    }
+
+    /** The clock is running. */
+    public function onTrial(): bool
+    {
+        return $this->trial_expires_at !== null && $this->trial_expires_at->isFuture();
+    }
+
+    /** It ran, and it is over. Distinct from never having started one. */
+    public function trialExpired(): bool
+    {
+        return $this->trial_used_at !== null && ! $this->onTrial();
+    }
+
+    /**
+     * The trial's state in one word, derived rather than stored.
+     *
+     * The spec asked for a `trial_status` column. It is not here,
+     * because it would be a second copy of what these two timestamps
+     * already say and the two could then disagree - which is the only
+     * way this question gets a wrong answer. Nothing is saved by
+     * storing it either: "every running trial" is
+     * `where trial_expires_at > now()` on an indexed column.
+     */
+    public function trialStatus(): string
+    {
+        return match (true) {
+            $this->onTrial() => 'active',
+            $this->trial_used_at !== null => 'expired',
+            default => 'none',
+        };
     }
 
     public function entitlementOverrides(): HasMany

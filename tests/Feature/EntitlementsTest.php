@@ -90,19 +90,87 @@ it('gates more than one route, so the checks below are actually checking somethi
     expect(gatedRoutes())->not->toBeEmpty();
 });
 
-it('treats a signed-out visitor as free rather than as nothing', function () {
-    expect(entitlements()->tier(null))->toBe('free')
-        ->and(entitlements()->can(null, 'board.today'))->toBeTrue()
+it('treats a signed-out visitor as a guest rather than as nothing', function () {
+    /*
+     * A named tier, not null. The difference matters because every
+     * feature key is a nullable Gate ability, so an unnamed state would
+     * be an unanswered question rather than a refusal.
+     *
+     * `guest` grants nothing, which costs nothing: no public page in
+     * this product performs an entitlement check. The homepage picks
+     * feed, the opinion record and the public record are rendered from
+     * queries that never ask what tier is reading them, and that is
+     * what makes the record public.
+     */
+    expect(entitlements()->tier(null))->toBe('guest')
+        ->and(entitlements()->can(null, 'board.today'))->toBeFalse()
         ->and(entitlements()->can(null, 'board.full'))->toBeFalse();
 });
 
-it('gives a user with no subscription the free grants and nothing more', function () {
+it('gives a registered account nothing until it starts a trial', function () {
+    // Registration creates no subscription row and starting the trial
+    // is an explicit act, so this is the state between the two.
     $user = userOn(null);
 
-    expect(entitlements()->tier($user))->toBe('free')
-        ->and(entitlements()->can($user, 'parlay.grade'))->toBeTrue()
-        ->and(entitlements()->can($user, 'board.full'))->toBeFalse()
-        ->and(entitlements()->cannot($user, 'props'))->toBeTrue();
+    expect(entitlements()->tier($user))->toBe('guest')
+        ->and(entitlements()->can($user, 'parlay.grade'))->toBeFalse()
+        ->and(entitlements()->can($user, 'board.full'))->toBeFalse();
+});
+
+it('gives a running trial everything Pro has, plus Player IQ', function () {
+    $user = userOn(null);
+    $user->forceFill([
+        'trial_started_at' => now()->subHour(),
+        'trial_expires_at' => now()->addHours(23),
+        'trial_used_at' => now()->subHour(),
+    ])->save();
+
+    expect(entitlements()->tier($user->fresh()))->toBe('trial');
+
+    foreach ((array) config('plans.tiers.pro.grants') as $feature) {
+        expect(entitlements()->can($user->fresh(), $feature))->toBeTrue("trial was refused {$feature}");
+    }
+
+    /*
+     * Player IQ is in, per the feature table. Projected props are the
+     * one thing held back, and so the only thing Elite still sells
+     * that a trialist will not already have seen - which is a trade
+     * made deliberately rather than an oversight.
+     */
+    expect(entitlements()->can($user->fresh(), 'playeriq'))->toBeTrue()
+        ->and(entitlements()->can($user->fresh(), 'props.projected'))->toBeFalse();
+});
+
+it('leaves an expired trial with its own history and nothing else', function () {
+    $user = userOn(null);
+    $user->forceFill([
+        'trial_started_at' => now()->subDays(2),
+        'trial_expires_at' => now()->subDay(),
+        'trial_used_at' => now()->subDays(2),
+    ])->save();
+
+    expect(entitlements()->tier($user->fresh()))->toBe('expired')
+        // Their own bet log stays readable. Preserved data nobody can
+        // open is not preserved in any sense that matters.
+        ->and(entitlements()->can($user->fresh(), 'bets.track'))->toBeTrue()
+        ->and(entitlements()->can($user->fresh(), 'board.full'))->toBeFalse()
+        ->and(entitlements()->can($user->fresh(), 'card.daily'))->toBeFalse();
+});
+
+it('tells never-started apart from spent', function () {
+    // The upgrade screen and the conversion report both need this, and
+    // the old single `free` key could not express it.
+    $never = userOn(null);
+
+    $spent = userOn(null);
+    $spent->forceFill([
+        'trial_started_at' => now()->subDays(2),
+        'trial_expires_at' => now()->subDay(),
+        'trial_used_at' => now()->subDays(2),
+    ])->save();
+
+    expect(entitlements()->tier($never))->toBe('guest')
+        ->and(entitlements()->tier($spent->fresh()))->toBe('expired');
 });
 
 it('gives the top tier every feature any tier grants', function () {
@@ -121,10 +189,12 @@ it('gives the top tier every feature any tier grants', function () {
     }
 });
 
-it('treats a tier that is not in the config as free', function () {
+it('treats a tier that is not in the config as a guest', function () {
     $user = userOn('platinum-unicorn');
 
-    expect(entitlements()->tier($user))->toBe('free')
+    // Unknown means untrusted. A typo in a config file must never
+    // become an upgrade for everybody.
+    expect(entitlements()->tier($user))->toBe('guest')
         ->and(entitlements()->can($user, 'board.full'))->toBeFalse();
 });
 
@@ -347,10 +417,13 @@ it('drops a cancelled subscriber to free once that period is over', function () 
         'current_period_end' => now()->subMonth(),
     ]);
 
-    // Free, not nothing: Free is a real tier with real features, and
-    // locking somebody out of those is a decision nobody made.
-    expect(entitlements()->tier($user))->toBe('free')
-        ->and(entitlements()->can($user, 'board.today'))->toBeTrue()
+    /*
+     * A lapsed subscriber who never took the trial lands on `guest`,
+     * not `expired` - `expired` means a trial was spent, and saying so
+     * about somebody who paid for months and then stopped would be
+     * wrong on the one page that tells them what to do next.
+     */
+    expect(entitlements()->tier($user))->toBe('guest')
         ->and(entitlements()->can($user, 'board.full'))->toBeFalse();
 });
 
@@ -359,7 +432,7 @@ it('drops a past due subscriber to free only after the paid period ends', functi
     $lapsed = userOn('pro', ['status' => 'past_due', 'current_period_end' => now()->subDays(3)]);
 
     expect(entitlements()->tier($inGrace))->toBe('pro')
-        ->and(entitlements()->tier($lapsed))->toBe('free');
+        ->and(entitlements()->tier($lapsed))->toBe('guest');
 });
 
 it('describes where a customer stands in words they would recognise', function () {
@@ -383,22 +456,34 @@ it('resolves the brand placeholder in a tier name rather than printing it', func
 */
 
 it('tells unlimited and none apart', function () {
-    $free = userOn(null);
-    $daily = userOn('daily');
+    $guest = userOn(null);
+    $paid = userOn('core');
 
-    // Null is unlimited and zero is none. A caller that confuses them
-    // either locks everybody out or lets everybody through.
-    expect(entitlements()->limit($free, 'parlays_per_day'))->toBe(3)
-        ->and(entitlements()->limit($daily, 'parlays_per_day'))->toBeNull()
-        ->and(entitlements()->limit($free, 'no_such_limit'))->toBeNull();
+    /*
+     * Null is unlimited and zero is none, and a caller that confuses
+     * them either locks everybody out or lets everybody through. The
+     * trial is the tier where this matters most now: it is the only
+     * one with caps that are neither.
+     */
+    expect(entitlements()->limit($guest, 'parlays_per_day'))->toBe(0)
+        ->and(entitlements()->limit($paid, 'parlays_per_day'))->toBeNull()
+        ->and(entitlements()->limit($guest, 'no_such_limit'))->toBeNull()
+        ->and(config('plans.tiers.trial.limits.parlays_per_day'))->toBe(10);
 });
 
 it('counts a cap as reached at the cap, not past it', function () {
-    $free = userOn(null);
+    $trial = userOn(null);
+    $trial->forceFill([
+        'trial_started_at' => now(),
+        'trial_expires_at' => now()->addDay(),
+        'trial_used_at' => now(),
+    ])->save();
 
-    expect(entitlements()->withinLimit($free, 'parlays_per_day', 2))->toBeTrue()
-        ->and(entitlements()->withinLimit($free, 'parlays_per_day', 3))->toBeFalse()
-        ->and(entitlements()->withinLimit(userOn('daily'), 'parlays_per_day', 9_000))->toBeTrue();
+    $trial = $trial->fresh();
+
+    expect(entitlements()->withinLimit($trial, 'parlays_per_day', 9))->toBeTrue()
+        ->and(entitlements()->withinLimit($trial, 'parlays_per_day', 10))->toBeFalse()
+        ->and(entitlements()->withinLimit(userOn('core'), 'parlays_per_day', 9_000))->toBeTrue();
 });
 
 /*
@@ -424,7 +509,14 @@ it('knows every feature it grants, and the cheapest tier that grants it', functi
         expect(entitlements()->tierRequiredFor($feature))->not->toBeNull();
     }
 
-    expect(entitlements()->tierRequiredFor('board.today'))->toBe('free')
+    /*
+     * Only tiers somebody can buy. The trial grants nearly everything
+     * Pro does, so without that filter this would answer "you need the
+     * free trial" to a person whose trial has just ended - useless on
+     * the one page that exists to tell them what to do next.
+     */
+    expect(entitlements()->tierRequiredFor('board.today'))->toBe('core')
+        ->and(entitlements()->tierRequiredFor('trial'))->toBeNull()
         ->and(entitlements()->tierRequiredFor('alerts'))->toBe('core')
         ->and(entitlements()->tierRequiredFor('board.full'))->toBe('pro')
         // The two keys that give Elite something true to say. Anything

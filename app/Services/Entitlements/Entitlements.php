@@ -24,8 +24,14 @@ use Illuminate\Support\Collection;
  */
 class Entitlements
 {
-    /** A signed-out visitor gets the free tier, never nothing. */
-    public const ANONYMOUS_TIER = 'free';
+    /** A signed-out visitor gets a named tier, never nothing. */
+    public const ANONYMOUS_TIER = 'guest';
+
+    /** The trial is over and nothing was bought. */
+    public const EXPIRED_TIER = 'expired';
+
+    /** The 24 hours themselves. */
+    public const TRIAL_TIER = 'trial';
 
     /**
      * Overrides already read this request, keyed by user id.
@@ -64,12 +70,64 @@ class Entitlements
         unset($this->overrides[$user->id]);
     }
 
+    /**
+     * What this person may see, in five steps whose order is the design.
+     *
+     * The order matters more than any individual step. A paid
+     * subscription is checked before the trial so that buying during
+     * the 24 hours cannot be read as a downgrade when the clock runs
+     * out; the trial is checked before expiry so an active one is never
+     * mistaken for a spent one; and everything falls through to `guest`
+     * rather than to anything permissive, because the failure mode of a
+     * missing case should be too little access rather than too much.
+     */
     public function tier(?User $user): string
     {
-        $tier = $user?->subscription?->effectiveTier();
+        if ($user === null) {
+            return self::ANONYMOUS_TIER;
+        }
+
+        $paid = $this->paidTier($user);
+
+        if ($paid !== null) {
+            return $paid;
+        }
+
+        /*
+         * Read-time, UTC, server-side. Deliberately not a scheduled
+         * sweep: entitlement_overrides already decided this question
+         * the same way, because a comp that outlives its date because
+         * a scheduler was down is a comp nobody can explain.
+         */
+        if ($user->trial_expires_at !== null && $user->trial_expires_at->isFuture()) {
+            return self::TRIAL_TIER;
+        }
+
+        // Started one and it is over. Distinct from never having
+        // started, because the upgrade screen and the conversion
+        // reports both need to tell those two apart.
+        if ($user->trial_used_at !== null) {
+            return self::EXPIRED_TIER;
+        }
+
+        return self::ANONYMOUS_TIER;
+    }
+
+    /**
+     * The tier a subscription actually bought, or null if none did.
+     *
+     * Null covers three cases that all mean the same thing here: no row
+     * at all, a row whose effective tier is one of the unsold states,
+     * and a row naming a tier that no longer exists in config. The last
+     * is treated as unknown rather than trusted - a typo must never
+     * become an upgrade for everybody.
+     */
+    private function paidTier(User $user): ?string
+    {
+        $tier = $user->subscription?->effectiveTier();
 
         if ($tier === null) {
-            return self::ANONYMOUS_TIER;
+            return null;
         }
 
         /*
@@ -77,18 +135,18 @@ class Entitlements
          *
          * subscriptions.tier is a free-form string with no foreign key,
          * and billing_events is append-only, so the history genuinely
-         * contains tier names that no longer appear in config. Resolving
-         * those to free would quietly take away access somebody is
-         * paying for, on the day of a rename, with nothing in any log
-         * saying why.
+         * contains tier names that no longer appear in config -
+         * including 'free', which every lapsed row still says.
          */
         $tier = (string) (config('plans.renamed.'.$tier) ?? $tier);
 
-        // An unknown tier is treated as free rather than trusted. A typo
-        // in a config file must not become a free upgrade for everybody.
-        return array_key_exists($tier, (array) config('plans.tiers'))
-            ? $tier
-            : self::ANONYMOUS_TIER;
+        if (! array_key_exists($tier, (array) config('plans.tiers'))) {
+            return null;
+        }
+
+        // An unsold tier on a subscription row is not a purchase. It
+        // falls through so the trial columns get their say.
+        return ((int) config("plans.tiers.{$tier}.monthly_cents", 0)) > 0 ? $tier : null;
     }
 
     /**
@@ -159,9 +217,26 @@ class Entitlements
     }
 
     /** The lowest tier that would grant a feature, for an upgrade prompt. */
+    /**
+     * The cheapest tier somebody could BUY to get this feature.
+     *
+     * Only sellable tiers are considered, and that is the whole point
+     * of the method. The trial grants almost everything Pro does, so
+     * without this filter the upgrade page would answer "you need the
+     * free trial" to a person whose trial has just run out - which is
+     * both useless and faintly insulting. `guest` and `expired` are
+     * excluded for the same reason: neither is something to upgrade to.
+     *
+     * Config order still decides which sellable tier wins, so Core
+     * comes before Pro comes before Elite.
+     */
     public function tierRequiredFor(string $feature): ?string
     {
         foreach ((array) config('plans.tiers') as $key => $tier) {
+            if (((int) ($tier['monthly_cents'] ?? 0)) <= 0) {
+                continue;
+            }
+
             if (in_array($feature, (array) ($tier['grants'] ?? []), true)) {
                 return $key;
             }

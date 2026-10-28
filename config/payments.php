@@ -115,10 +115,20 @@ return [
     ],
 
     /*
-     * A trial is granted by us, not by the processor, so it survives a
-     * change of processor and cannot be lost in a migration.
+     * Days of trial to ask a payment processor for, and it is zero.
+     *
+     * This is NOT the product's free trial. That one is 24 hours, lives
+     * on the account rather than on a subscription, takes no card, and
+     * cannot become a subscription - which is the point of it. See
+     * config/plans.php trial_hours.
+     *
+     * This value only ever reaches Stripe's `trial_period_days` on a
+     * checkout somebody has already given a card for. It is zero
+     * because the product promises in writing that nothing converts
+     * automatically, and a processor-side trial is exactly a thing that
+     * converts automatically.
      */
-    'trial_days' => (int) env('VIGIL_TRIAL_DAYS', 7),
+    'trial_days' => (int) env('VIGIL_PROCESSOR_TRIAL_DAYS', 0),
 
     /*
      * Webhook replay window. NMI's signature carries a nonce rather than

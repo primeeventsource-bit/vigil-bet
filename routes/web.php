@@ -35,6 +35,7 @@ use App\Http\Controllers\SafetyController;
 use App\Http\Controllers\SavedPickController;
 use App\Http\Controllers\SyncHealthController;
 use App\Http\Controllers\ToolsController;
+use App\Http\Controllers\TrialController;
 use App\Http\Controllers\UpgradeController;
 use App\Http\Controllers\WebhookController;
 use App\Models\User;
@@ -205,6 +206,21 @@ Route::middleware('auth')->group(function (): void {
         Route::get('upgrade', UpgradeController::class)->name('upgrade');
 
         /*
+         * The trial. Inside `verified`, so the spec's "registration and
+         * a confirmed address before the trial" is enforced by the same
+         * middleware guarding the rest of the product rather than by a
+         * check in a controller somebody could forget to copy.
+         *
+         * Activation is an explicit act rather than a side effect of
+         * confirming an address: somebody who signs up at midnight and
+         * comes back on Saturday should get their day on Saturday.
+         */
+        Route::get('trial', [TrialController::class, 'show'])->name('trial');
+
+        Route::post('trial', [TrialController::class, 'activate'])
+            ->middleware('throttle:10,1')->name('trial.activate');
+
+        /*
          * Billing. Throttled because each one is a call to a payment
          * processor, and cancelling is a single POST with no
          * confirmation funnel in front of it - §4 asks for one click
@@ -267,8 +283,22 @@ Route::middleware('auth')->group(function (): void {
              */
             Route::post('parlays/save', [ParlayController::class, 'save'])
                 ->middleware('throttle:30,1')->name('parlays.save');
-            Route::get('my-parlays', [ParlayController::class, 'mine'])->name('my-parlays');
         });
+
+        /*
+         * Reading parlays you already saved, deliberately outside the
+         * group above.
+         *
+         * It used to need `parlay.grade`, which meant a trial ending
+         * took away the work somebody did during it. The spec asks that
+         * saved parlays be preserved when a trial expires, and data
+         * nobody can open is not preserved in any sense that matters to
+         * the person who entered it.
+         *
+         * Building and grading stay gated. Reading your own work back
+         * is not a feature to sell.
+         */
+        Route::get('my-parlays', [ParlayController::class, 'mine'])->name('my-parlays');
 
         /*
          * Results and performance: a customer's own record beside the

@@ -47,6 +47,31 @@
             {{ $stale ? 'Delayed' : 'Live' }}
         </span>
 
+        {{--
+            The trial clock.
+
+            The server writes the expiry as ISO-8601 UTC and also writes
+            it out in words, so a visitor with scripting off reads a
+            time rather than an empty box. trial.js replaces the words
+            with a countdown and reveals the element.
+
+            The countdown decides nothing. Access is resolved
+            server-side from the same timestamp on every request, so a
+            wrong system clock or a deleted element changes the text and
+            nothing else.
+        --}}
+        @php($trialEndsAt = auth()->user()?->onTrial() ? auth()->user()->trial_expires_at : null)
+
+        @if ($trialEndsAt)
+            <a href="{{ route('pricing') }}"
+               class="hidden items-center gap-2 rounded-lg border border-[var(--vg-line)] px-3 py-1.5 text-xs font-semibold text-[var(--vg-slate)] transition hover:text-[var(--vg-paper)] sm:inline-flex"
+               title="Your free trial ends {{ \App\Support\Clock::format($trialEndsAt, 'l j F, g:i A') }}">
+                <span class="text-[var(--vg-muted)]">Trial</span>
+                <span data-trial-expires="{{ $trialEndsAt->toIso8601String() }}" hidden></span>
+                <noscript>ends {{ \App\Support\Clock::format($trialEndsAt, 'j M, H:i') }}</noscript>
+            </a>
+        @endif
+
         <x-theme-toggle />
 
         <a href="{{ route('alerts') }}" class="text-[var(--vg-slate)] hover:text-[var(--vg-paper)]" aria-label="Alerts">

@@ -335,17 +335,30 @@ it('never rewrites a grade once it is stored', function () {
         ->toThrow(RuntimeException::class, 'append-only');
 });
 
-it('grades three a day on the free plan and says when that is used up', function () {
+it('grades ten a day on the trial and says when that is used up', function () {
+    /*
+     * The cap moved with the tier. It used to be three a day on the
+     * free plan; free is gone and the trial is where a number between
+     * zero and unlimited now lives.
+     */
     judgeReturns(['win_probability' => 0.2, 'hold' => 0.08, 'shaded_edge' => 0.01]);
+
+    $cap = (int) config('plans.tiers.trial.limits.parlays_per_day');
 
     $ids = slipOf(2);
     $user = betUser(null);
+    $user->forceFill([
+        'trial_started_at' => now(),
+        'trial_expires_at' => now()->addHours((int) config('plans.trial_hours')),
+        'trial_used_at' => now(),
+    ])->save();
+    $user = $user->fresh();
 
     foreach ($ids as $id) {
         $this->actingAs($user)->post(route('parlays.add'), $id);
     }
 
-    foreach (range(1, 3) as $i) {
+    foreach (range(1, $cap) as $i) {
         $this->actingAs($user)->post(route('parlays.grade'))->assertSessionHasNoErrors();
     }
 
@@ -353,8 +366,18 @@ it('grades three a day on the free plan and says when that is used up', function
 
     // Counted against stored grades, which are append-only - a limit
     // enforced against a session counter is not a limit.
-    expect(ParlayGrade::count())->toBe(3);
+    expect(ParlayGrade::count())->toBe($cap);
     expect(session('errors')->first('slip'))->toContain('still here tomorrow');
+});
+
+it('refuses to grade at all for an account that has not started a trial', function () {
+    // parlays_per_day is 0 for a guest, and zero is not unlimited.
+    judgeReturns(['win_probability' => 0.2, 'hold' => 0.08, 'shaded_edge' => 0.01]);
+
+    $user = betUser(null);
+
+    $this->actingAs($user)->get(route('parlays'))
+        ->assertRedirect(route('upgrade', ['feature' => 'parlay.grade']));
 });
 
 it('does not limit a subscriber', function () {

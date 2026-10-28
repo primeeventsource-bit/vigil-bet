@@ -1,9 +1,18 @@
 @props(['compact' => false])
 
 @php
-    // Straight from config/plans.php, so what is advertised here and what
-    // the product will enforce come from one place. Money in cents.
-    $tiers = config('plans.tiers');
+    /*
+     * Straight from config/plans.php, so what is advertised here and
+     * what the product will enforce come from one place. Money in cents.
+     *
+     * Four cards: the trial and the three sold tiers. `guest` and
+     * `expired` are filtered out - they are states the application
+     * resolves people into, not things anybody chooses, and a card
+     * offering "Not started" would be an odd thing to read.
+     */
+    $tiers = collect(config('plans.tiers'))
+        ->except(['guest', 'expired'])
+        ->all();
     // `:brand` resolves at render time; see config/plans.php.
     $brand = fn (string $text) => str_replace(':brand', config('brand.name'), $text);
     $money = fn (int $cents) => $cents === 0 ? 'Free' : '$'.rtrim(rtrim(number_format($cents / 100, 2), '0'), '.');
@@ -19,7 +28,7 @@
             <div class="fx-rule mt-5 max-w-xs"></div>
         @endunless
 
-        <div @class(['grid gap-5 lg:grid-cols-3', 'mt-10' => ! $compact])>
+        <div @class(['grid gap-5 lg:grid-cols-4', 'mt-10' => ! $compact])>
             @foreach ($tiers as $key => $tier)
                 <div @class([
                     'fx-panel fx-panel-lift relative flex flex-col p-6',
@@ -65,22 +74,43 @@
                         taking a card for a product that cannot yet deliver
                         the thing being charged for.
                     --}}
-                    <p class="mt-6 rounded-lg border border-dashed border-[var(--vg-line)] px-4 py-2.5 text-center text-xs text-[var(--vg-slate)]">
-                        @if ($tier['monthly_cents'] === 0)
-                            <a href="{{ route('register') }}" class="font-semibold text-[var(--vg-edge)] hover:underline">
-                                Create a free account &rarr;
-                            </a>
-                        @else
+                    @if ($key === 'trial')
+                        {{--
+                            The one card that can be acted on today. A
+                            signed-in account goes to the activation
+                            page; everybody else registers first, which
+                            is the whole of "account required".
+                        --}}
+                        <a href="{{ auth()->check() ? route('trial') : route('register') }}"
+                           class="mt-6 block rounded-lg bg-[var(--vg-paper)] px-4 py-3 text-center text-sm font-bold uppercase tracking-wide text-[var(--vg-night)]">
+                            Start free {{ config('plans.trial_hours') }}-hour trial
+                        </a>
+
+                        {{--
+                            Four sentences, kept together and kept exact.
+                            Each answers the question somebody is
+                            actually asking before they hand over an
+                            address, and the last two are the ones a
+                            free trial is usually vague about.
+                        --}}
+                        <p class="mt-3 text-center text-[11px] leading-relaxed text-[var(--vg-muted)]">
+                            Account registration required. No credit card required.
+                            Trial expires automatically after {{ config('plans.trial_hours') }} hours.
+                            No automatic charges.
+                        </p>
+                    @else
+                        <p class="mt-6 rounded-lg border border-dashed border-[var(--vg-line)] px-4 py-2.5 text-center text-xs text-[var(--vg-slate)]">
                             Not on sale yet — no market is proven, so there is nothing here worth charging for.
-                        @endif
-                    </p>
+                        </p>
+                    @endif
                 </div>
             @endforeach
         </div>
 
         <p class="mt-6 text-xs text-[var(--vg-slate)]">
-            {{ config('plans.trial_days') }}-day free trial on the paid tiers when they open.
-            Downgrades and cancellations take effect at period end, and cancelling is one click.
+            The trial does not renew and does not become a subscription &mdash; it simply ends,
+            and your account stays open. Downgrades and cancellations take effect at period end,
+            and cancelling is one click.
         </p>
     </div>
 </section>

@@ -74,7 +74,7 @@ it('gives a super admin no plan feature they have not paid for', function () {
      */
     $super = roleUser(config('roles.super_admin'));
 
-    expect($super->tier())->toBe('free')
+    expect($super->tier())->toBe('guest')
         ->and($super->can('board.full'))->toBeFalse()
         ->and($super->can('bankroll'))->toBeFalse()
         ->and($super->can('modellab'))->toBeFalse();
